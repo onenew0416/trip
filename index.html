@@ -33,30 +33,66 @@
             <div class="bg-white border border-[#e6e4dc] p-8 rounded-2xl w-full max-w-md shadow-sm">
                 <div class="text-center mb-8">
                     <span class="text-xs uppercase tracking-widest text-neutral-400 block mb-1">— Travel Planner —</span>
-                    <h2 class="text-2xl font-light text-neutral-700">旅遊手冊網站 登錄</h2>
+                    <h2 class="text-2xl font-light text-neutral-700">
+                        {{ authPage === 'register' ? '註冊新帳號' : '旅遊手冊網站 登錄' }}
+                    </h2>
+                    <p class="text-xs text-neutral-400 mt-2">
+                        {{ authPage === 'register' ? '建立帳號後，即可用帳號名稱登入' : '請使用帳號名稱登入，不需要輸入電子郵件' }}
+                    </p>
                 </div>
                 
-                <div class="space-y-4">
+                <!-- 登入頁 -->
+                <div v-if="authPage === 'login'" class="space-y-4">
                     <div>
-                        <label class="text-xs font-medium text-neutral-500 block mb-1">電子郵件 / 帳號</label>
-                        <input v-model="authForm.email" type="email" placeholder="example@mail.com" class="w-full bg-[#fcfbf9] border border-[#e6e4dc] rounded-xl p-3 text-sm focus:outline-none focus:border-neutral-400">
+                        <label class="text-xs font-medium text-neutral-500 block mb-1">帳號</label>
+                        <input v-model="authForm.username" @keyup.enter="handleLogin" type="text" placeholder="請輸入帳號" autocomplete="username" class="w-full bg-[#fcfbf9] border border-[#e6e4dc] rounded-xl p-3 text-sm focus:outline-none focus:border-neutral-400">
                     </div>
                     <div>
                         <label class="text-xs font-medium text-neutral-500 block mb-1">密碼</label>
-                        <input v-model="authForm.password" type="password" placeholder="••••••••" class="w-full bg-[#fcfbf9] border border-[#e6e4dc] rounded-xl p-3 text-sm focus:outline-none focus:border-neutral-400">
+                        <input v-model="authForm.password" @keyup.enter="handleLogin" type="password" placeholder="••••••••" autocomplete="current-password" class="w-full bg-[#fcfbf9] border border-[#e6e4dc] rounded-xl p-3 text-sm focus:outline-none focus:border-neutral-400">
                     </div>
                     
                     <div class="pt-2">
-                        <button @click="handleAuth('login')" class="w-full bg-neutral-700 hover:bg-neutral-800 text-white rounded-xl py-3 text-sm font-medium transition-colors shadow-sm mb-2">
+                        <button @click="handleLogin" class="w-full bg-neutral-700 hover:bg-neutral-800 text-white rounded-xl py-3 text-sm font-medium transition-colors shadow-sm mb-2">
                             登入手冊
                         </button>
-                        <button @click="handleAuth('register')" class="w-full border border-neutral-300 hover:bg-neutral-50 text-neutral-600 rounded-xl py-3 text-sm font-medium transition-colors">
-                            註冊新帳號
+                        <button @click="goToRegister" class="w-full border border-neutral-300 hover:bg-neutral-50 text-neutral-600 rounded-xl py-3 text-sm font-medium transition-colors">
+                            前往註冊新帳號
                         </button>
                     </div>
                     <p v-if="isKeyMissing" class="text-center text-xs text-amber-600 bg-amber-50 p-2 rounded-lg mt-4">
-                        ⚠️ 系統自動啟用「免帳密本地模擬登入」，隨便輸入即可進入！
+                        ⚠️ 系統目前為「免 Firebase 本地測試模式」，請先註冊一組本地帳號後再登入。
                     </p>
+                </div>
+
+                <!-- 註冊頁 -->
+                <div v-else class="space-y-4">
+                    <div>
+                        <label class="text-xs font-medium text-neutral-500 block mb-1">帳號</label>
+                        <input v-model="registerForm.username" type="text" placeholder="例如：onenew0416" autocomplete="username" class="w-full bg-[#fcfbf9] border border-[#e6e4dc] rounded-xl p-3 text-sm focus:outline-none focus:border-neutral-400">
+                        <p class="text-[10px] text-neutral-400 mt-1">可使用英文小寫、數字、底線、橫線與小數點，長度 3～20 字。</p>
+                    </div>
+                    <div>
+                        <label class="text-xs font-medium text-neutral-500 block mb-1">電子郵件</label>
+                        <input v-model="registerForm.email" type="email" placeholder="example@mail.com" autocomplete="email" class="w-full bg-[#fcfbf9] border border-[#e6e4dc] rounded-xl p-3 text-sm focus:outline-none focus:border-neutral-400">
+                    </div>
+                    <div>
+                        <label class="text-xs font-medium text-neutral-500 block mb-1">密碼</label>
+                        <input v-model="registerForm.password" type="password" placeholder="至少 6 碼" autocomplete="new-password" class="w-full bg-[#fcfbf9] border border-[#e6e4dc] rounded-xl p-3 text-sm focus:outline-none focus:border-neutral-400">
+                    </div>
+                    <div>
+                        <label class="text-xs font-medium text-neutral-500 block mb-1">再次輸入密碼</label>
+                        <input v-model="registerForm.confirmPassword" @keyup.enter="registerAccount" type="password" placeholder="再次輸入密碼" autocomplete="new-password" class="w-full bg-[#fcfbf9] border border-[#e6e4dc] rounded-xl p-3 text-sm focus:outline-none focus:border-neutral-400">
+                    </div>
+                    
+                    <div class="pt-2">
+                        <button @click="registerAccount" class="w-full bg-neutral-700 hover:bg-neutral-800 text-white rounded-xl py-3 text-sm font-medium transition-colors shadow-sm mb-2">
+                            建立帳號
+                        </button>
+                        <button @click="goToLogin" class="w-full border border-neutral-300 hover:bg-neutral-50 text-neutral-600 rounded-xl py-3 text-sm font-medium transition-colors">
+                            返回登入頁
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -71,7 +107,7 @@
                     </div>
                     
                     <div class="flex items-center gap-4">
-                        <span class="text-xs text-neutral-500"><i class="fa-regular fa-user mr-1"></i> {{ user.email }}</span>
+                        <span class="text-xs text-neutral-500"><i class="fa-regular fa-user mr-1"></i> {{ user.username || user.email }}</span>
                         <button @click="logout" class="text-xs text-neutral-400 hover:text-rose-500 transition-colors"><i class="fa-solid fa-arrow-right-from-bracket"></i></button>
                     </div>
                 </div>
@@ -602,7 +638,9 @@
                 const activeDayTab = ref('menu');       
                 const activeThemeColor = ref('#6b705c');  
                 const weather = ref({ city: '偵測中', temp: '--°C', desc: '微風', icon: 'fa-solid fa-feather' });
-                const authForm = ref({ email: '', password: '' });
+                const authForm = ref({ username: '', password: '' });
+                const registerForm = ref({ username: '', email: '', password: '', confirmPassword: '' });
+                const authPage = ref(window.location.hash === '#register' ? 'register' : 'login');
 
                 // 旅程彈窗表單
                 const showTripModal = ref(false);
@@ -742,22 +780,126 @@
                     }
                 };
 
-                const handleAuth = (type) => {
-                    if (!authForm.value.email || !authForm.value.password) return alert('請填寫帳密');
+                const normalizeUsername = (value) => String(value || '').trim().toLowerCase();
+
+                const getAuthErrorMessage = (err) => {
+                    const code = err && err.code ? err.code : '';
+                    if (code === 'auth/email-already-in-use') return '這個電子郵件已經註冊過。';
+                    if (code === 'auth/invalid-email') return '電子郵件格式不正確。';
+                    if (code === 'auth/weak-password') return '密碼強度不足，請至少輸入 6 碼。';
+                    if (code === 'auth/wrong-password' || code === 'auth/invalid-credential') return '帳號或密碼錯誤。';
+                    if (code === 'auth/too-many-requests') return '嘗試次數過多，請稍後再試。';
+                    return err && err.message ? err.message : '發生未知錯誤。';
+                };
+
+                const goToRegister = () => {
+                    authPage.value = 'register';
+                    window.location.hash = 'register';
+                };
+
+                const goToLogin = () => {
+                    authPage.value = 'login';
+                    window.location.hash = 'login';
+                };
+
+                const handleLogin = async () => {
+                    const username = normalizeUsername(authForm.value.username);
+                    const password = authForm.value.password;
+                    if (!username || !password) return alert('請填寫帳號與密碼');
+
                     if (isKeyMissing) {
-                        user.value = { email: authForm.value.email, uid: 'mock_user_123' };
+                        const saved = localStorage.getItem(`account_${username}`);
+                        if (!saved) return alert('找不到此帳號，請先註冊');
+                        const profile = JSON.parse(saved);
+                        if (profile.password !== password) return alert('帳號或密碼錯誤');
+                        user.value = { email: profile.email, uid: profile.uid, username: profile.username };
                         loadUserData();
                         return;
                     }
-                    if (type === 'login') {
-                        auth.signInWithEmailAndPassword(authForm.value.email, authForm.value.password)
-                            .then(res => { user.value = res.user; loadUserData(); })
-                            .catch(err => alert('失敗: ' + err.message));
-                    } else {
-                        auth.createUserWithEmailAndPassword(authForm.value.email, authForm.value.password)
-                            .then(res => { user.value = res.user; loadUserData(); alert('註冊成功！'); })
-                            .catch(err => alert('失敗: ' + err.message));
+
+                    try {
+                        const usernameDoc = await db.collection('usernames').doc(username).get();
+                        if (!usernameDoc.exists) return alert('找不到此帳號，請確認帳號是否正確');
+
+                        const accountData = usernameDoc.data();
+                        const res = await auth.signInWithEmailAndPassword(accountData.email, password);
+                        user.value = { uid: res.user.uid, email: res.user.email, username: accountData.username || username };
+                        loadUserData();
+                    } catch (err) {
+                        alert('登入失敗：' + getAuthErrorMessage(err));
                     }
+                };
+
+                const registerAccount = async () => {
+                    const username = normalizeUsername(registerForm.value.username);
+                    const email = String(registerForm.value.email || '').trim().toLowerCase();
+                    const password = registerForm.value.password;
+                    const confirmPassword = registerForm.value.confirmPassword;
+
+                    if (!username || !email || !password || !confirmPassword) return alert('請填寫完整註冊資料');
+                    if (!/^[a-z0-9._-]{3,20}$/.test(username)) return alert('帳號只能使用英文小寫、數字、底線、橫線與小數點，長度需為 3～20 字');
+                    if (password.length < 6) return alert('密碼至少需要 6 碼');
+                    if (password !== confirmPassword) return alert('兩次輸入的密碼不一致');
+
+                    if (isKeyMissing) {
+                        if (localStorage.getItem(`account_${username}`)) return alert('此帳號已被使用，請換一個帳號');
+                        const localProfile = { uid: `mock_${username}`, username, email, password };
+                        localStorage.setItem(`account_${username}`, JSON.stringify(localProfile));
+                        user.value = { uid: localProfile.uid, email, username };
+                        loadUserData();
+                        alert('註冊成功！已自動登入。');
+                        return;
+                    }
+
+                    try {
+                        const usernameRef = db.collection('usernames').doc(username);
+                        const existed = await usernameRef.get();
+                        if (existed.exists) return alert('此帳號已被使用，請換一個帳號');
+
+                        const res = await auth.createUserWithEmailAndPassword(email, password);
+                        const uid = res.user.uid;
+                        const now = firebase.firestore.FieldValue.serverTimestamp();
+
+                        await db.collection('users').doc(uid).set({
+                            uid,
+                            username,
+                            email,
+                            createdAt: now
+                        }, { merge: true });
+
+                        await usernameRef.set({
+                            uid,
+                            username,
+                            email,
+                            createdAt: now
+                        });
+
+                        user.value = { uid, email, username };
+                        loadUserData();
+                        alert('註冊成功！已自動登入。');
+                    } catch (err) {
+                        alert('註冊失敗：' + getAuthErrorMessage(err));
+                    }
+                };
+
+                const loadUserProfile = async (firebaseUser) => {
+                    if (!firebaseUser) return;
+                    try {
+                        const profileDoc = await db.collection('users').doc(firebaseUser.uid).get();
+                        const profile = profileDoc.exists ? profileDoc.data() : {};
+                        user.value = {
+                            uid: firebaseUser.uid,
+                            email: firebaseUser.email,
+                            username: profile.username || firebaseUser.email
+                        };
+                    } catch (e) {
+                        user.value = {
+                            uid: firebaseUser.uid,
+                            email: firebaseUser.email,
+                            username: firebaseUser.email
+                        };
+                    }
+                    loadUserData();
                 };
 
                 const logout = () => {
@@ -785,9 +927,12 @@
                 };
 
                 onMounted(() => {
+                    window.addEventListener('hashchange', () => {
+                        authPage.value = window.location.hash === '#register' ? 'register' : 'login';
+                    });
                     if (!isKeyMissing) {
                         auth.onAuthStateChanged(firebaseUser => {
-                            if (firebaseUser) { user.value = firebaseUser; loadUserData(); }
+                            if (firebaseUser) loadUserProfile(firebaseUser);
                         });
                     }
                 });
@@ -1017,7 +1162,7 @@
                 const changeTheme = (color) => { activeThemeColor.value = color; };
 
                 return {
-                    user, authForm, trips, currentTrip, activeMainTab, activeDayTab, weather, isKeyMissing, themeStyles, activeThemeColor,
+                    user, authForm, registerForm, authPage, trips, currentTrip, activeMainTab, activeDayTab, weather, isKeyMissing, themeStyles, activeThemeColor,
                     showTripModal, isEditingTripMode, tripModalForm, openAddTripModal, openEditTripModal, saveTripModalAction,
                     expenseSections, getFilteredExpenses, sumByCurrency, getCurrencySymbol,
                     editingMenuLinkIndex, editMenuLinkData, startMenuLinkEdit, saveMenuLinkEdit,
@@ -1027,7 +1172,7 @@
                     editingExpenseIndex, editExpenseData, startExpenseEdit, saveExpenseEdit,
                     editingShoppingId, editShoppingData, startShoppingEdit, saveShoppingEdit,
                     newSpot, newMenuLink, newTodoText, newLuggage, newExpense, newShopItem, getCalculatedDateStr, hasCustomImage, handleImageUpload,
-                    handleAuth, logout, selectTrip, deleteTrip, updateTripData, addSpot, deleteSpot, addMenuLink, deleteMenuLink, addTodo, deleteTodo, addLuggage, deleteLuggage, addExpense, deleteExpense, addShopItem, deleteShopItem, changeTheme
+                    handleLogin, registerAccount, goToLogin, goToRegister, logout, selectTrip, deleteTrip, updateTripData, addSpot, deleteSpot, addMenuLink, deleteMenuLink, addTodo, deleteTodo, addLuggage, deleteLuggage, addExpense, deleteExpense, addShopItem, deleteShopItem, changeTheme
                 };
             }
         }).mount('#app');
