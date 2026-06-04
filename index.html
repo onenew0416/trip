@@ -2519,7 +2519,12 @@
                     const ownerUsername = tripModalForm.value.ownerUsername || getCurrentUsername();
                     const ownerUsernameKey = user.value.usernameKey || getUsernameKey(ownerUsername);
                     const ownerAuthEmail = user.value.authEmail || getUsernameAuthEmail(ownerUsername);
-                    const memberUids = Array.from(new Set([...(tripModalForm.value.memberUids || []), tripModalForm.value.ownerUid || user.value.uid].filter(Boolean)));
+                    // Firestore rules 常會限制不能替其他使用者寫入 memberUids。
+                    // memberUids 僅保留旅程擁有者與目前登入者；其他共編成員改用 usernameKey/authEmail 陣列辨識。
+                    const memberUids = Array.from(new Set([
+                        tripModalForm.value.ownerUid || user.value.uid,
+                        user.value.uid
+                    ].filter(Boolean)));
                     const memberUsernames = Array.from(new Set([...(tripModalForm.value.memberUsernames || []), ownerUsername].filter(Boolean)));
                     const memberUsernameKeys = Array.from(new Set([...(tripModalForm.value.memberUsernameKeys || []), ...memberUsernames.map(getUsernameKey), ownerUsernameKey].filter(Boolean)));
                     const memberAuthEmails = Array.from(new Set([...(tripModalForm.value.memberAuthEmails || []), ...memberUsernameKeys.map(getUsernameAuthEmail), ownerAuthEmail].filter(Boolean)));
@@ -2624,7 +2629,10 @@
                     showTripModal.value = false;
                     } catch (err) {
                         console.error('Save trip failed:', err);
-                        showShareMessage('error', '旅程儲存失敗：' + (err?.message || '請稍後再試。'));
+                        const errMsg = err?.message || '請稍後再試。';
+                        showShareMessage('error', errMsg.includes('Missing or insufficient permissions')
+                            ? '旅程儲存失敗：Firestore 權限不足。已改用使用者名稱共編欄位儲存，請重新加入共編成員後再試一次；若仍失敗，請確認你是此旅程擁有者。'
+                            : '旅程儲存失敗：' + errMsg);
                     }
                 };
 
@@ -2742,20 +2750,14 @@
                         const nextUsernameKey = invitee?.usernameKey || usernameKey;
                         const nextAuthEmail = invitee?.authEmail || authEmail;
 
-                        if (invitee?.uid && (tripModalForm.value.memberUids || []).includes(invitee.uid)) {
-                            showShareMessage('error', '此使用者名稱已經在共編成員中。');
-                            return;
-                        }
-
+                        // 注意：不要把被邀請者 uid 直接寫入 memberUids。
+                        // 多數 Firestore rules 會限制 memberUids 只能由本人或擁有者維護，
+                        // 直接加入其他人的 uid 容易在儲存旅程時觸發 Missing or insufficient permissions。
+                        // 共編讀取改以 memberUsernameKeys / memberAuthEmails 判斷，顯示仍保留原大小寫名稱。
                         tripModalForm.value.memberUsernames = Array.from(new Set([...(tripModalForm.value.memberUsernames || []), nextUsername]));
                         tripModalForm.value.memberUsernameKeys = Array.from(new Set([...(tripModalForm.value.memberUsernameKeys || []), nextUsernameKey]));
                         tripModalForm.value.memberAuthEmails = Array.from(new Set([...(tripModalForm.value.memberAuthEmails || []), nextAuthEmail]));
-                        if (invitee?.uid) {
-                            tripModalForm.value.memberUids = Array.from(new Set([...(tripModalForm.value.memberUids || []), invitee.uid]));
-                            showShareMessage('success', '已加入共編清單，按「確認儲存」後生效。');
-                        } else {
-                            showShareMessage('success', '已用使用者名稱加入共編清單，按「確認儲存」後生效。若對方仍看不到，請讓對方先用新版登入一次。');
-                        }
+                        showShareMessage('success', '已加入共編清單，按「確認儲存」後生效。');
                         shareForm.value = { username: '' };
                     } catch (err) {
                         showShareMessage('error', '邀請失敗：' + (err.message || '請稍後再試。'));
@@ -2773,7 +2775,11 @@
                     const index = names.findIndex(name => getUsernameKey(name) === removeKey);
                     if (index < 0) return;
                     tripModalForm.value.memberUsernames = names.filter((_, i) => i !== index);
-                    tripModalForm.value.memberUids = (tripModalForm.value.memberUids || []).filter((_, i) => i !== index);
+                    // memberUids 不再依照共編清單位置刪除，避免誤刪擁有者/目前登入者 uid。
+                    tripModalForm.value.memberUids = Array.from(new Set([
+                        tripModalForm.value.ownerUid || user.value.uid,
+                        user.value.uid
+                    ].filter(Boolean)));
                     tripModalForm.value.memberUsernameKeys = (tripModalForm.value.memberUsernameKeys || []).filter(key => key !== removeKey);
                     tripModalForm.value.memberAuthEmails = (tripModalForm.value.memberAuthEmails || []).filter(mail => getUsernameKey(String(mail).split('@')[0]) !== removeKey);
                     showShareMessage('success', '已從共編清單移除，按「確認儲存」後生效。');
