@@ -168,7 +168,7 @@
         #app.dark-theme .theme-trigger-active { color: #ffffff !important; }
         #app.dark-theme .theme-color-active { border-color: #ffffff !important; }
 
-        /* 手機版：讓登入帳號在右上角也能顯示，避免被隱藏 */
+        /* 手機版：讓登入使用者名稱在右上角也能顯示，避免被隱藏 */
         .mobile-user-badge {
             max-width: 128px;
             min-width: 0;
@@ -237,10 +237,10 @@
                 <div class="text-center mb-8">
                     <span class="text-xs uppercase tracking-widest text-neutral-400 block mb-1">— Travel Planner —</span>
                     <h2 class="text-2xl font-light text-neutral-700">
-                        {{ authPage === 'register' ? '註冊新帳號' : '旅遊手冊網站' }}
+                        {{ authPage === 'register' ? '註冊使用者名稱' : '旅遊手冊網站' }}
                     </h2>
                     <p class="text-xs text-neutral-400 mt-2">
-                        {{ authPage === 'register' ? '建立帳號後，即可用帳號名稱登入' : '請使用帳號名稱登入，不需要輸入電子郵件' }}
+                        {{ authPage === 'register' ? '建立使用者名稱後，即可用使用者名稱登入' : '請使用使用者名稱登入，不需要輸入電子郵件' }}
                     </p>
                 </div>
 
@@ -253,8 +253,8 @@
                 <!-- 登入頁 -->
                 <div v-if="authPage === 'login'" class="space-y-4">
                     <div>
-                        <label class="text-xs font-medium text-neutral-500 block mb-1">帳號</label>
-                        <input v-model="authForm.username" @keyup.enter="handleLogin" type="text" placeholder="請輸入帳號" autocomplete="username" class="w-full bg-[#fcfbf9] border border-[#e6e4dc] rounded-xl p-3 text-sm focus:outline-none focus:border-neutral-400">
+                        <label class="text-xs font-medium text-neutral-500 block mb-1">使用者名稱</label>
+                        <input v-model="authForm.username" @keyup.enter="handleLogin" type="text" placeholder="請輸入使用者名稱" autocomplete="username" class="w-full bg-[#fcfbf9] border border-[#e6e4dc] rounded-xl p-3 text-sm focus:outline-none focus:border-neutral-400">
                     </div>
                     <div>
                         <label class="text-xs font-medium text-neutral-500 block mb-1">密碼</label>
@@ -266,20 +266,20 @@
                             登入手冊
                         </button>
                         <button @click="goToRegister" class="w-full border border-neutral-300 hover:bg-neutral-50 text-neutral-600 rounded-xl py-3 text-sm font-medium transition-colors">
-                            前往註冊新帳號
+                            前往註冊使用者名稱
                         </button>
                     </div>
                     <p v-if="isKeyMissing" class="text-center text-xs text-amber-600 bg-amber-50 p-2 rounded-lg mt-4">
-                        ⚠️ 系統目前為「免 Firebase 本地測試模式」，請先註冊一組本地帳號後再登入。
+                        ⚠️ 系統目前為「免 Firebase 本地測試模式」，請先註冊一組本地使用者名稱後再登入。
                     </p>
                 </div>
 
                 <!-- 註冊頁 -->
                 <div v-else class="space-y-4">
                     <div>
-                        <label class="text-xs font-medium text-neutral-500 block mb-1">帳號</label>
-                        <input v-model="registerForm.username" type="text" placeholder="例如：onenew0416" autocomplete="username" class="w-full bg-[#fcfbf9] border border-[#e6e4dc] rounded-xl p-3 text-sm focus:outline-none focus:border-neutral-400">
-                        <p class="text-[10px] text-neutral-400 mt-1">可使用英文小寫、數字、底線、橫線與小數點，長度 3～20 字。</p>
+                        <label class="text-xs font-medium text-neutral-500 block mb-1">使用者名稱</label>
+                        <input v-model="registerForm.username" type="text" placeholder="例如：OneNew0416" autocomplete="username" class="w-full bg-[#fcfbf9] border border-[#e6e4dc] rounded-xl p-3 text-sm focus:outline-none focus:border-neutral-400">
+                        <p class="text-[10px] text-neutral-400 mt-1">可使用英文大小寫、數字、底線、橫線與小數點，長度 3～20 字。</p>
                     </div>
                     <div>
                         <label class="text-xs font-medium text-neutral-500 block mb-1">電子郵件</label>
@@ -296,7 +296,7 @@
                     
                     <div class="pt-2">
                         <button @click="registerAccount" class="w-full bg-neutral-700 hover:bg-neutral-800 text-white rounded-xl py-3 text-sm font-medium transition-colors shadow-sm mb-2">
-                            建立帳號
+                            建立使用者名稱
                         </button>
                         <button @click="goToLogin" class="w-full border border-neutral-300 hover:bg-neutral-50 text-neutral-600 rounded-xl py-3 text-sm font-medium transition-colors">
                             返回登入頁
@@ -1066,7 +1066,7 @@
                             </div>
 
                             <div class="flex flex-col sm:flex-row gap-2">
-                                <input v-model="shareForm.username" @keyup.enter="inviteUserToTrip" type="text" placeholder="輸入對方帳號加入共編清單" class="border border-[#e6e4dc] rounded-xl p-2.5 text-xs flex-1 focus:outline-none focus-border-primary bg-white">
+                                <input v-model="shareForm.username" @keyup.enter="inviteUserToTrip" type="text" placeholder="輸入對方使用者名稱加入共編清單" class="border border-[#e6e4dc] rounded-xl p-2.5 text-xs flex-1 focus:outline-none focus-border-primary bg-white">
                                 <button @click="inviteUserToTrip" type="button" class="bg-neutral-700 hover:bg-neutral-800 text-white px-4 py-2.5 rounded-xl text-xs font-medium transition-colors shrink-0">
                                     <i class="fa-solid fa-user-plus mr-1"></i> 加入共編
                                 </button>
@@ -1761,14 +1761,15 @@
                     showWeatherModal.value = false;
                 };
 
-                const normalizeUsername = (value) => String(value || '').trim().toLowerCase();
+                const normalizeUsername = (value) => String(value || '').trim();
+                const getUsernameKey = (value) => normalizeUsername(value).toLowerCase();
 
                 const getAuthErrorMessage = (err) => {
                     const code = err && err.code ? err.code : '';
                     if (code === 'auth/email-already-in-use') return '這個電子郵件已經註冊過。';
                     if (code === 'auth/invalid-email') return '電子郵件格式不正確。';
                     if (code === 'auth/weak-password') return '密碼強度不足，請至少輸入 6 碼。';
-                    if (code === 'auth/wrong-password' || code === 'auth/invalid-credential') return '帳號或密碼錯誤。';
+                    if (code === 'auth/wrong-password' || code === 'auth/invalid-credential') return '使用者名稱或密碼錯誤。';
                     if (code === 'auth/too-many-requests') return '嘗試次數過多，請稍後再試。';
                     return err && err.message ? err.message : '發生未知錯誤。';
                 };
@@ -1804,37 +1805,38 @@
                 };
 
                 const handleLogin = async () => {
-                    const username = normalizeUsername(authForm.value.username);
+                    const usernameInput = normalizeUsername(authForm.value.username);
+                    const usernameKey = getUsernameKey(usernameInput);
                     const password = authForm.value.password;
-                    if (!username || !password) {
-                        showAuthMessage('error', '請填寫帳號與密碼。');
+                    if (!usernameInput || !password) {
+                        showAuthMessage('error', '請填寫使用者名稱與密碼。');
                         return;
                     }
 
                     showAuthMessage('info', '登入中，請稍候...');
 
                     if (isKeyMissing) {
-                        const saved = localStorage.getItem(`account_${username}`);
+                        const saved = localStorage.getItem(`account_${usernameKey}`);
                         if (!saved) {
-                            showAuthMessage('error', '找不到此帳號，請先註冊。');
+                            showAuthMessage('error', '找不到此使用者名稱，請先註冊。');
                             return;
                         }
                         const profile = JSON.parse(saved);
                         if (profile.password !== password) {
-                            showAuthMessage('error', '帳號或密碼錯誤。');
+                            showAuthMessage('error', '使用者名稱或密碼錯誤。');
                             return;
                         }
                         resetLoginForm();
                         clearAuthMessage();
-                        user.value = { email: profile.email, uid: profile.uid, username: profile.username };
+                        user.value = { email: profile.email, uid: profile.uid, username: profile.username || usernameInput, usernameKey: profile.usernameKey || usernameKey };
                         loadUserData();
                         return;
                     }
 
                     try {
-                        const usernameDoc = await db.collection('usernames').doc(username).get();
+                        const usernameDoc = await db.collection('usernames').doc(usernameKey).get();
                         if (!usernameDoc.exists) {
-                            showAuthMessage('error', '找不到此帳號，請確認帳號是否正確。');
+                            showAuthMessage('error', '找不到此使用者名稱，請確認使用者名稱是否正確。');
                             return;
                         }
 
@@ -1842,7 +1844,7 @@
                         const res = await auth.signInWithEmailAndPassword(accountData.email, password);
                         resetLoginForm();
                         clearAuthMessage();
-                        user.value = { uid: res.user.uid, email: res.user.email, username: accountData.username || username };
+                        user.value = { uid: res.user.uid, email: res.user.email, username: accountData.username || usernameInput, usernameKey: accountData.usernameKey || usernameKey };
                         loadUserData();
                     } catch (err) {
                         showAuthMessage('error', '登入失敗：' + getAuthErrorMessage(err));
@@ -1851,6 +1853,7 @@
 
                 const registerAccount = async () => {
                     const username = normalizeUsername(registerForm.value.username);
+                    const usernameKey = getUsernameKey(username);
                     const email = String(registerForm.value.email || '').trim().toLowerCase();
                     const password = registerForm.value.password;
                     const confirmPassword = registerForm.value.confirmPassword;
@@ -1859,8 +1862,8 @@
                         showAuthMessage('error', '請填寫完整註冊資料。');
                         return;
                     }
-                    if (!/^[a-z0-9._-]{3,20}$/.test(username)) {
-                        showAuthMessage('error', '帳號只能使用英文小寫、數字、底線、橫線與小數點，長度需為 3～20 字。');
+                    if (!/^[A-Za-z0-9._-]{3,20}$/.test(username)) {
+                        showAuthMessage('error', '使用者名稱只能使用英文大小寫、數字、底線、橫線與小數點，長度需為 3～20 字。');
                         return;
                     }
                     if (password.length < 6) {
@@ -1875,25 +1878,25 @@
                     showAuthMessage('info', '註冊中，請稍候...');
 
                     if (isKeyMissing) {
-                        if (localStorage.getItem(`account_${username}`)) {
-                            showAuthMessage('error', '此帳號已被使用，請換一個帳號。');
+                        if (localStorage.getItem(`account_${usernameKey}`)) {
+                            showAuthMessage('error', '此使用者名稱已被使用，請換一個使用者名稱。');
                             return;
                         }
-                        const localProfile = { uid: `mock_${username}`, username, email, password };
-                        localStorage.setItem(`account_${username}`, JSON.stringify(localProfile));
+                        const localProfile = { uid: `mock_${usernameKey}`, username, usernameKey, email, password };
+                        localStorage.setItem(`account_${usernameKey}`, JSON.stringify(localProfile));
                         resetRegisterForm();
                         resetLoginForm();
                         authPage.value = 'login';
                         window.location.hash = 'login';
-                        showAuthMessage('success', '註冊成功，請使用剛建立的帳號登入。');
+                        showAuthMessage('success', '註冊成功，請使用剛建立的使用者名稱登入。');
                         return;
                     }
 
                     try {
-                        const usernameRef = db.collection('usernames').doc(username);
+                        const usernameRef = db.collection('usernames').doc(usernameKey);
                         const existed = await usernameRef.get();
                         if (existed.exists) {
-                            showAuthMessage('error', '此帳號已被使用，請換一個帳號。');
+                            showAuthMessage('error', '此使用者名稱已被使用，請換一個使用者名稱。');
                             return;
                         }
 
@@ -1904,6 +1907,7 @@
                         await db.collection('users').doc(uid).set({
                             uid,
                             username,
+                            usernameKey,
                             email,
                             createdAt: now
                         }, { merge: true });
@@ -1911,6 +1915,7 @@
                         await usernameRef.set({
                             uid,
                             username,
+                            usernameKey,
                             email,
                             createdAt: now
                         });
@@ -1923,7 +1928,7 @@
                         resetLoginForm();
                         authPage.value = 'login';
                         window.location.hash = 'login';
-                        showAuthMessage('success', '註冊成功，請使用剛建立的帳號登入。');
+                        showAuthMessage('success', '註冊成功，請使用剛建立的使用者名稱登入。');
                     } catch (err) {
                         showAuthMessage('error', '註冊失敗：' + getAuthErrorMessage(err));
                     }
@@ -1998,13 +2003,15 @@
                         user.value = {
                             uid: firebaseUser.uid,
                             email: firebaseUser.email,
-                            username: profile.username || firebaseUser.email
+                            username: profile.username || firebaseUser.email,
+                            usernameKey: profile.usernameKey || getUsernameKey(profile.username || firebaseUser.email)
                         };
                     } catch (e) {
                         user.value = {
                             uid: firebaseUser.uid,
                             email: firebaseUser.email,
-                            username: firebaseUser.email
+                            username: firebaseUser.email,
+                            usernameKey: getUsernameKey(firebaseUser.email)
                         };
                     }
                     loadUserData();
@@ -2384,39 +2391,41 @@
 
                 const inviteUserToTrip = async () => {
                     const username = normalizeUsername(shareForm.value.username);
+                    const usernameKey = getUsernameKey(username);
                     if (!username) {
-                        showShareMessage('error', '請輸入要邀請的帳號。');
+                        showShareMessage('error', '請輸入要邀請的使用者名稱。');
                         return;
                     }
-                    if ((tripModalForm.value.memberUsernames || []).includes(username)) {
-                        showShareMessage('error', '此帳號已經在共編成員中。');
+                    const memberUsernameKeys = (tripModalForm.value.memberUsernames || []).map(name => getUsernameKey(name));
+                    if (memberUsernameKeys.includes(usernameKey)) {
+                        showShareMessage('error', '此使用者名稱已經在共編成員中。');
                         return;
                     }
 
                     try {
                         let invitee = null;
                         if (!isKeyMissing) {
-                            const usernameDoc = await db.collection('usernames').doc(username).get();
+                            const usernameDoc = await db.collection('usernames').doc(usernameKey).get();
                             if (!usernameDoc.exists) {
-                                showShareMessage('error', '找不到此帳號，請確認對方已完成註冊。');
+                                showShareMessage('error', '找不到此使用者名稱，請確認對方已完成註冊。');
                                 return;
                             }
                             invitee = usernameDoc.data();
                         } else {
-                            const saved = localStorage.getItem(`account_${username}`);
+                            const saved = localStorage.getItem(`account_${usernameKey}`);
                             if (!saved) {
-                                showShareMessage('error', '找不到此帳號，請確認對方已完成註冊。');
+                                showShareMessage('error', '找不到此使用者名稱，請確認對方已完成註冊。');
                                 return;
                             }
                             invitee = JSON.parse(saved);
                         }
 
                         if (!invitee || !invitee.uid) {
-                            showShareMessage('error', '此帳號資料不完整，無法邀請。');
+                            showShareMessage('error', '此使用者名稱資料不完整，無法邀請。');
                             return;
                         }
                         if ((tripModalForm.value.memberUids || []).includes(invitee.uid)) {
-                            showShareMessage('error', '此帳號已經在共編成員中。');
+                            showShareMessage('error', '此使用者名稱已經在共編成員中。');
                             return;
                         }
 
