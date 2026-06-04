@@ -271,11 +271,10 @@
                                                         <button @click="editingMenuLinkIndex = null" class="text-neutral-400 px-1"><i class="fa-solid fa-xmark"></i></button>
                                                     </div>
                                                 </div>
-                                                <div v-else class="space-y-0.5">
+                                                <div v-else>
                                                     <a :href="link.url" target="_blank" class="text-primary font-medium hover:underline block truncate">
                                                         <i class="fa-solid fa-arrow-up-right-from-square mr-1 text-[10px]"></i> {{ link.title }}
                                                     </a>
-                                                    <a :href="link.url" target="_blank" class="text-[10px] text-neutral-400 hover:text-primary hover:underline block truncate">{{ link.url }}</a>
                                                 </div>
                                             </div>
                                             <div v-if="editingMenuLinkIndex !== idx" class="flex gap-2 shrink-0">
@@ -382,9 +381,12 @@
                                 </div>
                                 <div v-for="(spot, index) in (currentTrip.itinerary[activeDayTab] || [])" :key="index" class="relative bg-[#fcfbf9] border border-[#e6e4dc] rounded-xl p-4 flex flex-col sm:flex-row gap-4 group">
                                     <div class="absolute -left-[21px] top-5 w-2 h-2 rounded-full bg-primary border-2 border-white shadow-sm"></div>
-                                    <div class="w-full sm:w-20 shrink-0 flex sm:flex-col gap-2">
-                                        <div class="w-12 h-12 sm:w-20 sm:h-20 rounded-lg bg-white border border-[#e6e4dc] flex items-center justify-center shrink-0">
-                                            <i :class="getSpotTypeIcon(spot)" class="text-xl text-neutral-500"></i>
+                                    <div class="w-full sm:w-20 shrink-0 flex sm:flex-col gap-2 items-start sm:items-center">
+                                        <div class="flex flex-col items-center gap-1 shrink-0">
+                                            <div class="w-12 h-12 sm:w-20 sm:h-20 rounded-lg bg-white border border-[#e6e4dc] flex items-center justify-center shrink-0">
+                                                <i :class="getSpotTypeIcon(spot)" class="text-xl text-neutral-500"></i>
+                                            </div>
+                                            <p v-if="getSpotDisplayTime(spot)" class="text-xs font-bold text-neutral-700 leading-none">{{ getSpotDisplayTime(spot) }}</p>
                                         </div>
                                         <img v-if="hasCustomImage(spot.imgUrl)" :src="spot.imgUrl" class="w-20 h-20 object-cover rounded-lg bg-white border border-[#e6e4dc] shrink-0">
                                     </div>
@@ -403,6 +405,17 @@
                                                 </select>
                                                 <input v-model="editSpotData.name" type="text" class="border text-xs p-1.5 rounded" placeholder="名稱">
                                             </div>
+                                            <div v-if="editSpotData.type === '航班'" class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                <label class="text-[10px] text-neutral-400 flex flex-col gap-1">出發時間
+                                                    <input v-model="editSpotData.departureTime" type="time" class="border text-xs p-1.5 rounded text-neutral-600">
+                                                </label>
+                                                <label class="text-[10px] text-neutral-400 flex flex-col gap-1">抵達時間
+                                                    <input v-model="editSpotData.arrivalTime" type="time" class="border text-xs p-1.5 rounded text-neutral-600">
+                                                </label>
+                                            </div>
+                                            <label v-else class="text-[10px] text-neutral-400 flex flex-col gap-1">時間
+                                                <input v-model="editSpotData.time" type="time" class="border text-xs p-1.5 rounded text-neutral-600">
+                                            </label>
                                             <input v-model="editSpotData.placeNote" type="text" class="border text-xs p-1.5 rounded w-full" :placeholder="editSpotData.type === '航班' ? '航班資訊，例：[TPE 台北(桃園) - HSG 佐賀]' : '地點 / 備註'">
                                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                                 <input v-model="editSpotData.linkName" type="text" class="border text-xs p-1.5 rounded" placeholder="連結名稱（例：Google 地圖）">
@@ -426,9 +439,6 @@
                                         </div>
                                         <div v-else>
                                             <div class="flex flex-wrap items-center gap-2 mb-1">
-                                                <span class="text-[10px] px-2 py-0.5 rounded-full bg-white border border-[#e6e4dc] text-neutral-500">
-                                                    <i :class="getSpotTypeIcon(spot)" class="mr-1"></i>{{ getSpotTypeLabel(spot) }}
-                                                </span>
                                                 <h4 class="font-medium text-sm text-neutral-700 truncate">{{ spot.name }}</h4>
                                             </div>
                                             <div v-if="getSpotTypeLabel(spot) === '航班' && parseFlightInfo(getSpotNoteText(spot))" class="bg-white border border-[#e6e4dc] rounded-xl p-3 my-2">
@@ -437,12 +447,14 @@
                                                         <p class="text-[10px] text-neutral-400">出發</p>
                                                         <p class="text-sm font-bold text-neutral-700">{{ parseFlightInfo(getSpotNoteText(spot)).from.code }}</p>
                                                         <p class="text-[11px] text-neutral-500 truncate">{{ parseFlightInfo(getSpotNoteText(spot)).from.name }}</p>
+                                                        <p v-if="getSpotDepartureTime(spot)" class="text-xs font-bold text-neutral-700 mt-1">{{ getSpotDepartureTime(spot) }}</p>
                                                     </div>
                                                     <i class="fa-solid fa-plane text-neutral-300 shrink-0"></i>
                                                     <div class="min-w-0 text-right">
                                                         <p class="text-[10px] text-neutral-400">抵達</p>
                                                         <p class="text-sm font-bold text-neutral-700">{{ parseFlightInfo(getSpotNoteText(spot)).to.code }}</p>
                                                         <p class="text-[11px] text-neutral-500 truncate">{{ parseFlightInfo(getSpotNoteText(spot)).to.name }}</p>
+                                                        <p v-if="getSpotArrivalTime(spot)" class="text-xs font-bold text-neutral-700 mt-1">{{ getSpotArrivalTime(spot) }}</p>
                                                     </div>
                                                 </div>
                                             </div>
@@ -473,6 +485,17 @@
                                     </select>
                                     <input v-model="newSpot.name" type="text" placeholder="名稱" class="border border-[#e6e4dc] text-xs rounded-xl p-2.5 bg-white focus:outline-none focus-border-primary">
                                 </div>
+                                <div v-if="newSpot.type === '航班'" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <label class="text-[10px] text-neutral-400 flex flex-col gap-1">出發時間
+                                        <input v-model="newSpot.departureTime" type="time" class="border border-[#e6e4dc] text-xs rounded-xl p-2.5 bg-white text-neutral-600 focus:outline-none focus-border-primary">
+                                    </label>
+                                    <label class="text-[10px] text-neutral-400 flex flex-col gap-1">抵達時間
+                                        <input v-model="newSpot.arrivalTime" type="time" class="border border-[#e6e4dc] text-xs rounded-xl p-2.5 bg-white text-neutral-600 focus:outline-none focus-border-primary">
+                                    </label>
+                                </div>
+                                <label v-else class="text-[10px] text-neutral-400 flex flex-col gap-1">時間
+                                    <input v-model="newSpot.time" type="time" class="border border-[#e6e4dc] text-xs rounded-xl p-2.5 bg-white text-neutral-600 focus:outline-none focus-border-primary">
+                                </label>
                                 <input v-model="newSpot.placeNote" type="text" :placeholder="newSpot.type === '航班' ? '航班資訊，例：[TPE 台北(桃園) - HSG 佐賀]' : '地點 / 備註'" class="border border-[#e6e4dc] text-xs rounded-xl p-2.5 bg-white focus:outline-none focus-border-primary w-full">
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <input v-model="newSpot.linkName" type="text" placeholder="連結名稱（例：Google 地圖）" class="border border-[#e6e4dc] text-xs rounded-xl p-2.5 bg-white focus:outline-none focus-border-primary">
@@ -500,12 +523,11 @@
                         <div class="flex justify-between items-center border-b pb-3">
                             <h3 class="font-medium text-neutral-700 text-base"><i class="fa-solid fa-coins text-neutral-400 mr-1.5"></i> 費用記帳</h3>
                             <div class="text-right">
-                                <span class="text-xs text-neutral-400 block">各幣別消費加總明細：</span>
-                                <span class="text-xs font-medium text-neutral-600">
-                                    NT$: <strong class="text-neutral-800 font-bold mr-2">${{ sumByCurrency('TWD') }}</strong>
-                                    JPY: <strong class="text-neutral-800 font-bold mr-2">¥{{ sumByCurrency('JPY') }}</strong>
-                                    KRW: <strong class="text-neutral-800 font-bold">₩{{ sumByCurrency('KRW') }}</strong>
+                                <span class="text-xs text-neutral-400 block">折合新台幣總計：</span>
+                                <span class="text-xs font-medium text-neutral-600 block">
+                                    <strong class="text-neutral-800 font-bold text-sm">NT$ {{ formatTwdAmount(sumExpensesInTwd()) }}</strong>
                                 </span>
+                                <span class="text-[10px] text-neutral-400 block mt-0.5">{{ getExchangeRateSummary() }}</span>
                             </div>
                         </div>
                         
@@ -815,6 +837,9 @@
                 const weatherError = ref('');
                 const weatherCity = ref('台北');
                 const showWeatherModal = ref(false);
+                const exchangeRates = ref({});
+                const exchangeRateLoading = ref(false);
+                const exchangeRateError = ref('');
                 const authForm = ref({ username: '', password: '' });
                 const registerForm = ref({ username: '', email: '', password: '', confirmPassword: '' });
                 const authPage = ref(window.location.hash === '#register' ? 'register' : 'login');
@@ -837,7 +862,7 @@
                 const editLuggageData = ref({ text: '', category: '隨身包包' });
 
                 const editingSpotIndex = ref(null);
-                const editSpotData = ref({ type: '景點', name: '', placeNote: '', linkName: '', linkUrl: '', imgUrl: '' });
+                const editSpotData = ref({ type: '景點', time: '', departureTime: '', arrivalTime: '', name: '', placeNote: '', linkName: '', linkUrl: '', imgUrl: '' });
 
                 const editingExpenseIndex = ref(null);
                 const editExpenseData = ref({ dayKey: 'pre', title: '', amount: 0, currency: 'TWD' });
@@ -846,7 +871,7 @@
                 const editShoppingData = ref({ text: '', url: '', imgUrl: '' });
 
                 // 新增用欄位暫存
-                const newSpot = ref({ type: '景點', name: '', placeNote: '', linkName: '', linkUrl: '', imgUrl: '' });
+                const newSpot = ref({ type: '景點', time: '', departureTime: '', arrivalTime: '', name: '', placeNote: '', linkName: '', linkUrl: '', imgUrl: '' });
                 const newMenuLink = ref({ title: '', url: '' });
                 const newTodoText = ref('');
                 const newLuggage = ref({ text: '', category: '隨身包包' });
@@ -922,6 +947,9 @@
                 const getSpotNoteText = (spot) => spot?.placeNote || spot?.note || '';
                 const getSpotLinkUrl = (spot) => spot?.linkUrl || spot?.link || '';
                 const getSpotLinkName = (spot) => spot?.linkName || (getSpotLinkUrl(spot) ? '查看參考連結' : '');
+                const getSpotDepartureTime = (spot) => spot?.departureTime || spot?.departTime || spot?.time || '';
+                const getSpotArrivalTime = (spot) => spot?.arrivalTime || spot?.arriveTime || '';
+                const getSpotDisplayTime = (spot) => normalizeSpotType(spot) === '航班' ? getSpotDepartureTime(spot) : (spot?.time || '');
                 const parseFlightInfo = (text) => {
                     const raw = String(text || '').trim();
                     if (!raw) return null;
@@ -1040,6 +1068,132 @@
                     if (!start) return '';
                     start.setDate(start.getDate() + (Number(dayNum) - 1));
                     return formatLocalDate(start);
+                };
+
+                const getExpenseDateStr = (exp, trip = currentTrip.value) => {
+                    const dayKey = exp?.dayKey || 'pre';
+                    const match = String(dayKey).match(/^day(\d+)$/);
+                    if (match) return getTripDateStrByDay(trip, Number(match[1])) || formatLocalDate(new Date());
+                    return formatLocalDate(new Date());
+                };
+
+                const getRateCacheKey = (currency, dateStr) => `fx_twd_${String(currency).toUpperCase()}_${dateStr}`;
+
+                const readCachedRate = (currency, dateStr) => {
+                    try {
+                        const saved = localStorage.getItem(getRateCacheKey(currency, dateStr));
+                        return saved ? JSON.parse(saved) : null;
+                    } catch (e) { return null; }
+                };
+
+                const writeCachedRate = (currency, requestedDate, payload) => {
+                    try { localStorage.setItem(getRateCacheKey(currency, requestedDate), JSON.stringify(payload)); } catch (e) {}
+                };
+
+                const findNearestCachedRate = (currency, dateStr) => {
+                    try {
+                        const prefix = `fx_twd_${String(currency).toUpperCase()}_`;
+                        const entries = [];
+                        for (let i = 0; i < localStorage.length; i++) {
+                            const key = localStorage.key(i);
+                            if (!key || !key.startsWith(prefix)) continue;
+                            const payload = JSON.parse(localStorage.getItem(key));
+                            if (payload && payload.rate) entries.push(payload);
+                        }
+                        entries.sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+                        return entries[0] || null;
+                    } catch (e) { return null; }
+                };
+
+                const fallbackTwdRate = (currency) => {
+                    if (currency === 'JPY') return { rate: 0.22, date: 'fallback', source: '內建估算' };
+                    if (currency === 'KRW') return { rate: 0.023, date: 'fallback', source: '內建估算' };
+                    return { rate: 1, date: 'fallback', source: '內建估算' };
+                };
+
+                const fetchRateToTwd = async (currency, dateStr) => {
+                    const cur = String(currency || 'TWD').toUpperCase();
+                    if (cur === 'TWD') return { rate: 1, date: dateStr, source: 'TWD' };
+                    const cached = readCachedRate(cur, dateStr);
+                    if (cached && cached.rate) return cached;
+
+                    const baseDate = parseLocalDate(dateStr) || new Date();
+                    for (let offset = 0; offset <= 14; offset++) {
+                        const targetDate = new Date(baseDate);
+                        targetDate.setDate(targetDate.getDate() - offset);
+                        const rateDate = formatLocalDate(targetDate);
+                        try {
+                            const res = await fetch(`https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@${rateDate}/v1/currencies/${cur.toLowerCase()}.json`);
+                            if (!res.ok) continue;
+                            const data = await res.json();
+                            const rate = data?.[cur.toLowerCase()]?.twd;
+                            if (rate && Number(rate) > 0) {
+                                const payload = { rate: Number(rate), date: rateDate, source: offset === 0 ? '當天匯率' : `最近匯率 ${rateDate}` };
+                                writeCachedRate(cur, dateStr, payload);
+                                return payload;
+                            }
+                        } catch (e) {}
+                    }
+
+                    const nearest = findNearestCachedRate(cur, dateStr);
+                    if (nearest && nearest.rate) {
+                        writeCachedRate(cur, dateStr, nearest);
+                        return nearest;
+                    }
+                    const fallback = fallbackTwdRate(cur);
+                    writeCachedRate(cur, dateStr, fallback);
+                    return fallback;
+                };
+
+                const ensureExpenseExchangeRates = async (trip = currentTrip.value) => {
+                    if (!trip || !Array.isArray(trip.expenses)) return;
+                    const targets = [];
+                    trip.expenses.forEach(exp => {
+                        const currency = String(exp.currency || 'TWD').toUpperCase();
+                        if (currency === 'TWD') return;
+                        const dateStr = getExpenseDateStr(exp, trip);
+                        if (!exchangeRates.value[dateStr]?.[currency]) targets.push({ currency, dateStr });
+                    });
+                    if (!targets.length) return;
+                    exchangeRateLoading.value = true;
+                    exchangeRateError.value = '';
+                    try {
+                        const unique = Array.from(new Map(targets.map(t => [`${t.currency}_${t.dateStr}`, t])).values());
+                        for (const target of unique) {
+                            const ratePayload = await fetchRateToTwd(target.currency, target.dateStr);
+                            exchangeRates.value = {
+                                ...exchangeRates.value,
+                                [target.dateStr]: {
+                                    ...(exchangeRates.value[target.dateStr] || {}),
+                                    [target.currency]: ratePayload
+                                }
+                            };
+                        }
+                    } catch (e) {
+                        exchangeRateError.value = '匯率資料讀取失敗，暫以最近快取或內建估算計算。';
+                    } finally {
+                        exchangeRateLoading.value = false;
+                    }
+                };
+
+                const getExpenseRate = (exp) => {
+                    const currency = String(exp?.currency || 'TWD').toUpperCase();
+                    if (currency === 'TWD') return 1;
+                    const dateStr = getExpenseDateStr(exp);
+                    return Number(exchangeRates.value[dateStr]?.[currency]?.rate || readCachedRate(currency, dateStr)?.rate || fallbackTwdRate(currency).rate || 0);
+                };
+
+                const sumExpensesInTwd = () => {
+                    if (!currentTrip.value || !Array.isArray(currentTrip.value.expenses)) return 0;
+                    return currentTrip.value.expenses.reduce((sum, exp) => sum + Number(exp.amount || 0) * getExpenseRate(exp), 0);
+                };
+
+                const formatTwdAmount = (amount) => Math.round(Number(amount || 0)).toLocaleString('zh-TW');
+
+                const getExchangeRateSummary = () => {
+                    if (exchangeRateLoading.value) return '匯率讀取中...';
+                    if (exchangeRateError.value) return exchangeRateError.value;
+                    return '外幣以消費日匯率折合；若無當天資料則取最近可用匯率。';
                 };
 
                 const getWeatherCodeInfo = (code) => {
@@ -1872,6 +2026,9 @@
                     editingSpotIndex.value = index;
                     editSpotData.value = {
                         type: normalizeSpotType(spot),
+                        time: spot.time || '',
+                        departureTime: getSpotDepartureTime(spot),
+                        arrivalTime: getSpotArrivalTime(spot),
                         name: spot.name || '',
                         placeNote: getSpotNoteText(spot),
                         linkName: spot.linkName || '',
@@ -1888,6 +2045,9 @@
                     if (!currentTrip.value.itinerary[activeDayTab.value]) currentTrip.value.itinerary[activeDayTab.value] = [];
                     const spotData = {
                         type: normalizeSpotType(newSpot.value.type),
+                        time: String(newSpot.value.time || '').trim(),
+                        departureTime: String(newSpot.value.departureTime || '').trim(),
+                        arrivalTime: String(newSpot.value.arrivalTime || '').trim(),
                         name: newSpot.value.name.trim(),
                         placeNote: String(newSpot.value.placeNote || '').trim(),
                         linkName: String(newSpot.value.linkName || '').trim(),
@@ -1895,7 +2055,7 @@
                         imgUrl: String(newSpot.value.imgUrl || '').trim()
                     };
                     currentTrip.value.itinerary[activeDayTab.value].push(spotData);
-                    updateSharedTripData(); newSpot.value = { type: newSpot.value.type || '景點', name: '', placeNote: '', linkName: '', linkUrl: '', imgUrl: '' };
+                    updateSharedTripData(); newSpot.value = { type: newSpot.value.type || '景點', time: '', departureTime: '', arrivalTime: '', name: '', placeNote: '', linkName: '', linkUrl: '', imgUrl: '' };
                 };
                 const deleteSpot = (index) => {
                     if (!confirm('確定要自今日時間軸刪除此景點嗎？')) return;
@@ -1914,18 +2074,21 @@
                 };
                 const saveExpenseEdit = (idx) => {
                     currentTrip.value.expenses[idx] = { ...editExpenseData.value };
-                    updatePrivateTripData(); editingExpenseIndex.value = null;
+                    updatePrivateTripData();
+                    ensureExpenseExchangeRates(currentTrip.value);
+                    editingExpenseIndex.value = null;
                 };
                 const addExpense = () => {
                     if (!newExpense.value.title.trim() || !newExpense.value.amount) return alert('請填寫完整項目與開支金額');
                     if (!currentTrip.value.expenses) currentTrip.value.expenses = [];
                     currentTrip.value.expenses.push({ ...newExpense.value });
-                    updatePrivateTripData(); 
+                    updatePrivateTripData();
+                    ensureExpenseExchangeRates(currentTrip.value);
                     newExpense.value = { dayKey: newExpense.value.dayKey, title: '', amount: null, currency: newExpense.value.currency };
                 };
                 const deleteExpense = (idx) => {
                     if (!confirm('確定要刪除這筆開支記帳紀錄嗎？')) return;
-                    currentTrip.value.expenses.splice(idx, 1); updatePrivateTripData();
+                    currentTrip.value.expenses.splice(idx, 1); updatePrivateTripData(); ensureExpenseExchangeRates(currentTrip.value);
                 };
 
                 // 原地編輯：購物戰利品
@@ -1968,14 +2131,14 @@
                 return {
                     user, authForm, registerForm, authPage, authMessage, trips, currentTrip, activeMainTab, activeDayTab, weather, weatherForecast, weatherLoading, weatherError, weatherCity, showWeatherModal, isKeyMissing, themeStyles, activeThemeColor, shareForm, shareMessage,
                     showTripModal, isEditingTripMode, tripModalForm, openAddTripModal, openEditTripModal, saveTripModalAction,
-                    expenseSections, getFilteredExpenses, sumByCurrency, getCurrencySymbol,
+                    expenseSections, getFilteredExpenses, sumByCurrency, getCurrencySymbol, sumExpensesInTwd, formatTwdAmount, getExchangeRateSummary,
                     editingMenuLinkIndex, editMenuLinkData, startMenuLinkEdit, saveMenuLinkEdit,
                     editingTodoId, editTodoTextData, startTodoEdit, saveTodoEdit, toggleTodoDone,
                     editingLuggageId, editLuggageData, startLuggageEdit, saveLuggageEdit, toggleLuggageDone,
                     editingSpotIndex, editSpotData, startSpotEdit, saveSpotEdit,
                     editingExpenseIndex, editExpenseData, startExpenseEdit, saveExpenseEdit,
                     editingShoppingId, editShoppingData, startShoppingEdit, saveShoppingEdit,
-                    newSpot, newMenuLink, newTodoText, newLuggage, newExpense, newShopItem, getCalculatedDateStr, hasCustomImage, handleImageUpload, getSpotTypeIcon, getSpotTypeLabel, getSpotNoteText, getSpotLinkUrl, getSpotLinkName, parseFlightInfo, isTripDayTabActive, getDayWeather, getTravelWeatherDays, getWeatherButtonSummary, openWeatherModal, closeWeatherModal, fetchWeather,
+                    newSpot, newMenuLink, newTodoText, newLuggage, newExpense, newShopItem, getCalculatedDateStr, hasCustomImage, handleImageUpload, getSpotTypeIcon, getSpotTypeLabel, getSpotNoteText, getSpotLinkUrl, getSpotLinkName, getSpotDisplayTime, getSpotDepartureTime, getSpotArrivalTime, parseFlightInfo, isTripDayTabActive, getDayWeather, getTravelWeatherDays, getWeatherButtonSummary, openWeatherModal, closeWeatherModal, fetchWeather,
                     handleLogin, registerAccount, goToLogin, goToRegister, logout, selectTrip, deleteTrip, updateTripData, updateSharedTripData, updatePrivateTripData, inviteUserToTrip, removeTripModalMember, isTripOwner, getTripRoleText, addSpot, deleteSpot, addMenuLink, deleteMenuLink, addTodo, deleteTodo, addLuggage, deleteLuggage, addExpense, deleteExpense, addShopItem, deleteShopItem, changeTheme
                 };
             }
