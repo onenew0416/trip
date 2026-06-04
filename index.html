@@ -1173,24 +1173,73 @@
                 const authMessage = ref({ type: '', text: '' });
                 const registrationAuthInProgress = ref(false);
 
-                // 手機版鍵盤收合：點擊非輸入欄位時，主動讓目前輸入框失焦，避免鍵盤一直停留
+                // 手機版鍵盤收合：點擊非輸入欄位、按 Enter/Done，或 iOS 鍵盤完成鍵時，主動讓目前輸入框失焦
+                const isMobileViewport = () => !window.matchMedia || window.matchMedia('(max-width: 768px)').matches;
+                const isIOSDevice = () => {
+                    const ua = navigator.userAgent || '';
+                    return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+                };
                 const isKeyboardInputElement = (el) => {
                     if (!el || !el.matches) return false;
-                    return el.matches('input, textarea, select, [contenteditable="true"]');
+                    return el.matches('input:not([type="file"]):not([type="checkbox"]):not([type="radio"]), textarea, select, [contenteditable="true"]');
                 };
                 const blurActiveInput = () => {
                     const active = document.activeElement;
-                    if (isKeyboardInputElement(active)) {
-                        active.blur();
+                    if (!isKeyboardInputElement(active)) return;
+                    const shouldRestoreReadonly = isIOSDevice() && active.tagName === 'INPUT' && !active.hasAttribute('readonly');
+                    if (shouldRestoreReadonly) active.setAttribute('readonly', 'readonly');
+                    try { active.blur(); } catch (e) {}
+                    if (document.body && document.body.focus) {
+                        try { document.body.setAttribute('tabindex', '-1'); document.body.focus({ preventScroll: true }); } catch (e) {}
                     }
+                    // iOS Safari 有時單純 blur 不會收鍵盤，改用不可見按鈕接手焦點後再移除
+                    if (isIOSDevice()) {
+                        const focusCatcher = document.createElement('button');
+                        focusCatcher.type = 'button';
+                        focusCatcher.setAttribute('aria-hidden', 'true');
+                        focusCatcher.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;z-index:-1;';
+                        document.body.appendChild(focusCatcher);
+                        try { focusCatcher.focus({ preventScroll: true }); } catch (e) {}
+                        setTimeout(() => {
+                            try { focusCatcher.blur(); } catch (e) {}
+                            focusCatcher.remove();
+                        }, 30);
+                    }
+                    if (shouldRestoreReadonly) {
+                        setTimeout(() => active.removeAttribute('readonly'), 120);
+                    }
+                };
+                const prepareInputForMobileDone = (el) => {
+                    if (!isKeyboardInputElement(el)) return;
+                    if (!el.hasAttribute('enterkeyhint')) el.setAttribute('enterkeyhint', 'done');
                 };
                 const handleMobileKeyboardDismiss = (event) => {
                     const target = event?.target;
-                    const isTappingEditable = !!(target && target.closest && target.closest('input, textarea, select, [contenteditable="true"]'));
-                    if (isTappingEditable) return;
-                    if (window.matchMedia && window.matchMedia('(max-width: 768px)').matches) {
-                        setTimeout(blurActiveInput, 0);
+                    const editable = target && target.closest ? target.closest('input, textarea, select, [contenteditable="true"]') : null;
+                    if (editable) {
+                        prepareInputForMobileDone(editable);
+                        return;
                     }
+                    if (isMobileViewport()) setTimeout(blurActiveInput, 0);
+                };
+                const handleMobileInputFocus = (event) => {
+                    prepareInputForMobileDone(event?.target);
+                };
+                const handleMobileInputDoneKey = (event) => {
+                    const target = event?.target;
+                    if (!isKeyboardInputElement(target)) return;
+                    const key = event.key || event.code || '';
+                    const isDoneKey = key === 'Enter' || key === 'Done' || event.keyCode === 13;
+                    if (!isDoneKey) return;
+                    if (target.tagName === 'TEXTAREA' && !event.metaKey && !event.ctrlKey) return;
+                    event.preventDefault();
+                    setTimeout(blurActiveInput, 0);
+                };
+                const handleMobileInputChange = (event) => {
+                    const target = event?.target;
+                    if (!isKeyboardInputElement(target) || !isMobileViewport()) return;
+                    const type = String(target.getAttribute('type') || '').toLowerCase();
+                    if (['date', 'time', 'month', 'week'].includes(type)) setTimeout(blurActiveInput, 80);
                 };
 
                 // 旅程彈窗表單
@@ -2250,7 +2299,11 @@
                 onMounted(() => {
                     applyThemeToDocument();
                     document.addEventListener('touchstart', handleMobileKeyboardDismiss, { passive: true, capture: true });
+                    document.addEventListener('touchend', handleMobileKeyboardDismiss, { passive: true, capture: true });
                     document.addEventListener('mousedown', handleMobileKeyboardDismiss, true);
+                    document.addEventListener('focusin', handleMobileInputFocus, true);
+                    document.addEventListener('keydown', handleMobileInputDoneKey, true);
+                    document.addEventListener('change', handleMobileInputChange, true);
                     window.addEventListener('hashchange', () => {
                         const nextPage = window.location.hash === '#register' ? 'register' : 'login';
                         if (nextPage !== authPage.value) {
