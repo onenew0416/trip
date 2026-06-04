@@ -190,7 +190,7 @@
                         
                         <button @click="activeMainTab = 'shopping'" 
                                 :class="['w-full text-left px-3 py-2.5 text-sm rounded-xl transition-all flex items-center gap-2.5 border', activeMainTab === 'shopping' ? 'bg-primary text-neutral-900 font-medium shadow-md border-transparent' : 'text-neutral-600 border-transparent hover:bg-[#f7f6f3]']">
-                            <i class="fa-solid fa-bag-shopping"></i>購物戰利品
+                            <i class="fa-solid fa-bag-shopping"></i>購物清單
                         </button>
                     </div>
 
@@ -226,13 +226,23 @@
                             </div>
                             <h2 class="text-xl font-medium text-neutral-700 mt-1">{{ currentTrip.title }}</h2>
                         </div>
-                        <div class="bg-[#fcfbf9] border border-[#e6e4dc] rounded-xl p-3 flex items-center gap-3 min-w-[160px]">
-                            <i :class="weather.icon" class="text-xl text-neutral-400"></i>
+                        <div v-if="isTripDayTabActive()" class="bg-[#fcfbf9] border border-[#e6e4dc] rounded-xl p-3 flex items-center gap-3 min-w-[210px]">
+                            <i :class="getDayWeather(activeDayTab).icon" class="text-xl"></i>
                             <div>
-                                <p class="text-[10px] text-neutral-400 font-medium">當地即時氣象</p>
-                                <p class="text-xs font-medium text-neutral-600">{{ weather.temp }} ({{ weather.desc }})</p>
+                                <p class="text-[10px] text-neutral-400 font-medium">Day {{ activeDayTab }} 當天天氣</p>
+                                <p class="text-xs font-medium text-neutral-600">
+                                    {{ getDayWeather(activeDayTab).desc }}｜{{ getDayWeather(activeDayTab).tempText }}｜降雨 {{ getDayWeather(activeDayTab).rainText }}
+                                </p>
                             </div>
                         </div>
+                        <button v-else @click="openWeatherModal" type="button" class="bg-[#fcfbf9] hover:bg-neutral-50 border border-[#e6e4dc] rounded-xl p-3 flex items-center gap-3 min-w-[210px] text-left transition-colors">
+                            <i :class="weather.icon" class="text-xl"></i>
+                            <div>
+                                <p class="text-[10px] text-neutral-400 font-medium">旅遊天氣預報</p>
+                                <p class="text-xs font-medium text-neutral-600">{{ getWeatherButtonSummary() }}</p>
+                            </div>
+                            <i class="fa-solid fa-chevron-right text-[10px] text-neutral-300 ml-auto"></i>
+                        </button>
                     </div>
 
 
@@ -586,6 +596,62 @@
                 </div>
             </div>
 
+
+            <div v-if="showWeatherModal" class="fixed inset-0 bg-black/20 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+                <div class="bg-white border border-[#e6e4dc] rounded-2xl p-6 w-full max-w-2xl shadow-lg space-y-4 max-h-[90vh] overflow-y-auto">
+                    <div class="flex items-start justify-between gap-4 border-b border-neutral-100 pb-3">
+                        <div>
+                            <h3 class="text-base font-medium text-neutral-700">
+                                <i class="fa-solid fa-cloud-sun text-neutral-400 mr-1.5"></i> {{ weatherCity }}旅遊天氣
+                            </h3>
+                            <p class="text-[11px] text-neutral-400 mt-1">
+                                顯示 {{ currentTrip.title }} 旅遊天數內的逐日天氣、氣溫與降雨機率
+                            </p>
+                        </div>
+                        <button @click="closeWeatherModal" class="text-neutral-300 hover:text-neutral-600 text-sm">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+
+                    <div v-if="weatherLoading" class="text-center text-neutral-400 text-xs py-8">
+                        <i class="fa-solid fa-spinner fa-spin mr-1"></i> 天氣資料讀取中...
+                    </div>
+
+                    <div v-else>
+                        <div v-if="weatherError" class="text-xs p-3 rounded-xl border bg-amber-50 border-amber-100 text-amber-700 mb-3">
+                            <i class="fa-solid fa-circle-info mr-1"></i>{{ weatherError }}
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div v-for="day in getTravelWeatherDays()" :key="day.dayNum" class="border border-[#e6e4dc] bg-[#fcfbf9] rounded-2xl p-4 flex items-center gap-4">
+                                <div class="w-12 h-12 rounded-2xl bg-white border border-[#e6e4dc] flex items-center justify-center shrink-0">
+                                    <i :class="day.icon" class="text-2xl"></i>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <span class="text-xs font-bold text-neutral-700">Day {{ day.dayNum }}</span>
+                                        <span class="text-[10px] text-neutral-400">{{ day.fullDateLabel }}</span>
+                                    </div>
+                                    <p class="text-sm font-medium text-neutral-700">{{ day.desc }}</p>
+                                    <p class="text-xs text-neutral-500 mt-0.5">
+                                        氣溫 {{ day.tempText }}｜降雨機率 {{ day.rainText }}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end gap-2 pt-2 border-t border-neutral-100">
+                        <button @click="fetchWeather(currentTrip.title, currentTrip)" type="button" class="px-4 py-2 text-xs border border-neutral-300 rounded-xl text-neutral-500 hover:bg-neutral-50">
+                            重新整理
+                        </button>
+                        <button @click="closeWeatherModal" type="button" class="px-4 py-2 text-xs bg-neutral-700 text-white rounded-xl hover:bg-neutral-800 shadow-sm">
+                            關閉
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <div v-if="showTripModal" class="fixed inset-0 bg-black/20 backdrop-blur-xs flex items-center justify-center p-4 z-50">
                 <div class="bg-white border border-[#e6e4dc] rounded-2xl p-6 w-full max-w-lg shadow-lg space-y-4 max-h-[90vh] overflow-y-auto">
                     <h3 class="text-base font-medium text-neutral-700 border-b pb-2">
@@ -689,7 +755,12 @@
                 const activeMainTab = ref('itinerary'); 
                 const activeDayTab = ref('menu');       
                 const activeThemeColor = ref('#6b705c');  
-                const weather = ref({ city: '偵測中', temp: '--°C', desc: '微風', icon: 'fa-solid fa-feather' });
+                const weather = ref({ city: '偵測中', temp: '--°C', desc: '天氣預報', icon: 'fa-solid fa-feather' });
+                const weatherForecast = ref([]);
+                const weatherLoading = ref(false);
+                const weatherError = ref('');
+                const weatherCity = ref('台北');
+                const showWeatherModal = ref(false);
                 const authForm = ref({ username: '', password: '' });
                 const registerForm = ref({ username: '', email: '', password: '', confirmPassword: '' });
                 const authPage = ref(window.location.hash === '#register' ? 'register' : 'login');
@@ -817,23 +888,204 @@
                     }
                 };
 
-                const fetchWeather = async (title) => {
-                    let city = '台北';
-                    const matches = title.match(/(東京|大阪|京都|首爾|釜山|曼谷|巴黎|倫敦|紐約|台北|台中|高雄|宜蘭|花蓮|台東)/);
-                    if (matches) city = matches[0];
+                const cityCoordinateMap = {
+                    '台北': { name: '台北', latitude: 25.0330, longitude: 121.5654 },
+                    '台中': { name: '台中', latitude: 24.1477, longitude: 120.6736 },
+                    '高雄': { name: '高雄', latitude: 22.6273, longitude: 120.3014 },
+                    '宜蘭': { name: '宜蘭', latitude: 24.7021, longitude: 121.7378 },
+                    '花蓮': { name: '花蓮', latitude: 23.9872, longitude: 121.6015 },
+                    '台東': { name: '台東', latitude: 22.7972, longitude: 121.0714 },
+                    '東京': { name: '東京', latitude: 35.6762, longitude: 139.6503 },
+                    '大阪': { name: '大阪', latitude: 34.6937, longitude: 135.5023 },
+                    '京都': { name: '京都', latitude: 35.0116, longitude: 135.7681 },
+                    '福岡': { name: '福岡', latitude: 33.5902, longitude: 130.4017 },
+                    '沖繩': { name: '沖繩', latitude: 26.2124, longitude: 127.6809 },
+                    '札幌': { name: '札幌', latitude: 43.0618, longitude: 141.3545 },
+                    '名古屋': { name: '名古屋', latitude: 35.1815, longitude: 136.9066 },
+                    '首爾': { name: '首爾', latitude: 37.5665, longitude: 126.9780 },
+                    '釜山': { name: '釜山', latitude: 35.1796, longitude: 129.0756 },
+                    '濟州': { name: '濟州', latitude: 33.4996, longitude: 126.5312 },
+                    '曼谷': { name: '曼谷', latitude: 13.7563, longitude: 100.5018 },
+                    '巴黎': { name: '巴黎', latitude: 48.8566, longitude: 2.3522 },
+                    '倫敦': { name: '倫敦', latitude: 51.5072, longitude: -0.1276 },
+                    '紐約': { name: '紐約', latitude: 40.7128, longitude: -74.0060 }
+                };
+
+                const extractTripCity = (title = '') => {
+                    const matches = String(title).match(/(東京|大阪|京都|福岡|沖繩|札幌|名古屋|首爾|釜山|濟州|曼谷|巴黎|倫敦|紐約|台北|台中|高雄|宜蘭|花蓮|台東)/);
+                    return matches ? matches[0] : '台北';
+                };
+
+                const parseLocalDate = (dateStr) => {
+                    if (!dateStr) return null;
+                    const parts = String(dateStr).split('-').map(Number);
+                    if (parts.length !== 3 || parts.some(Number.isNaN)) return null;
+                    return new Date(parts[0], parts[1] - 1, parts[2]);
+                };
+
+                const formatLocalDate = (date) => {
+                    if (!date) return '';
+                    const yy = date.getFullYear();
+                    const mm = String(date.getMonth() + 1).padStart(2, '0');
+                    const dd = String(date.getDate()).padStart(2, '0');
+                    return `${yy}-${mm}-${dd}`;
+                };
+
+                const formatWeatherDateLabel = (dateStr) => {
+                    const date = parseLocalDate(dateStr);
+                    if (!date) return '未設定日期';
+                    const mm = date.getMonth() + 1;
+                    const dd = date.getDate();
+                    const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
+                    return `${mm}月${dd}日 星期${weekDays[date.getDay()]}`;
+                };
+
+                const getTripDateStrByDay = (trip, dayNum) => {
+                    if (!trip || !trip.startDate) return '';
+                    const start = parseLocalDate(trip.startDate);
+                    if (!start) return '';
+                    start.setDate(start.getDate() + (Number(dayNum) - 1));
+                    return formatLocalDate(start);
+                };
+
+                const getWeatherCodeInfo = (code) => {
+                    const weatherCode = Number(code);
+                    if (weatherCode === 0) return { desc: '晴', icon: 'fa-solid fa-sun text-amber-500' };
+                    if ([1, 2].includes(weatherCode)) return { desc: '晴時多雲', icon: 'fa-solid fa-cloud-sun text-amber-500' };
+                    if (weatherCode === 3) return { desc: '陰', icon: 'fa-solid fa-cloud text-neutral-400' };
+                    if ([45, 48].includes(weatherCode)) return { desc: '霧', icon: 'fa-solid fa-smog text-neutral-400' };
+                    if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(weatherCode)) return { desc: '雨', icon: 'fa-solid fa-cloud-rain text-sky-500' };
+                    if ([71, 73, 75, 77, 85, 86].includes(weatherCode)) return { desc: '雪', icon: 'fa-regular fa-snowflake text-sky-400' };
+                    if ([95, 96, 99].includes(weatherCode)) return { desc: '雷雨', icon: 'fa-solid fa-cloud-bolt text-indigo-500' };
+                    return { desc: '尚無預報', icon: 'fa-regular fa-circle-question text-neutral-300' };
+                };
+
+                const makeEmptyWeatherDay = (dayNum, trip = currentTrip.value) => {
+                    const dateStr = getTripDateStrByDay(trip, dayNum);
+                    return {
+                        dayNum: Number(dayNum),
+                        date: dateStr,
+                        fullDateLabel: formatWeatherDateLabel(dateStr),
+                        desc: '尚無預報',
+                        icon: 'fa-regular fa-circle-question text-neutral-300',
+                        tempText: '—',
+                        rainText: '—'
+                    };
+                };
+
+                const getCoordinatesForCity = async (city) => {
+                    if (cityCoordinateMap[city]) return cityCoordinateMap[city];
                     try {
-                        const res = await fetch(`https://wttr.in/${encodeURIComponent(city)}?format=j1`);
+                        const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=zh&format=json`);
+                        const geoData = await geoRes.json();
+                        if (geoData.results && geoData.results.length) {
+                            return {
+                                name: geoData.results[0].name || city,
+                                latitude: geoData.results[0].latitude,
+                                longitude: geoData.results[0].longitude
+                            };
+                        }
+                    } catch (e) {}
+                    return cityCoordinateMap['台北'];
+                };
+
+                const fetchWeather = async (title, trip = currentTrip.value) => {
+                    const city = extractTripCity(title || trip?.title || '');
+                    const days = Math.max(1, Number(trip?.days || 1));
+                    weatherCity.value = city;
+                    weatherLoading.value = true;
+                    weatherError.value = '';
+                    weather.value = { city, temp: '讀取中', desc: '天氣預報', icon: 'fa-solid fa-spinner fa-spin text-neutral-400' };
+
+                    try {
+                        if (!trip || !trip.startDate) {
+                            weatherForecast.value = Array.from({ length: days }, (_, i) => makeEmptyWeatherDay(i + 1, trip));
+                            weather.value = { city, temp: '—', desc: '請先設定出發日', icon: 'fa-regular fa-circle-question text-neutral-300' };
+                            weatherError.value = '請先在旅程設定中填寫出發日期，才能顯示逐日天氣。';
+                            return;
+                        }
+
+                        const startDate = parseLocalDate(trip.startDate);
+                        const endDate = parseLocalDate(trip.startDate);
+                        endDate.setDate(endDate.getDate() + days - 1);
+
+                        const coordinates = await getCoordinatesForCity(city);
+                        weatherCity.value = coordinates.name || city;
+
+                        const url = `https://api.open-meteo.com/v1/forecast?latitude=${coordinates.latitude}&longitude=${coordinates.longitude}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&start_date=${formatLocalDate(startDate)}&end_date=${formatLocalDate(endDate)}`;
+                        const res = await fetch(url);
                         const data = await res.json();
-                        const current = data.current_condition[0];
+
+                        if (!res.ok || !data.daily || !data.daily.time) {
+                            throw new Error(data.reason || '天氣資料讀取失敗');
+                        }
+
+                        const dailyMap = {};
+                        data.daily.time.forEach((dateStr, index) => {
+                            const info = getWeatherCodeInfo(data.daily.weather_code?.[index]);
+                            const maxTemp = data.daily.temperature_2m_max?.[index];
+                            const minTemp = data.daily.temperature_2m_min?.[index];
+                            const rain = data.daily.precipitation_probability_max?.[index];
+                            dailyMap[dateStr] = {
+                                date: dateStr,
+                                fullDateLabel: formatWeatherDateLabel(dateStr),
+                                desc: info.desc,
+                                icon: info.icon,
+                                tempText: (maxTemp === null || maxTemp === undefined || minTemp === null || minTemp === undefined) ? '—' : `${Math.round(minTemp)}°C～${Math.round(maxTemp)}°C`,
+                                rainText: (rain === null || rain === undefined) ? '—' : `${rain}%`
+                            };
+                        });
+
+                        weatherForecast.value = Array.from({ length: days }, (_, i) => {
+                            const dayNum = i + 1;
+                            const dateStr = getTripDateStrByDay(trip, dayNum);
+                            return { ...makeEmptyWeatherDay(dayNum, trip), ...(dailyMap[dateStr] || {}), dayNum };
+                        });
+
+                        const first = weatherForecast.value[0] || makeEmptyWeatherDay(1, trip);
                         weather.value = {
-                            city: city,
-                            temp: `${current.temp_C}°C`,
-                            desc: current.lang_zh ? current.lang_zh[0].value : current.weatherDesc[0].value,
-                            icon: current.weatherDesc[0].value.toLowerCase().includes('sun') ? 'fa-solid fa-sun text-amber-500' : 'fa-solid fa-cloud-sun'
+                            city: weatherCity.value,
+                            temp: first.tempText,
+                            desc: first.desc,
+                            icon: first.icon
                         };
                     } catch (e) {
-                        weather.value = { city: city, temp: '22°C', desc: '微風 舒適', icon: 'fa-solid fa-cloud-sun' };
+                        weatherForecast.value = Array.from({ length: days }, (_, i) => makeEmptyWeatherDay(i + 1, trip));
+                        weather.value = { city, temp: '—', desc: '無法取得天氣', icon: 'fa-regular fa-circle-question text-neutral-300' };
+                        weatherError.value = '目前無法取得天氣預報，可能是日期太遠、網路受限或天氣服務暫時無回應。';
+                    } finally {
+                        weatherLoading.value = false;
                     }
+                };
+
+                const isTripDayTabActive = () => activeMainTab.value === 'itinerary' && activeDayTab.value !== 'menu';
+
+                const getDayWeather = (dayNum) => {
+                    const matched = weatherForecast.value.find(day => Number(day.dayNum) === Number(dayNum));
+                    return matched || makeEmptyWeatherDay(Number(dayNum));
+                };
+
+                const getTravelWeatherDays = () => {
+                    const days = Math.max(1, Number(currentTrip.value?.days || 1));
+                    return Array.from({ length: days }, (_, i) => getDayWeather(i + 1));
+                };
+
+                const getWeatherButtonSummary = () => {
+                    if (weatherLoading.value) return '天氣讀取中...';
+                    if (weatherError.value) return '點選查看天氣狀態';
+                    const first = getDayWeather(1);
+                    return `${weatherCity.value}｜${currentTrip.value?.days || 1}天預報｜Day 1 ${first.desc}`;
+                };
+
+                const openWeatherModal = async () => {
+                    showWeatherModal.value = true;
+                    if (!weatherForecast.value.length && currentTrip.value) {
+                        await fetchWeather(currentTrip.value.title, currentTrip.value);
+                    }
+                };
+
+                const closeWeatherModal = () => {
+                    showWeatherModal.value = false;
                 };
 
                 const normalizeUsername = (value) => String(value || '').trim().toLowerCase();
@@ -1304,6 +1556,9 @@
                             trips.value.push(combinedTrip);
                         }
                     }
+                    if (currentTrip.value && isEditingTripMode.value && currentTrip.value.id === editingTripId.value) {
+                        fetchWeather(currentTrip.value.title, currentTrip.value);
+                    }
                     resetTripShareForm();
                     showTripModal.value = false;
                 };
@@ -1312,7 +1567,7 @@
                     currentTrip.value = trip; activeMainTab.value = 'itinerary'; activeDayTab.value = 'menu';
                     clearShareMessage();
                     shareForm.value = { username: '' };
-                    fetchWeather(trip.title);
+                    fetchWeather(trip.title, trip);
                 };
 
                 const deleteTrip = async (id) => {
@@ -1589,14 +1844,14 @@
                     newShopItem.value = { text: '', url: '', imgUrl: '' };
                 };
                 const deleteShopItem = (id) => {
-                    if (!confirm('確定要移除這項戰利品採購目標嗎？')) return;
+                    if (!confirm('確定要移除這項購物品項嗎？')) return;
                     currentTrip.value.shopping = currentTrip.value.shopping.filter(i => i.id !== id); updatePrivateTripData();
                 };
 
                 const changeTheme = (color) => { activeThemeColor.value = color; };
 
                 return {
-                    user, authForm, registerForm, authPage, authMessage, trips, currentTrip, activeMainTab, activeDayTab, weather, isKeyMissing, themeStyles, activeThemeColor, shareForm, shareMessage,
+                    user, authForm, registerForm, authPage, authMessage, trips, currentTrip, activeMainTab, activeDayTab, weather, weatherForecast, weatherLoading, weatherError, weatherCity, showWeatherModal, isKeyMissing, themeStyles, activeThemeColor, shareForm, shareMessage,
                     showTripModal, isEditingTripMode, tripModalForm, openAddTripModal, openEditTripModal, saveTripModalAction,
                     expenseSections, getFilteredExpenses, sumByCurrency, getCurrencySymbol,
                     editingMenuLinkIndex, editMenuLinkData, startMenuLinkEdit, saveMenuLinkEdit,
@@ -1605,7 +1860,7 @@
                     editingSpotIndex, editSpotData, startSpotEdit, saveSpotEdit,
                     editingExpenseIndex, editExpenseData, startExpenseEdit, saveExpenseEdit,
                     editingShoppingId, editShoppingData, startShoppingEdit, saveShoppingEdit,
-                    newSpot, newMenuLink, newTodoText, newLuggage, newExpense, newShopItem, getCalculatedDateStr, hasCustomImage, handleImageUpload,
+                    newSpot, newMenuLink, newTodoText, newLuggage, newExpense, newShopItem, getCalculatedDateStr, hasCustomImage, handleImageUpload, isTripDayTabActive, getDayWeather, getTravelWeatherDays, getWeatherButtonSummary, openWeatherModal, closeWeatherModal, fetchWeather,
                     handleLogin, registerAccount, goToLogin, goToRegister, logout, selectTrip, deleteTrip, updateTripData, updateSharedTripData, updatePrivateTripData, inviteUserToTrip, removeTripModalMember, isTripOwner, getTripRoleText, addSpot, deleteSpot, addMenuLink, deleteMenuLink, addTodo, deleteTodo, addLuggage, deleteLuggage, addExpense, deleteExpense, addShopItem, deleteShopItem, changeTheme
                 };
             }
