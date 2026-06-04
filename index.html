@@ -1292,8 +1292,8 @@
                         const dayOfWeek = weekDays[date.getDay()];
                         
                         return includeYear 
-                            ? `${yy}年${mm}月${dd}日 (星期${dayOfWeek})` 
-                            : `${mm}/${dd} (週${dayOfWeek})`;
+                            ? `${yy}/${mm}/${dd}/ (${dayOfWeek})` 
+                            : `${mm}/${dd} (${dayOfWeek})`;
                     } catch (e) {
                         return '日期錯誤';
                     }
