@@ -372,12 +372,14 @@
                                         🗓️ 當天日期：{{ getCalculatedDateStr(currentTrip.startDate, activeDayTab, true) }}
                                     </span>
                                 </div>
-                                <span class="text-xs bg-[#f7f6f3] text-neutral-500 border border-[#e6e4dc] px-2.5 py-1 rounded-lg font-medium">Day {{ activeDayTab }}</span>
+                                <button @click="openAddSpotModal" type="button" class="bg-neutral-700 hover:bg-neutral-800 text-white text-xs px-3 py-2 rounded-xl font-medium shadow-sm transition-colors flex items-center gap-1.5">
+                                    <i class="fa-solid fa-plus"></i> 新增行程
+                                </button>
                             </div>
 
                             <div class="space-y-4 relative border-l border-neutral-200 pl-4 ml-2">
                                 <div v-if="!currentTrip.itinerary[activeDayTab] || currentTrip.itinerary[activeDayTab].length === 0" class="text-neutral-400 text-xs py-4 pl-2">
-                                    今天還空空的，在下方填寫行程項目來填滿這天吧！
+                                    今天還空空的，點右上角「新增行程」來填滿這天吧！
                                 </div>
                                 <div v-for="(spot, index) in (currentTrip.itinerary[activeDayTab] || [])" :key="index" class="relative bg-[#fcfbf9] border border-[#e6e4dc] rounded-xl p-4 flex flex-col sm:flex-row gap-4 group">
                                     <div class="absolute -left-[21px] top-5 w-2 h-2 rounded-full bg-primary border-2 border-white shadow-sm"></div>
@@ -471,51 +473,6 @@
                                 </div>
                             </div>
 
-                            <div class="border-t border-neutral-100 pt-5 space-y-3 bg-[#fcfbf9] p-4 rounded-xl border border-[#e6e4dc]">
-                                <p class="text-xs font-bold text-neutral-400">＋ 新增今日行程項目</p>
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <select v-model="newSpot.type" class="border border-[#e6e4dc] text-xs rounded-xl p-2.5 bg-white focus:outline-none focus-border-primary">
-                                        <option value="航班">✈️ 航班</option>
-                                        <option value="交通">🚇 交通</option>
-                                        <option value="景點">📍 景點</option>
-                                        <option value="餐飲">🍽️ 餐飲</option>
-                                        <option value="購物">🛍️ 購物</option>
-                                        <option value="租車">🚗 租車</option>
-                                        <option value="住宿">🏨 住宿</option>
-                                    </select>
-                                    <input v-model="newSpot.name" type="text" placeholder="名稱" class="border border-[#e6e4dc] text-xs rounded-xl p-2.5 bg-white focus:outline-none focus-border-primary">
-                                </div>
-                                <div v-if="newSpot.type === '航班'" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <label class="text-[10px] text-neutral-400 flex flex-col gap-1">出發時間
-                                        <input v-model="newSpot.departureTime" type="time" class="border border-[#e6e4dc] text-xs rounded-xl p-2.5 bg-white text-neutral-600 focus:outline-none focus-border-primary">
-                                    </label>
-                                    <label class="text-[10px] text-neutral-400 flex flex-col gap-1">抵達時間
-                                        <input v-model="newSpot.arrivalTime" type="time" class="border border-[#e6e4dc] text-xs rounded-xl p-2.5 bg-white text-neutral-600 focus:outline-none focus-border-primary">
-                                    </label>
-                                </div>
-                                <label v-else class="text-[10px] text-neutral-400 flex flex-col gap-1">時間
-                                    <input v-model="newSpot.time" type="time" class="border border-[#e6e4dc] text-xs rounded-xl p-2.5 bg-white text-neutral-600 focus:outline-none focus-border-primary">
-                                </label>
-                                <input v-model="newSpot.placeNote" type="text" :placeholder="newSpot.type === '航班' ? '航班資訊，例：[TPE 台北(桃園) - HSG 佐賀]' : '地點 / 備註'" class="border border-[#e6e4dc] text-xs rounded-xl p-2.5 bg-white focus:outline-none focus-border-primary w-full">
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <input v-model="newSpot.linkName" type="text" placeholder="連結名稱（例：Google 地圖）" class="border border-[#e6e4dc] text-xs rounded-xl p-2.5 bg-white focus:outline-none focus-border-primary">
-                                    <input v-model="newSpot.linkUrl" type="text" placeholder="連結網址" class="border border-[#e6e4dc] text-xs rounded-xl p-2.5 bg-white focus:outline-none focus-border-primary">
-                                </div>
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <input v-model="newSpot.imgUrl" type="text" placeholder="圖片網址（選填）" class="border border-[#e6e4dc] text-xs rounded-xl p-2.5 bg-white focus:outline-none focus-border-primary">
-                                    <label class="border border-dashed border-[#d9d6cc] text-xs rounded-xl p-2.5 bg-white text-neutral-500 cursor-pointer hover:bg-neutral-50 text-center">
-                                        <i class="fa-solid fa-upload mr-1"></i> 上傳圖片檔
-                                        <input type="file" accept="image/*" @change="handleImageUpload($event, newSpot)" class="hidden">
-                                    </label>
-                                </div>
-                                <div v-if="newSpot.imgUrl" class="flex items-center gap-3 bg-white border border-[#e6e4dc] rounded-xl p-2">
-                                    <img :src="newSpot.imgUrl" class="w-16 h-16 object-cover rounded-lg border bg-white">
-                                    <button @click="newSpot.imgUrl = ''" class="text-xs text-rose-500 hover:underline">移除圖片</button>
-                                </div>
-                                <button @click="addSpot" class="w-full bg-neutral-700 hover:bg-neutral-800 text-white text-xs font-medium py-2.5 rounded-xl transition-colors shadow-sm">
-                                    儲存並加入今日時間軸
-                                </button>
-                            </div>
                         </div>
                     </div>
 
@@ -672,6 +629,69 @@
                 </div>
             </div>
 
+
+            <div v-if="showSpotModal" class="fixed inset-0 bg-black/20 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+                <div class="bg-white border border-[#e6e4dc] rounded-2xl p-6 w-full max-w-lg shadow-lg space-y-4 max-h-[90vh] overflow-y-auto">
+                    <div class="flex items-start justify-between gap-4 border-b border-neutral-100 pb-3">
+                        <div>
+                            <h3 class="text-base font-medium text-neutral-700">
+                                <i class="fa-solid fa-plus text-neutral-400 mr-1.5"></i> 新增 Day {{ activeDayTab }} 行程
+                            </h3>
+                            <p class="text-[11px] text-neutral-400 mt-1">填寫行程類型、時間、地點備註與參考連結。</p>
+                        </div>
+                        <button @click="closeSpotModal" class="text-neutral-300 hover:text-neutral-600 text-sm">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+
+                    <div class="space-y-3">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <select v-model="newSpot.type" class="border border-[#e6e4dc] text-xs rounded-xl p-2.5 bg-white focus:outline-none focus-border-primary">
+                                <option value="航班">✈️ 航班</option>
+                                <option value="交通">🚇 交通</option>
+                                <option value="景點">📍 景點</option>
+                                <option value="餐飲">🍽️ 餐飲</option>
+                                <option value="購物">🛍️ 購物</option>
+                                <option value="租車">🚗 租車</option>
+                                <option value="住宿">🏨 住宿</option>
+                            </select>
+                            <input v-model="newSpot.name" type="text" placeholder="名稱" class="border border-[#e6e4dc] text-xs rounded-xl p-2.5 bg-white focus:outline-none focus-border-primary">
+                        </div>
+                        <div v-if="newSpot.type === '航班'" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <label class="text-[10px] text-neutral-400 flex flex-col gap-1">出發時間
+                                <input v-model="newSpot.departureTime" type="time" class="border border-[#e6e4dc] text-xs rounded-xl p-2.5 bg-white text-neutral-600 focus:outline-none focus-border-primary">
+                            </label>
+                            <label class="text-[10px] text-neutral-400 flex flex-col gap-1">抵達時間
+                                <input v-model="newSpot.arrivalTime" type="time" class="border border-[#e6e4dc] text-xs rounded-xl p-2.5 bg-white text-neutral-600 focus:outline-none focus-border-primary">
+                            </label>
+                        </div>
+                        <label v-else class="text-[10px] text-neutral-400 flex flex-col gap-1">時間
+                            <input v-model="newSpot.time" type="time" class="border border-[#e6e4dc] text-xs rounded-xl p-2.5 bg-white text-neutral-600 focus:outline-none focus-border-primary">
+                        </label>
+                        <input v-model="newSpot.placeNote" type="text" :placeholder="newSpot.type === '航班' ? '航班資訊，例：[TPE 台北(桃園) - HSG 佐賀]' : '地點 / 備註'" class="border border-[#e6e4dc] text-xs rounded-xl p-2.5 bg-white focus:outline-none focus-border-primary w-full">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <input v-model="newSpot.linkName" type="text" placeholder="連結名稱（例：Google 地圖）" class="border border-[#e6e4dc] text-xs rounded-xl p-2.5 bg-white focus:outline-none focus-border-primary">
+                            <input v-model="newSpot.linkUrl" type="text" placeholder="連結網址" class="border border-[#e6e4dc] text-xs rounded-xl p-2.5 bg-white focus:outline-none focus-border-primary">
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <input v-model="newSpot.imgUrl" type="text" placeholder="圖片網址（選填）" class="border border-[#e6e4dc] text-xs rounded-xl p-2.5 bg-white focus:outline-none focus-border-primary">
+                            <label class="border border-dashed border-[#d9d6cc] text-xs rounded-xl p-2.5 bg-white text-neutral-500 cursor-pointer hover:bg-neutral-50 text-center">
+                                <i class="fa-solid fa-upload mr-1"></i> 上傳圖片檔
+                                <input type="file" accept="image/*" @change="handleImageUpload($event, newSpot)" class="hidden">
+                            </label>
+                        </div>
+                        <div v-if="newSpot.imgUrl" class="flex items-center gap-3 bg-white border border-[#e6e4dc] rounded-xl p-2">
+                            <img :src="newSpot.imgUrl" class="w-16 h-16 object-cover rounded-lg border bg-white">
+                            <button @click="newSpot.imgUrl = ''" class="text-xs text-rose-500 hover:underline">移除圖片</button>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end gap-2 pt-2 border-t border-neutral-100">
+                        <button @click="closeSpotModal" type="button" class="px-4 py-2 text-xs border border-neutral-300 rounded-xl text-neutral-500 hover:bg-neutral-50">取消</button>
+                        <button @click="addSpot" type="button" class="px-4 py-2 text-xs bg-neutral-700 text-white rounded-xl hover:bg-neutral-800 shadow-sm">儲存並加入行程</button>
+                    </div>
+                </div>
+            </div>
 
             <div v-if="showWeatherModal" class="fixed inset-0 bg-black/20 backdrop-blur-xs flex items-center justify-center p-4 z-50">
                 <div class="bg-white border border-[#e6e4dc] rounded-2xl p-6 w-full max-w-2xl shadow-lg space-y-4 max-h-[90vh] overflow-y-auto">
@@ -837,6 +857,7 @@
                 const weatherError = ref('');
                 const weatherCity = ref('台北');
                 const showWeatherModal = ref(false);
+                const showSpotModal = ref(false);
                 const exchangeRates = ref({});
                 const exchangeRateLoading = ref(false);
                 const exchangeRateError = ref('');
@@ -950,6 +971,27 @@
                 const getSpotDepartureTime = (spot) => spot?.departureTime || spot?.departTime || spot?.time || '';
                 const getSpotArrivalTime = (spot) => spot?.arrivalTime || spot?.arriveTime || '';
                 const getSpotDisplayTime = (spot) => normalizeSpotType(spot) === '航班' ? getSpotDepartureTime(spot) : (spot?.time || '');
+                const parseTimeToMinutes = (value) => {
+                    const match = String(value || '').match(/^(\d{1,2}):(\d{2})/);
+                    if (!match) return 99999;
+                    return (Number(match[1]) * 60) + Number(match[2]);
+                };
+                const getSpotSortMinutes = (spot) => parseTimeToMinutes(getSpotDisplayTime(spot));
+                const sortItineraryItems = (items = []) => {
+                    if (!Array.isArray(items)) return [];
+                    return items
+                        .map((spot, originalIndex) => ({ spot, originalIndex, sortValue: getSpotSortMinutes(spot) }))
+                        .sort((a, b) => (a.sortValue - b.sortValue) || (a.originalIndex - b.originalIndex))
+                        .map(item => item.spot);
+                };
+                const normalizeSortedItinerary = (itinerary = {}) => {
+                    const output = {};
+                    Object.keys(itinerary || {}).forEach(dayKey => {
+                        output[dayKey] = sortItineraryItems(itinerary[dayKey] || []);
+                    });
+                    return output;
+                };
+                const emptySpotForm = (type = '景點') => ({ type: type || '景點', time: '', departureTime: '', arrivalTime: '', name: '', placeNote: '', linkName: '', linkUrl: '', imgUrl: '' });
                 const parseFlightInfo = (text) => {
                     const raw = String(text || '').trim();
                     if (!raw) return null;
@@ -1518,7 +1560,7 @@
                         memberUids: Array.isArray(sharedData.memberUids) ? sharedData.memberUids : [],
                         memberUsernames: Array.isArray(sharedData.memberUsernames) ? sharedData.memberUsernames : [],
                         menuLinks: Array.isArray(sharedData.menuLinks) ? sharedData.menuLinks : [],
-                        itinerary: sharedData.itinerary || {},
+                        itinerary: normalizeSortedItinerary(sharedData.itinerary || {}),
                         ...privatePart
                     };
                 };
@@ -2021,6 +2063,15 @@
                     currentTrip.value.luggage = currentTrip.value.luggage.filter(i => i.id !== id); updatePrivateTripData();
                 };
 
+                const openAddSpotModal = () => {
+                    if (!isTripDayTabActive()) return;
+                    newSpot.value = emptySpotForm(newSpot.value.type || '景點');
+                    showSpotModal.value = true;
+                };
+                const closeSpotModal = () => {
+                    showSpotModal.value = false;
+                };
+
                 // 原地編輯：分類行程
                 const startSpotEdit = (index, spot) => {
                     editingSpotIndex.value = index;
@@ -2038,6 +2089,7 @@
                 };
                 const saveSpotEdit = (index) => {
                     currentTrip.value.itinerary[activeDayTab.value][index] = { ...editSpotData.value };
+                    currentTrip.value.itinerary[activeDayTab.value] = sortItineraryItems(currentTrip.value.itinerary[activeDayTab.value]);
                     updateSharedTripData(); editingSpotIndex.value = null;
                 };
                 const addSpot = () => {
@@ -2055,7 +2107,11 @@
                         imgUrl: String(newSpot.value.imgUrl || '').trim()
                     };
                     currentTrip.value.itinerary[activeDayTab.value].push(spotData);
-                    updateSharedTripData(); newSpot.value = { type: newSpot.value.type || '景點', time: '', departureTime: '', arrivalTime: '', name: '', placeNote: '', linkName: '', linkUrl: '', imgUrl: '' };
+                    currentTrip.value.itinerary[activeDayTab.value] = sortItineraryItems(currentTrip.value.itinerary[activeDayTab.value]);
+                    updateSharedTripData();
+                    const keepType = newSpot.value.type || '景點';
+                    newSpot.value = emptySpotForm(keepType);
+                    closeSpotModal();
                 };
                 const deleteSpot = (index) => {
                     if (!confirm('確定要自今日時間軸刪除此景點嗎？')) return;
@@ -2129,7 +2185,7 @@
                 const changeTheme = (color) => { activeThemeColor.value = color; };
 
                 return {
-                    user, authForm, registerForm, authPage, authMessage, trips, currentTrip, activeMainTab, activeDayTab, weather, weatherForecast, weatherLoading, weatherError, weatherCity, showWeatherModal, isKeyMissing, themeStyles, activeThemeColor, shareForm, shareMessage,
+                    user, authForm, registerForm, authPage, authMessage, trips, currentTrip, activeMainTab, activeDayTab, weather, weatherForecast, weatherLoading, weatherError, weatherCity, showWeatherModal, showSpotModal, isKeyMissing, themeStyles, activeThemeColor, shareForm, shareMessage,
                     showTripModal, isEditingTripMode, tripModalForm, openAddTripModal, openEditTripModal, saveTripModalAction,
                     expenseSections, getFilteredExpenses, sumByCurrency, getCurrencySymbol, sumExpensesInTwd, formatTwdAmount, getExchangeRateSummary,
                     editingMenuLinkIndex, editMenuLinkData, startMenuLinkEdit, saveMenuLinkEdit,
@@ -2138,7 +2194,7 @@
                     editingSpotIndex, editSpotData, startSpotEdit, saveSpotEdit,
                     editingExpenseIndex, editExpenseData, startExpenseEdit, saveExpenseEdit,
                     editingShoppingId, editShoppingData, startShoppingEdit, saveShoppingEdit,
-                    newSpot, newMenuLink, newTodoText, newLuggage, newExpense, newShopItem, getCalculatedDateStr, hasCustomImage, handleImageUpload, getSpotTypeIcon, getSpotTypeLabel, getSpotNoteText, getSpotLinkUrl, getSpotLinkName, getSpotDisplayTime, getSpotDepartureTime, getSpotArrivalTime, parseFlightInfo, isTripDayTabActive, getDayWeather, getTravelWeatherDays, getWeatherButtonSummary, openWeatherModal, closeWeatherModal, fetchWeather,
+                    newSpot, newMenuLink, newTodoText, newLuggage, newExpense, newShopItem, getCalculatedDateStr, hasCustomImage, handleImageUpload, getSpotTypeIcon, getSpotTypeLabel, getSpotNoteText, getSpotLinkUrl, getSpotLinkName, getSpotDisplayTime, getSpotDepartureTime, getSpotArrivalTime, parseFlightInfo, isTripDayTabActive, getDayWeather, getTravelWeatherDays, getWeatherButtonSummary, openWeatherModal, closeWeatherModal, fetchWeather, openAddSpotModal, closeSpotModal,
                     handleLogin, registerAccount, goToLogin, goToRegister, logout, selectTrip, deleteTrip, updateTripData, updateSharedTripData, updatePrivateTripData, inviteUserToTrip, removeTripModalMember, isTripOwner, getTripRoleText, addSpot, deleteSpot, addMenuLink, deleteMenuLink, addTodo, deleteTodo, addLuggage, deleteLuggage, addExpense, deleteExpense, addShopItem, deleteShopItem, changeTheme
                 };
             }
