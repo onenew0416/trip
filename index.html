@@ -1171,6 +1171,7 @@
                 const registerForm = ref({ username: '', email: '', password: '', confirmPassword: '' });
                 const authPage = ref(window.location.hash === '#register' ? 'register' : 'login');
                 const authMessage = ref({ type: '', text: '' });
+                const registrationAuthInProgress = ref(false);
 
                 // 旅程彈窗表單
                 const showTripModal = ref(false);
@@ -1804,6 +1805,74 @@
                     window.location.hash = 'login';
                 };
 
+                const findUsernameAccount = async (usernameInput) => {
+                    const rawUsername = normalizeUsername(usernameInput);
+                    const usernameKey = getUsernameKey(rawUsername);
+                    const usernameRef = db.collection('usernames');
+
+                    const candidateDocIds = Array.from(new Set([usernameKey, rawUsername].filter(Boolean)));
+                    for (const docId of candidateDocIds) {
+                        try {
+                            const snap = await usernameRef.doc(docId).get();
+                            if (snap.exists) {
+                                const data = snap.data() || {};
+                                return {
+                                    ...data,
+                                    username: data.username || rawUsername,
+                                    usernameKey: data.usernameKey || getUsernameKey(data.username || rawUsername),
+                                    docId
+                                };
+                            }
+                        } catch (e) {}
+                    }
+
+                    try {
+                        const keyQuery = await usernameRef.where('usernameKey', '==', usernameKey).limit(1).get();
+                        if (!keyQuery.empty) {
+                            const doc = keyQuery.docs[0];
+                            const data = doc.data() || {};
+                            return {
+                                ...data,
+                                username: data.username || rawUsername,
+                                usernameKey: data.usernameKey || usernameKey,
+                                docId: doc.id
+                            };
+                        }
+                    } catch (e) {}
+
+                    try {
+                        const exactQuery = await usernameRef.where('username', '==', rawUsername).limit(1).get();
+                        if (!exactQuery.empty) {
+                            const doc = exactQuery.docs[0];
+                            const data = doc.data() || {};
+                            return {
+                                ...data,
+                                username: data.username || rawUsername,
+                                usernameKey: data.usernameKey || usernameKey,
+                                docId: doc.id
+                            };
+                        }
+                    } catch (e) {}
+
+                    if (rawUsername !== usernameKey) {
+                        try {
+                            const lowerQuery = await usernameRef.where('username', '==', usernameKey).limit(1).get();
+                            if (!lowerQuery.empty) {
+                                const doc = lowerQuery.docs[0];
+                                const data = doc.data() || {};
+                                return {
+                                    ...data,
+                                    username: data.username || rawUsername,
+                                    usernameKey: data.usernameKey || usernameKey,
+                                    docId: doc.id
+                                };
+                            }
+                        } catch (e) {}
+                    }
+
+                    return null;
+                };
+
                 const handleLogin = async () => {
                     const usernameInput = normalizeUsername(authForm.value.username);
                     const usernameKey = getUsernameKey(usernameInput);
@@ -1834,17 +1903,21 @@
                     }
 
                     try {
-                        const usernameDoc = await db.collection('usernames').doc(usernameKey).get();
-                        if (!usernameDoc.exists) {
+                        const accountData = await findUsernameAccount(usernameInput);
+                        if (!accountData || !accountData.email) {
                             showAuthMessage('error', '找不到此使用者名稱，請確認使用者名稱是否正確。');
                             return;
                         }
 
-                        const accountData = usernameDoc.data();
                         const res = await auth.signInWithEmailAndPassword(accountData.email, password);
                         resetLoginForm();
                         clearAuthMessage();
-                        user.value = { uid: res.user.uid, email: res.user.email, username: accountData.username || usernameInput, usernameKey: accountData.usernameKey || usernameKey };
+                        user.value = {
+                            uid: res.user.uid,
+                            email: res.user.email,
+                            username: accountData.username || usernameInput,
+                            usernameKey: accountData.usernameKey || usernameKey
+                        };
                         loadUserData();
                     } catch (err) {
                         showAuthMessage('error', '登入失敗：' + getAuthErrorMessage(err));
@@ -1892,16 +1965,19 @@
                         return;
                     }
 
+                    let createdRegistrationUid = '';
                     try {
-                        const usernameRef = db.collection('usernames').doc(usernameKey);
-                        const existed = await usernameRef.get();
-                        if (existed.exists) {
+                        const existedAccount = await findUsernameAccount(username);
+                        if (existedAccount) {
                             showAuthMessage('error', '此使用者名稱已被使用，請換一個使用者名稱。');
                             return;
                         }
 
+                        const usernameRef = db.collection('usernames').doc(usernameKey);
+                        registrationAuthInProgress.value = true;
                         const res = await auth.createUserWithEmailAndPassword(email, password);
                         const uid = res.user.uid;
+                        createdRegistrationUid = uid;
                         const now = firebase.firestore.FieldValue.serverTimestamp();
 
                         await db.collection('users').doc(uid).set({
@@ -1921,6 +1997,7 @@
                         });
 
                         await auth.signOut();
+                        registrationAuthInProgress.value = false;
                         user.value = null;
                         trips.value = [];
                         currentTrip.value = null;
@@ -1930,6 +2007,13 @@
                         window.location.hash = 'login';
                         showAuthMessage('success', '註冊成功，請使用剛建立的使用者名稱登入。');
                     } catch (err) {
+                        if (createdRegistrationUid && auth.currentUser && auth.currentUser.uid === createdRegistrationUid) {
+                            try { await auth.signOut(); } catch (signOutErr) {}
+                        }
+                        registrationAuthInProgress.value = false;
+                        user.value = null;
+                        trips.value = [];
+                        currentTrip.value = null;
                         showAuthMessage('error', '註冊失敗：' + getAuthErrorMessage(err));
                     }
                 };
@@ -2121,7 +2205,18 @@
                     });
                     if (!isKeyMissing) {
                         auth.onAuthStateChanged(firebaseUser => {
-                            if (firebaseUser) loadUserProfile(firebaseUser);
+                            if (firebaseUser) {
+                                if (registrationAuthInProgress.value) return;
+                                loadUserProfile(firebaseUser);
+                            } else {
+                                if (tripsUnsubscribe) {
+                                    tripsUnsubscribe();
+                                    tripsUnsubscribe = null;
+                                }
+                                user.value = null;
+                                trips.value = [];
+                                currentTrip.value = null;
+                            }
                         });
                     }
                 });
