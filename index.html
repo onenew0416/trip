@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+	<link rel="icon" href="./favicon.ico" type="image/x-icon">
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
@@ -234,31 +235,6 @@
                         </div>
                     </div>
 
-                    <div class="bg-white border border-[#e6e4dc] rounded-2xl p-5 shadow-sm space-y-3">
-                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-[#f7f6f3] pb-3">
-                            <div>
-                                <h3 class="text-sm font-medium text-neutral-700"><i class="fa-solid fa-users text-neutral-400 mr-1.5"></i> 旅程共用</h3>
-                                <p class="text-[11px] text-neutral-400 mt-0.5">共用行程、交通票券與旅程基本資料可由成員共同編輯；待辦、行李、記帳、購物只會顯示自己的資料。</p>
-                            </div>
-                            <span class="text-[10px] bg-[#f7f6f3] border border-[#e6e4dc] text-neutral-500 px-2 py-1 rounded-full shrink-0">
-                                {{ getTripRoleText(currentTrip) }}
-                            </span>
-                        </div>
-                        <div class="flex flex-col sm:flex-row gap-2">
-                            <input v-model="shareForm.username" @keyup.enter="inviteUserToTrip" type="text" placeholder="輸入對方帳號邀請共同編輯" class="border border-[#e6e4dc] rounded-xl p-2.5 text-xs flex-1 focus:outline-none focus-border-primary">
-                            <button @click="inviteUserToTrip" class="bg-neutral-700 hover:bg-neutral-800 text-white px-4 py-2.5 rounded-xl text-xs font-medium transition-colors">
-                                <i class="fa-solid fa-user-plus mr-1"></i> 邀請
-                            </button>
-                        </div>
-                        <div v-if="shareMessage.text" :class="['text-xs p-2.5 rounded-xl border', shareMessage.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-rose-50 border-rose-100 text-rose-700']">
-                            {{ shareMessage.text }}
-                        </div>
-                        <div class="flex flex-wrap gap-2">
-                            <span v-for="name in (currentTrip.memberUsernames || [])" :key="name" class="text-[10px] px-2 py-1 rounded-full bg-[#fcfbf9] border border-[#e6e4dc] text-neutral-500">
-                                <i class="fa-regular fa-user mr-1"></i>{{ name }}
-                            </span>
-                        </div>
-                    </div>
 
                     <div v-if="activeMainTab === 'itinerary'" class="space-y-6">
                         
@@ -377,7 +353,7 @@
                         <div v-else class="bg-white border border-[#e6e4dc] rounded-2xl p-6 space-y-6 shadow-sm">
                             <div class="flex justify-between items-center border-b pb-3">
                                 <div class="flex flex-col">
-                                    <h3 class="font-medium text-neutral-700 text-base">✨ 第 {{ activeDayTab }} 天 行程增減</h3>
+                                    <h3 class="font-medium text-neutral-700 text-base">✨ 第 {{ activeDayTab }} 天 行程</h3>
                                     <span class="text-xs text-neutral-400 mt-0.5">
                                         🗓️ 當天日期：{{ getCalculatedDateStr(currentTrip.startDate, activeDayTab, true) }}
                                     </span>
@@ -611,7 +587,7 @@
             </div>
 
             <div v-if="showTripModal" class="fixed inset-0 bg-black/20 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-                <div class="bg-white border border-[#e6e4dc] rounded-2xl p-6 w-full max-w-md shadow-lg space-y-4">
+                <div class="bg-white border border-[#e6e4dc] rounded-2xl p-6 w-full max-w-lg shadow-lg space-y-4 max-h-[90vh] overflow-y-auto">
                     <h3 class="text-base font-medium text-neutral-700 border-b pb-2">
                         {{ isEditingTripMode ? '📝 編輯旅程手冊設定' : '📂 建立新旅程手冊' }}
                     </h3>
@@ -631,6 +607,46 @@
                             </div>
                         </div>
                         <p v-if="isEditingTripMode" class="text-[10px] text-neutral-400">⚠️ 注意：為確保行程完整，編輯模式不支援直接更改天數。</p>
+
+                        <div class="border border-[#e6e4dc] bg-[#fcfbf9] rounded-2xl p-4 space-y-3">
+                            <div class="flex items-start justify-between gap-2">
+                                <div>
+                                    <h4 class="text-xs font-bold text-neutral-500 flex items-center gap-1.5">
+                                        <i class="fa-solid fa-users text-neutral-400"></i> 旅程共用設定
+                                    </h4>
+                                    <p class="text-[10px] text-neutral-400 mt-1 leading-relaxed">
+                                        共用行程、交通票券與旅程基本資料會開放成員共同編輯；待辦、行李、記帳、購物仍只顯示自己的資料。
+                                    </p>
+                                </div>
+                                <span v-if="isEditingTripMode && currentTrip" class="text-[10px] bg-white border border-[#e6e4dc] text-neutral-500 px-2 py-1 rounded-full shrink-0">
+                                    {{ getTripRoleText(currentTrip) }}
+                                </span>
+                            </div>
+
+                            <div class="flex flex-col sm:flex-row gap-2">
+                                <input v-model="shareForm.username" @keyup.enter="inviteUserToTrip" type="text" placeholder="輸入對方帳號加入共編清單" class="border border-[#e6e4dc] rounded-xl p-2.5 text-xs flex-1 focus:outline-none focus-border-primary bg-white">
+                                <button @click="inviteUserToTrip" type="button" class="bg-neutral-700 hover:bg-neutral-800 text-white px-4 py-2.5 rounded-xl text-xs font-medium transition-colors shrink-0">
+                                    <i class="fa-solid fa-user-plus mr-1"></i> 加入共編
+                                </button>
+                            </div>
+
+                            <div v-if="shareMessage.text" :class="['text-xs p-2.5 rounded-xl border', shareMessage.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-rose-50 border-rose-100 text-rose-700']">
+                                {{ shareMessage.text }}
+                            </div>
+
+                            <div>
+                                <p class="text-[10px] font-bold text-neutral-400 mb-2 tracking-widest">共編成員</p>
+                                <div class="flex flex-wrap gap-2">
+                                    <span v-for="name in (tripModalForm.memberUsernames || [])" :key="name" class="text-[10px] px-2 py-1 rounded-full bg-white border border-[#e6e4dc] text-neutral-500 inline-flex items-center gap-1">
+                                        <i class="fa-regular fa-user"></i>{{ name }}
+                                        <button v-if="name !== tripModalForm.ownerUsername" @click="removeTripModalMember(name)" type="button" class="text-neutral-300 hover:text-rose-500 ml-1">
+                                            <i class="fa-solid fa-xmark"></i>
+                                        </button>
+                                    </span>
+                                </div>
+                                <p class="text-[10px] text-neutral-400 mt-2">調整成員後，請按「確認儲存」才會生效。</p>
+                            </div>
+                        </div>
                     </div>
                     <div class="flex justify-end gap-2 pt-2 border-t border-neutral-100">
                         <button @click="showTripModal = false" class="px-4 py-2 text-xs border border-neutral-300 rounded-xl text-neutral-500 hover:bg-neutral-50">取消</button>
@@ -683,7 +699,7 @@
                 const showTripModal = ref(false);
                 const isEditingTripMode = ref(false);
                 const editingTripId = ref(null);
-                const tripModalForm = ref({ title: '', days: 5, startDate: '' });
+                const tripModalForm = ref({ title: '', days: 5, startDate: '', ownerUid: '', ownerUsername: '', memberUids: [], memberUsernames: [] });
 
                 // 原地編輯各項目索引暫存
                 const editingMenuLinkIndex = ref(null);
@@ -1166,44 +1182,88 @@
                     }
                 });
 
+                const getCurrentUsername = () => user.value?.username || user.value?.email || '';
+
+                const resetTripShareForm = () => {
+                    shareForm.value = { username: '' };
+                    clearShareMessage();
+                };
+
                 const openAddTripModal = () => {
                     isEditingTripMode.value = false;
-                    tripModalForm.value = { title: '', days: 5, startDate: new Date().toISOString().split('T')[0] };
+                    editingTripId.value = null;
+                    resetTripShareForm();
+                    const ownerUsername = getCurrentUsername();
+                    tripModalForm.value = {
+                        title: '',
+                        days: 5,
+                        startDate: new Date().toISOString().split('T')[0],
+                        ownerUid: user.value.uid,
+                        ownerUsername,
+                        memberUids: [user.value.uid],
+                        memberUsernames: [ownerUsername]
+                    };
                     showTripModal.value = true;
                 };
 
                 const openEditTripModal = (trip) => {
                     isEditingTripMode.value = true;
                     editingTripId.value = trip.id;
-                    tripModalForm.value = { title: trip.title, days: trip.days, startDate: trip.startDate || '' };
+                    resetTripShareForm();
+                    const ownerUsername = trip.ownerUsername || getCurrentUsername();
+                    tripModalForm.value = {
+                        title: trip.title,
+                        days: trip.days,
+                        startDate: trip.startDate || '',
+                        ownerUid: trip.ownerUid || user.value.uid,
+                        ownerUsername,
+                        memberUids: Array.isArray(trip.memberUids) && trip.memberUids.length ? [...trip.memberUids] : [user.value.uid],
+                        memberUsernames: Array.isArray(trip.memberUsernames) && trip.memberUsernames.length ? [...trip.memberUsernames] : [ownerUsername]
+                    };
                     showTripModal.value = true;
                 };
 
                 const saveTripModalAction = async () => {
-                    if (!tripModalForm.value.title.trim()) return alert('請填寫名稱');
+                    const title = String(tripModalForm.value.title || '').trim();
+                    if (!title) {
+                        showShareMessage('error', '請填寫手冊名稱。');
+                        return;
+                    }
+
+                    const ownerUsername = tripModalForm.value.ownerUsername || getCurrentUsername();
+                    const memberUids = Array.from(new Set([...(tripModalForm.value.memberUids || []), tripModalForm.value.ownerUid || user.value.uid].filter(Boolean)));
+                    const memberUsernames = Array.from(new Set([...(tripModalForm.value.memberUsernames || []), ownerUsername].filter(Boolean)));
 
                     if (isEditingTripMode.value) {
                         const matched = trips.value.find(t => t.id === editingTripId.value);
                         if (matched) {
-                            matched.title = tripModalForm.value.title;
+                            matched.title = title;
                             matched.startDate = tripModalForm.value.startDate;
+                            matched.memberUids = memberUids;
+                            matched.memberUsernames = memberUsernames;
                             if (currentTrip.value?.id === matched.id) {
                                 currentTrip.value.title = matched.title;
                                 currentTrip.value.startDate = matched.startDate;
+                                currentTrip.value.memberUids = memberUids;
+                                currentTrip.value.memberUsernames = memberUsernames;
                             }
                         }
                         if (!isKeyMissing) {
                             await db.collection('trips').doc(editingTripId.value).set({
-                                title: tripModalForm.value.title,
+                                title,
                                 startDate: tripModalForm.value.startDate,
+                                memberUids,
+                                memberUsernames,
                                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                             }, { merge: true });
                         } else {
                             const list = getLocalSharedTrips();
                             const target = list.find(t => t.id === editingTripId.value);
                             if (target) {
-                                target.title = tripModalForm.value.title;
+                                target.title = title;
                                 target.startDate = tripModalForm.value.startDate;
+                                target.memberUids = memberUids;
+                                target.memberUsernames = memberUsernames;
                             }
                             setLocalSharedTrips(list);
                         }
@@ -1214,13 +1274,13 @@
                         for (let i = 1; i <= days; i++) itinerary[i] = [];
                         const sharedTripData = {
                             id,
-                            title: tripModalForm.value.title,
+                            title,
                             days,
                             startDate: tripModalForm.value.startDate,
-                            ownerUid: user.value.uid,
-                            ownerUsername: user.value.username || user.value.email,
-                            memberUids: [user.value.uid],
-                            memberUsernames: [user.value.username || user.value.email],
+                            ownerUid: tripModalForm.value.ownerUid || user.value.uid,
+                            ownerUsername,
+                            memberUids,
+                            memberUsernames,
                             menuLinks: [],
                             itinerary
                         };
@@ -1244,6 +1304,7 @@
                             trips.value.push(combinedTrip);
                         }
                     }
+                    resetTripShareForm();
                     showTripModal.value = false;
                 };
 
@@ -1326,61 +1387,64 @@
                 const updateTripData = updatePrivateTripData;
 
                 const inviteUserToTrip = async () => {
-                    if (!currentTrip.value) return;
                     const username = normalizeUsername(shareForm.value.username);
                     if (!username) {
                         showShareMessage('error', '請輸入要邀請的帳號。');
                         return;
                     }
-                    if ((currentTrip.value.memberUsernames || []).includes(username)) {
-                        showShareMessage('error', '此帳號已經在共用成員中。');
+                    if ((tripModalForm.value.memberUsernames || []).includes(username)) {
+                        showShareMessage('error', '此帳號已經在共編成員中。');
                         return;
                     }
 
                     try {
+                        let invitee = null;
                         if (!isKeyMissing) {
                             const usernameDoc = await db.collection('usernames').doc(username).get();
                             if (!usernameDoc.exists) {
                                 showShareMessage('error', '找不到此帳號，請確認對方已完成註冊。');
                                 return;
                             }
-                            const invitee = usernameDoc.data();
-                            if (!invitee.uid) {
-                                showShareMessage('error', '此帳號資料不完整，無法邀請。');
-                                return;
-                            }
-                            if ((currentTrip.value.memberUids || []).includes(invitee.uid)) {
-                                showShareMessage('error', '此帳號已經在共用成員中。');
-                                return;
-                            }
-                            await db.collection('trips').doc(currentTrip.value.id).update({
-                                memberUids: firebase.firestore.FieldValue.arrayUnion(invitee.uid),
-                                memberUsernames: firebase.firestore.FieldValue.arrayUnion(invitee.username || username),
-                                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                            });
-                            currentTrip.value.memberUids = [...(currentTrip.value.memberUids || []), invitee.uid];
-                            currentTrip.value.memberUsernames = [...(currentTrip.value.memberUsernames || []), invitee.username || username];
+                            invitee = usernameDoc.data();
                         } else {
                             const saved = localStorage.getItem(`account_${username}`);
                             if (!saved) {
                                 showShareMessage('error', '找不到此帳號，請確認對方已完成註冊。');
                                 return;
                             }
-                            const invitee = JSON.parse(saved);
-                            const list = getLocalSharedTrips();
-                            const target = list.find(t => t.id === currentTrip.value.id);
-                            if (!target) throw new Error('找不到旅程資料');
-                            target.memberUids = Array.from(new Set([...(target.memberUids || []), invitee.uid]));
-                            target.memberUsernames = Array.from(new Set([...(target.memberUsernames || []), invitee.username || username]));
-                            setLocalSharedTrips(list);
-                            currentTrip.value.memberUids = target.memberUids;
-                            currentTrip.value.memberUsernames = target.memberUsernames;
+                            invitee = JSON.parse(saved);
                         }
+
+                        if (!invitee || !invitee.uid) {
+                            showShareMessage('error', '此帳號資料不完整，無法邀請。');
+                            return;
+                        }
+                        if ((tripModalForm.value.memberUids || []).includes(invitee.uid)) {
+                            showShareMessage('error', '此帳號已經在共編成員中。');
+                            return;
+                        }
+
+                        tripModalForm.value.memberUids = Array.from(new Set([...(tripModalForm.value.memberUids || []), invitee.uid]));
+                        tripModalForm.value.memberUsernames = Array.from(new Set([...(tripModalForm.value.memberUsernames || []), invitee.username || username]));
                         shareForm.value = { username: '' };
-                        showShareMessage('success', '已邀請此帳號加入共同編輯。');
+                        showShareMessage('success', '已加入共編清單，按「確認儲存」後生效。');
                     } catch (err) {
                         showShareMessage('error', '邀請失敗：' + (err.message || '請稍後再試。'));
                     }
+                };
+
+                const removeTripModalMember = (username) => {
+                    const ownerUsername = tripModalForm.value.ownerUsername || getCurrentUsername();
+                    if (username === ownerUsername) {
+                        showShareMessage('error', '無法移除旅程擁有者。');
+                        return;
+                    }
+                    const names = tripModalForm.value.memberUsernames || [];
+                    const index = names.indexOf(username);
+                    if (index < 0) return;
+                    tripModalForm.value.memberUsernames = names.filter((_, i) => i !== index);
+                    tripModalForm.value.memberUids = (tripModalForm.value.memberUids || []).filter((_, i) => i !== index);
+                    showShareMessage('success', '已從共編清單移除，按「確認儲存」後生效。');
                 };
 
                 // 原地編輯：目錄公用連結
@@ -1542,7 +1606,7 @@
                     editingExpenseIndex, editExpenseData, startExpenseEdit, saveExpenseEdit,
                     editingShoppingId, editShoppingData, startShoppingEdit, saveShoppingEdit,
                     newSpot, newMenuLink, newTodoText, newLuggage, newExpense, newShopItem, getCalculatedDateStr, hasCustomImage, handleImageUpload,
-                    handleLogin, registerAccount, goToLogin, goToRegister, logout, selectTrip, deleteTrip, updateTripData, updateSharedTripData, updatePrivateTripData, inviteUserToTrip, isTripOwner, getTripRoleText, addSpot, deleteSpot, addMenuLink, deleteMenuLink, addTodo, deleteTodo, addLuggage, deleteLuggage, addExpense, deleteExpense, addShopItem, deleteShopItem, changeTheme
+                    handleLogin, registerAccount, goToLogin, goToRegister, logout, selectTrip, deleteTrip, updateTripData, updateSharedTripData, updatePrivateTripData, inviteUserToTrip, removeTripModalMember, isTripOwner, getTripRoleText, addSpot, deleteSpot, addMenuLink, deleteMenuLink, addTodo, deleteTodo, addLuggage, deleteLuggage, addExpense, deleteExpense, addShopItem, deleteShopItem, changeTheme
                 };
             }
         }).mount('#app');
