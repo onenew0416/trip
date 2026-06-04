@@ -14,24 +14,76 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     
     <style>
-        body { font-family: 'Noto Sans TC', sans-serif; background-color: #f7f6f3; color: #4a4a4a; }
+        :root {
+            --app-primary: #6b705c;
+            --app-primary-rgb: 107, 112, 92;
+            --app-page-bg: #f7f6f3;
+            --app-surface: #ffffff;
+            --app-surface-soft: #fcfbf9;
+            --app-border: #e6e4dc;
+            --app-text: #4a4a4a;
+        }
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: var(--app-page-bg);
+            color: var(--app-text);
+            transition: background-color .2s ease, color .2s ease;
+        }
+        body.travel-dark-theme {
+            --app-page-bg: #111827;
+            --app-surface: #1f2937;
+            --app-surface-soft: #111827;
+            --app-border: #374151;
+            --app-text: #e5e7eb;
+        }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #f1f0ea; }
         ::-webkit-scrollbar-thumb { background: #dad7cd; border-radius: 3px; }
         
         /* 動態主色系專用實色與文字注入 */
         .bg-primary { background-color: var(--app-primary) !important; }
+        .bg-primary\/10 { background-color: rgba(var(--app-primary-rgb), 0.12) !important; }
         .text-primary { color: var(--app-primary) !important; }
         .border-primary { border-color: var(--app-primary) !important; }
-        .focus-border-primary:focus { border-color: var(--app-primary) !important; }
+        .focus-border-primary:focus { border-color: var(--app-primary) !important; box-shadow: 0 0 0 3px rgba(var(--app-primary-rgb), 0.14) !important; }
+        .hover\:text-primary:hover { color: var(--app-primary) !important; }
+        .group:hover .group-hover\:text-primary { color: var(--app-primary) !important; }
 
-        /* 分頁選取狀態：以主題色描邊，但文字維持黑色，避免選取狀態不明顯 */
+        /* 主題面板：讓按鈕點擊後有明顯彈層與目前狀態 */
+        .theme-trigger-active {
+            color: #111827 !important;
+            border-color: rgba(var(--app-primary-rgb), 0.55) !important;
+            background: rgba(var(--app-primary-rgb), 0.12) !important;
+            box-shadow: 0 8px 18px rgba(var(--app-primary-rgb), 0.16) !important;
+        }
+        .theme-panel-card {
+            background: var(--app-surface) !important;
+            border-color: var(--app-border) !important;
+        }
+        .theme-color-active {
+            border-color: #111827 !important;
+            transform: scale(1.14) !important;
+            box-shadow: 0 0 0 3px rgba(var(--app-primary-rgb), 0.22), 0 8px 18px rgba(17, 24, 39, 0.16) !important;
+        }
+
+        /* 行程分頁選取狀態：黑字 + 主題色外框 + 底線，手機上也更明顯 */
         .itinerary-tab-active {
-            background: #ffffff !important;
+            position: relative !important;
+            background: linear-gradient(180deg, rgba(var(--app-primary-rgb), 0.18) 0%, #ffffff 58%) !important;
             color: #111827 !important;
             border: 2px solid var(--app-primary) !important;
-            box-shadow: inset 0 4px 0 var(--app-primary), 0 8px 18px rgba(17, 24, 39, 0.08) !important;
-            transform: none !important;
+            box-shadow: 0 0 0 2px rgba(var(--app-primary-rgb), 0.20), 0 10px 22px rgba(17, 24, 39, 0.10) !important;
+            transform: translateY(-1px) !important;
+        }
+        .itinerary-tab-active::after {
+            content: '';
+            position: absolute;
+            left: 12px;
+            right: 12px;
+            bottom: 5px;
+            height: 3px;
+            border-radius: 999px;
+            background: var(--app-primary);
         }
         .itinerary-tab-active * { color: #111827 !important; }
         .itinerary-tab-active .day-badge {
@@ -44,7 +96,37 @@
             color: #525252 !important;
             border-color: #e6e4dc !important;
         }
-        .itinerary-tab-idle:hover { background: #f7f6f3 !important; }
+        .itinerary-tab-idle:hover {
+            background: rgba(var(--app-primary-rgb), 0.08) !important;
+            border-color: rgba(var(--app-primary-rgb), 0.35) !important;
+            color: #111827 !important;
+        }
+
+        /* 底部主分頁選取狀態加強 */
+        .main-tab-active {
+            position: relative !important;
+            color: #111827 !important;
+            font-weight: 800 !important;
+            background: rgba(var(--app-primary-rgb), 0.15) !important;
+            box-shadow: inset 0 0 0 1px rgba(var(--app-primary-rgb), 0.30) !important;
+        }
+        .main-tab-active::before {
+            content: '';
+            position: absolute;
+            top: 7px;
+            left: 50%;
+            width: 28px;
+            height: 3px;
+            border-radius: 999px;
+            transform: translateX(-50%);
+            background: var(--app-primary);
+        }
+        .main-tab-active i { color: var(--app-primary) !important; }
+        .main-tab-idle { color: #94a3b8 !important; }
+        .main-tab-idle:hover {
+            color: #111827 !important;
+            background: rgba(var(--app-primary-rgb), 0.08) !important;
+        }
 
         /* 基礎深色主題覆蓋 */
         #app.dark-theme {
@@ -85,7 +167,7 @@
         #app.dark-theme input::placeholder,
         #app.dark-theme textarea::placeholder { color: #6b7280 !important; }
         #app.dark-theme .itinerary-tab-active {
-            background: #f9fafb !important;
+            background: linear-gradient(180deg, rgba(var(--app-primary-rgb), 0.32) 0%, #f9fafb 64%) !important;
             color: #111827 !important;
         }
         #app.dark-theme .itinerary-tab-active * { color: #111827 !important; }
@@ -95,6 +177,14 @@
             color: #d1d5db !important;
             border-color: #374151 !important;
         }
+        #app.dark-theme .main-tab-active {
+            background: rgba(var(--app-primary-rgb), 0.26) !important;
+            color: #ffffff !important;
+        }
+        #app.dark-theme .main-tab-active span { color: #ffffff !important; }
+        #app.dark-theme .main-tab-idle:hover { color: #ffffff !important; }
+        #app.dark-theme .theme-trigger-active { color: #ffffff !important; }
+        #app.dark-theme .theme-color-active { border-color: #ffffff !important; }
 
     </style>
 </head>
@@ -187,28 +277,28 @@
                     
                     <div class="flex items-center gap-3">
                         <div class="relative">
-                            <button @click="showThemePanel = !showThemePanel" type="button" class="text-xs text-neutral-500 hover:text-neutral-800 transition-colors inline-flex items-center gap-1.5 border border-[#e6e4dc] bg-white px-2.5 py-1.5 rounded-xl shadow-sm">
+                            <button @click.stop="toggleThemePanel" type="button" :class="['text-xs text-neutral-500 hover:text-neutral-800 transition-colors inline-flex items-center gap-1.5 border border-[#e6e4dc] bg-white px-2.5 py-1.5 rounded-xl shadow-sm', showThemePanel ? 'theme-trigger-active' : '']">
                                 <i class="fa-solid fa-palette"></i>
                                 <span class="hidden sm:inline">主題</span>
                             </button>
-                            <div v-if="showThemePanel" @click.self="showThemePanel = false" class="fixed inset-0 z-[55] bg-transparent">
-                                <div @click.stop class="absolute right-4 top-16 w-72 bg-white border border-[#e6e4dc] rounded-2xl shadow-xl p-4 space-y-4">
+                            <div v-if="showThemePanel" @click.self="showThemePanel = false" class="fixed inset-0 z-[90] bg-black/5">
+                                <div @click.stop class="fixed right-4 top-16 w-72 theme-panel-card border rounded-2xl shadow-xl p-4 space-y-4">
                                     <div class="flex items-center justify-between border-b border-neutral-100 pb-2">
                                         <p class="text-xs font-bold text-neutral-700"><i class="fa-solid fa-wand-magic-sparkles text-neutral-400 mr-1"></i> 外觀主題</p>
                                         <button @click="showThemePanel = false" type="button" class="text-neutral-300 hover:text-neutral-600 text-xs"><i class="fa-solid fa-xmark"></i></button>
                                     </div>
                                     <div class="grid grid-cols-2 gap-2">
-                                        <button @click="setThemeMode('light')" type="button" :class="['text-xs px-3 py-2 rounded-xl border transition-colors', themeMode === 'light' ? 'bg-neutral-900 text-white border-neutral-900' : 'bg-white text-neutral-500 border-[#e6e4dc] hover:bg-neutral-50']">
+                                        <button @click.stop="setThemeMode('light')" type="button" :class="['text-xs px-3 py-2 rounded-xl border transition-colors', themeMode === 'light' ? 'bg-neutral-900 text-white border-neutral-900 font-bold' : 'bg-white text-neutral-500 border-[#e6e4dc] hover:bg-neutral-50']">
                                             <i class="fa-solid fa-sun mr-1"></i> 淺色
                                         </button>
-                                        <button @click="setThemeMode('dark')" type="button" :class="['text-xs px-3 py-2 rounded-xl border transition-colors', themeMode === 'dark' ? 'bg-neutral-900 text-white border-neutral-900' : 'bg-white text-neutral-500 border-[#e6e4dc] hover:bg-neutral-50']">
+                                        <button @click.stop="setThemeMode('dark')" type="button" :class="['text-xs px-3 py-2 rounded-xl border transition-colors', themeMode === 'dark' ? 'bg-neutral-900 text-white border-neutral-900 font-bold' : 'bg-white text-neutral-500 border-[#e6e4dc] hover:bg-neutral-50']">
                                             <i class="fa-solid fa-moon mr-1"></i> 深色
                                         </button>
                                     </div>
                                     <div>
                                         <p class="text-[10px] font-bold text-neutral-400 tracking-widest mb-2 uppercase">主題色</p>
                                         <div class="grid grid-cols-6 gap-2">
-                                            <button v-for="color in themeColorOptions" :key="color.value" @click="changeTheme(color.value)" type="button" :title="color.name" :class="['w-8 h-8 rounded-full border-2 transition-transform', activeThemeColor === color.value ? 'border-neutral-900 scale-110 shadow-md' : 'border-white shadow-sm hover:scale-105']" :style="{ backgroundColor: color.value }">
+                                            <button v-for="color in themeColorOptions" :key="color.value" @click.stop="changeTheme(color.value)" type="button" :title="color.name" :class="['w-8 h-8 rounded-full border-2 transition-transform', activeThemeColor === color.value ? 'theme-color-active' : 'border-white shadow-sm hover:scale-105']" :style="{ backgroundColor: color.value }">
                                                 <span class="sr-only">{{ color.name }}</span>
                                             </button>
                                         </div>
@@ -704,15 +794,15 @@
 
             <div v-if="currentTrip" class="fixed left-3 right-3 md:left-0 md:right-0 z-50 bg-white/95 backdrop-blur border border-[#e6e4dc] md:border-x-0 md:border-b-0 rounded-2xl md:rounded-none shadow-[0_-8px_24px_rgba(0,0,0,0.08)]" style="bottom: calc(env(safe-area-inset-bottom) + 12px);">
                 <div class="max-w-6xl mx-auto grid grid-cols-3 h-16">
-                    <button @click="switchMainTab('itinerary')" type="button" :class="['flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors', activeMainTab === 'itinerary' ? 'text-neutral-900 font-bold' : 'text-slate-400 hover:text-neutral-600']">
+                    <button @click="switchMainTab('itinerary')" type="button" :class="['flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-all rounded-2xl mx-1 my-2', activeMainTab === 'itinerary' ? 'main-tab-active' : 'main-tab-idle']">
                         <i class="fa-solid fa-map text-lg"></i>
                         <span>行程</span>
                     </button>
-                    <button @click="switchMainTab('accounting')" type="button" :class="['flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors', activeMainTab === 'accounting' ? 'text-neutral-900 font-bold' : 'text-slate-400 hover:text-neutral-600']">
+                    <button @click="switchMainTab('accounting')" type="button" :class="['flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-all rounded-2xl mx-1 my-2', activeMainTab === 'accounting' ? 'main-tab-active' : 'main-tab-idle']">
                         <i class="fa-solid fa-wallet text-lg"></i>
                         <span>記帳</span>
                     </button>
-                    <button @click="switchMainTab('shopping')" type="button" :class="['flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors', activeMainTab === 'shopping' ? 'text-neutral-900 font-bold' : 'text-slate-400 hover:text-neutral-600']">
+                    <button @click="switchMainTab('shopping')" type="button" :class="['flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-all rounded-2xl mx-1 my-2', activeMainTab === 'shopping' ? 'main-tab-active' : 'main-tab-idle']">
                         <i class="fa-solid fa-bag-shopping text-lg"></i>
                         <span>購物</span>
                     </button>
@@ -1031,8 +1121,12 @@
                 
                 const activeMainTab = ref('itinerary'); 
                 const activeDayTab = ref('menu');       
-                const activeThemeColor = ref(localStorage.getItem('travel_theme_color') || '#6b705c');
-                const themeMode = ref(localStorage.getItem('travel_theme_mode') || 'light');
+                const getSavedSetting = (key, fallback) => {
+                    try { return localStorage.getItem(key) || fallback; }
+                    catch (e) { return fallback; }
+                };
+                const activeThemeColor = ref(getSavedSetting('travel_theme_color', '#6b705c'));
+                const themeMode = ref(getSavedSetting('travel_theme_mode', 'light') === 'dark' ? 'dark' : 'light');
                 const showThemePanel = ref(false);
                 const themeColorOptions = [
                     { name: '鼠尾草綠', value: '#6b705c' },
@@ -1044,6 +1138,24 @@
                     { name: '日落橘', value: '#d9845f' },
                     { name: '石墨黑', value: '#4b5563' }
                 ];  
+                const hexToRgbText = (hex) => {
+                    const cleaned = String(hex || '#6b705c').replace('#', '').trim();
+                    const normalized = cleaned.length === 3
+                        ? cleaned.split('').map(ch => ch + ch).join('')
+                        : cleaned.padEnd(6, '0').slice(0, 6);
+                    const num = parseInt(normalized, 16);
+                    if (!Number.isFinite(num)) return '107, 112, 92';
+                    return `${(num >> 16) & 255}, ${(num >> 8) & 255}, ${num & 255}`;
+                };
+                const applyThemeToDocument = () => {
+                    const rgb = hexToRgbText(activeThemeColor.value);
+                    document.documentElement.style.setProperty('--app-primary', activeThemeColor.value);
+                    document.documentElement.style.setProperty('--app-primary-rgb', rgb);
+                    document.body.classList.toggle('travel-dark-theme', themeMode.value === 'dark');
+                };
+                const toggleThemePanel = () => {
+                    showThemePanel.value = !showThemePanel.value;
+                };
                 const weather = ref({ city: '偵測中', temp: '--°C', desc: '天氣預報', icon: 'fa-solid fa-feather' });
                 const weatherForecast = ref([]);
                 const weatherLoading = ref(false);
@@ -1100,6 +1212,7 @@
 
                 const themeStyles = computed(() => ({
                     '--app-primary': activeThemeColor.value,
+                    '--app-primary-rgb': hexToRgbText(activeThemeColor.value),
                     '--primary-color': activeThemeColor.value,
                     colorScheme: themeMode.value === 'dark' ? 'dark' : 'light'
                 }));
@@ -1910,6 +2023,7 @@
                 };
 
                 onMounted(() => {
+                    applyThemeToDocument();
                     window.addEventListener('hashchange', () => {
                         const nextPage = window.location.hash === '#register' ? 'register' : 'login';
                         if (nextPage !== authPage.value) {
@@ -2438,15 +2552,17 @@
                 const setThemeMode = (mode) => {
                     themeMode.value = mode === 'dark' ? 'dark' : 'light';
                     try { localStorage.setItem('travel_theme_mode', themeMode.value); } catch (e) {}
+                    applyThemeToDocument();
                 };
 
                 const changeTheme = (color) => {
                     activeThemeColor.value = color;
                     try { localStorage.setItem('travel_theme_color', color); } catch (e) {}
+                    applyThemeToDocument();
                 };
 
                 return {
-                    user, authForm, registerForm, authPage, authMessage, trips, currentTrip, activeMainTab, activeDayTab, themeMode, showThemePanel, themeColorOptions, weather, weatherForecast, weatherLoading, weatherError, weatherCity, showWeatherModal, showSpotModal, showExpenseModal, showShopModal, imagePreviewUrl, isKeyMissing, themeStyles, activeThemeColor, shareForm, shareMessage,
+                    user, authForm, registerForm, authPage, authMessage, trips, currentTrip, activeMainTab, activeDayTab, themeMode, showThemePanel, toggleThemePanel, themeColorOptions, weather, weatherForecast, weatherLoading, weatherError, weatherCity, showWeatherModal, showSpotModal, showExpenseModal, showShopModal, imagePreviewUrl, isKeyMissing, themeStyles, activeThemeColor, shareForm, shareMessage,
                     showTripModal, isEditingTripMode, tripModalForm, openAddTripModal, openEditTripModal, saveTripModalAction,
                     expenseSections, getFilteredExpenses, sumByCurrency, getCurrencySymbol, sumExpensesInTwd, formatTwdAmount, getExchangeRateSummary,
                     editingMenuLinkIndex, editMenuLinkData, startMenuLinkEdit, saveMenuLinkEdit,
