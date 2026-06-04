@@ -1220,7 +1220,9 @@
                     const sections = [{ key: 'pre', label: '🛫 行前準備' }];
                     if (currentTrip.value) {
                         for (let i = 1; i <= currentTrip.value.days; i++) {
-                            sections.push({ key: 'day' + i, label: `📍 Day ${i} 當日消費開支` });
+                            const dayDate = getTripDateStrByDay(currentTrip.value, i);
+                            const dayDateText = dayDate ? formatDateWithWeek(dayDate) : '未設定日期';
+                            sections.push({ key: 'day' + i, label: `📍 Day ${i} ${dayDateText}` });
                         }
                     }
                     return sections;
