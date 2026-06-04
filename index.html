@@ -980,11 +980,11 @@
                         <div class="grid grid-cols-2 gap-2">
                             <div>
                                 <label class="text-[11px] font-bold text-neutral-400 block mb-1">📅 出發日期</label>
-                                <input v-model="tripModalForm.startDate" type="date" class="w-full border border-[#e6e4dc] rounded-xl p-2.5 text-xs focus:outline-none">
+                                <input v-model="tripModalForm.startDate" @change="handleTripStartDateChange" type="date" class="w-full border border-[#e6e4dc] rounded-xl p-2.5 text-xs focus:outline-none">
                             </div>
                             <div>
                                 <label class="text-[11px] font-bold text-neutral-400 block mb-1">📅 回程日期</label>
-                                <input v-model="tripModalForm.endDate" type="date" class="w-full border border-[#e6e4dc] rounded-xl p-2.5 text-xs focus:outline-none">
+                                <input v-model="tripModalForm.endDate" @change="handleTripEndDateChange" :min="getMinimumReturnDate(tripModalForm.startDate)" type="date" class="w-full border border-[#e6e4dc] rounded-xl p-2.5 text-xs focus:outline-none">
                             </div>
                         </div>
                         <p class="text-[10px] text-neutral-400">系統會依出發日期與回程日期自動產生 Day 分頁。</p>
@@ -1349,6 +1349,19 @@
                     return formatLocalDate(start);
                 };
 
+                const getMinimumReturnDate = (startDateStr) => {
+                    const start = parseLocalDate(startDateStr);
+                    if (!start) return '';
+                    start.setDate(start.getDate() + 1);
+                    return formatLocalDate(start);
+                };
+
+                const isReturnDateAfterStartDate = (startDateStr, endDateStr) => {
+                    const start = parseLocalDate(startDateStr);
+                    const end = parseLocalDate(endDateStr);
+                    return !!start && !!end && end > start;
+                };
+
                 const getTripDaysFromDates = (startDateStr, endDateStr) => {
                     const start = parseLocalDate(startDateStr);
                     const end = parseLocalDate(endDateStr);
@@ -1370,12 +1383,15 @@
                     const startDate = trip.startDate || '';
                     const legacyDays = Math.max(1, Number(trip.days || 1));
                     const fallbackEndDate = startDate ? getTripEndDateFromStartDays(startDate, legacyDays) : '';
-                    const endDate = trip.endDate || fallbackEndDate;
+                    const rawEndDate = trip.endDate || fallbackEndDate;
+                    const endDate = startDate && (!rawEndDate || !isReturnDateAfterStartDate(startDate, rawEndDate))
+                        ? getMinimumReturnDate(startDate)
+                        : rawEndDate;
                     const calculatedDays = getTripDaysFromDates(startDate, endDate);
                     return {
                         startDate,
                         endDate,
-                        days: calculatedDays > 0 ? calculatedDays : legacyDays
+                        days: calculatedDays > 0 ? calculatedDays : Math.max(2, legacyDays)
                     };
                 };
 
@@ -2043,6 +2059,26 @@
                     clearShareMessage();
                 };
 
+                const syncTripReturnDateAfterStart = () => {
+                    const minEndDate = getMinimumReturnDate(tripModalForm.value.startDate);
+                    if (!minEndDate) return;
+                    if (!tripModalForm.value.endDate || !isReturnDateAfterStartDate(tripModalForm.value.startDate, tripModalForm.value.endDate)) {
+                        tripModalForm.value.endDate = minEndDate;
+                    }
+                };
+
+                const handleTripStartDateChange = () => {
+                    syncTripReturnDateAfterStart();
+                };
+
+                const handleTripEndDateChange = () => {
+                    if (!tripModalForm.value.startDate || !tripModalForm.value.endDate) return;
+                    if (!isReturnDateAfterStartDate(tripModalForm.value.startDate, tripModalForm.value.endDate)) {
+                        tripModalForm.value.endDate = getMinimumReturnDate(tripModalForm.value.startDate);
+                        showShareMessage('error', '回程日期必須晚於出發日期。');
+                    }
+                };
+
                 const openAddTripModal = () => {
                     isEditingTripMode.value = false;
                     editingTripId.value = null;
@@ -2092,8 +2128,8 @@
                         showShareMessage('error', '請選擇出發日期與回程日期。');
                         return;
                     }
-                    if (days <= 0) {
-                        showShareMessage('error', '回程日期不能早於出發日期。');
+                    if (!isReturnDateAfterStartDate(startDate, endDate)) {
+                        showShareMessage('error', '回程日期必須晚於出發日期。');
                         return;
                     }
                     if (days > 31) {
@@ -2581,7 +2617,7 @@
 
                 return {
                     user, authForm, registerForm, authPage, authMessage, trips, currentTrip, activeMainTab, activeDayTab, weather, weatherForecast, weatherLoading, weatherError, weatherCity, showWeatherModal, showSpotModal, showExpenseModal, showShopModal, imagePreviewUrl, isKeyMissing, shareForm, shareMessage,
-                    showTripModal, isEditingTripMode, tripModalForm, openAddTripModal, openEditTripModal, saveTripModalAction,
+                    showTripModal, isEditingTripMode, tripModalForm, getMinimumReturnDate, handleTripStartDateChange, handleTripEndDateChange, openAddTripModal, openEditTripModal, saveTripModalAction,
                     expenseSections, getFilteredExpenses, sumByCurrency, getCurrencySymbol, sumExpensesInTwd, formatTwdAmount, getExchangeRateSummary,
                     editingMenuLinkIndex, editMenuLinkData, startMenuLinkEdit, saveMenuLinkEdit,
                     editingTodoId, editTodoTextData, startTodoEdit, saveTodoEdit, toggleTodoDone,
