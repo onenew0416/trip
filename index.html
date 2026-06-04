@@ -2377,30 +2377,56 @@
                             }
                         };
 
+                        const currentUserCanAccessTrip = (trip = {}) => {
+                            const username = user.value.username || user.value.email || '';
+                            const userKey = user.value.usernameKey || getUsernameKey(username);
+                            const userAuthEmail = user.value.authEmail || getUsernameAuthEmail(username);
+                            const usernameAliases = Array.from(new Set([username, userKey].filter(Boolean)));
+                            const memberUsernames = Array.isArray(trip.memberUsernames) ? trip.memberUsernames : [];
+                            const memberUsernameKeys = Array.isArray(trip.memberUsernameKeys) ? trip.memberUsernameKeys : [];
+                            const memberAuthEmails = Array.isArray(trip.memberAuthEmails) ? trip.memberAuthEmails : [];
+                            const memberUids = Array.isArray(trip.memberUids) ? trip.memberUids : [];
+                            return trip.ownerUid === user.value.uid
+                                || memberUids.includes(user.value.uid)
+                                || usernameAliases.some(alias => memberUsernames.includes(alias))
+                                || memberUsernames.map(getUsernameKey).includes(userKey)
+                                || memberUsernameKeys.includes(userKey)
+                                || memberAuthEmails.includes(userAuthEmail);
+                        };
+
+                        const addSnapshotDocs = async (snapshot) => {
+                            snapshot.docs.forEach(doc => {
+                                const data = { id: doc.id, ...doc.data() };
+                                if (currentUserCanAccessTrip(data)) sharedTripMap.set(doc.id, data);
+                            });
+                            await refreshTripList();
+                        };
+
                         const unsubscribers = [];
                         const queryConfigs = [
-                            ['memberUids', user.value.uid],
-                            ['memberUsernames', user.value.username || user.value.email],
-                            ['memberUsernames', getUsernameKey(user.value.username || user.value.email)],
-                            ['memberUsernameKeys', user.value.usernameKey || getUsernameKey(user.value.username || user.value.email)],
-                            ['memberAuthEmails', user.value.authEmail || getUsernameAuthEmail(user.value.username || user.value.email)]
+                            ['ownerUid', user.value.uid, '=='],
+                            ['memberUids', user.value.uid, 'array-contains'],
+                            ['memberUsernames', user.value.username || user.value.email, 'array-contains'],
+                            ['memberUsernames', getUsernameKey(user.value.username || user.value.email), 'array-contains'],
+                            ['memberUsernameKeys', user.value.usernameKey || getUsernameKey(user.value.username || user.value.email), 'array-contains'],
+                            ['memberAuthEmails', user.value.authEmail || getUsernameAuthEmail(user.value.username || user.value.email), 'array-contains']
                         ].filter(([, value]) => !!value);
 
-                        queryConfigs.forEach(([field, value]) => {
+                        queryConfigs.forEach(([field, value, op]) => {
                             try {
                                 const unsubscribe = db.collection('trips')
-                                    .where(field, 'array-contains', value)
-                                    .onSnapshot(async (snapshot) => {
-                                        snapshot.docs.forEach(doc => {
-                                            sharedTripMap.set(doc.id, { id: doc.id, ...doc.data() });
-                                        });
-                                        await refreshTripList();
-                                    }, err => console.warn(`Trips listener by ${field} skipped:`, err));
+                                    .where(field, op, value)
+                                    .onSnapshot(addSnapshotDocs, err => console.warn(`Trips listener by ${field} skipped:`, err));
                                 unsubscribers.push(unsubscribe);
                             } catch (e) {
                                 console.warn(`Create trips listener by ${field} skipped:`, e);
                             }
                         });
+
+                        // 保險 fallback：有些 Firestore rules / indexes 不允許 array-contains 查詢，
+                        // 但允許讀取自己可見的 trips。此時直接讀取後前端比對共編欄位，避免共編成員看不到旅程。
+                        db.collection('trips').get().then(addSnapshotDocs).catch(e => console.warn('Trips collection fallback scan skipped:', e));
+
                         tripsUnsubscribe = () => unsubscribers.forEach(unsub => { try { unsub(); } catch (e) {} });
                     } else {
                         const userKey = user.value.usernameKey || getUsernameKey(user.value.username || user.value.email);
@@ -2556,6 +2582,7 @@
                     // Firestore rules 常會限制不能替其他使用者寫入 memberUids。
                     // memberUids 僅保留旅程擁有者與目前登入者；其他共編成員改用 usernameKey/authEmail 陣列辨識。
                     const memberUids = Array.from(new Set([
+                        ...(Array.isArray(tripModalForm.value.memberUids) ? tripModalForm.value.memberUids : []),
                         tripModalForm.value.ownerUid || user.value.uid,
                         user.value.uid
                     ].filter(Boolean)));
@@ -2606,10 +2633,11 @@
                                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                             });
                             tripRef.update({
+                                memberUids,
                                 memberUsernameKeys,
                                 memberAuthEmails,
                                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                            }).catch(e => console.warn('Optional username key fields update skipped:', e));
+                            }).catch(e => console.warn('Optional member uid/key fields update skipped:', e));
                         } else {
                             const list = getLocalSharedTrips();
                             const target = list.find(t => t.id === editingTripId.value);
@@ -2665,10 +2693,11 @@
                                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                             });
                             tripRef.update({
+                                memberUids,
                                 memberUsernameKeys,
                                 memberAuthEmails,
                                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                            }).catch(e => console.warn('Optional username key fields update skipped:', e));
+                            }).catch(e => console.warn('Optional member uid/key fields update skipped:', e));
                             await db.collection('users').doc(user.value.uid).collection('tripPrivate').doc(id).set({
                                 ...privateTripDefaults(),
                                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -2808,14 +2837,14 @@
                         const nextUsername = invitee?.username || username;
                         const nextUsernameKey = invitee?.usernameKey || usernameKey;
                         const nextAuthEmail = invitee?.authEmail || authEmail;
+                        const nextUid = invitee?.uid || '';
 
-                        // 注意：不要把被邀請者 uid 直接寫入 memberUids。
-                        // 多數 Firestore rules 會限制 memberUids 只能由本人或擁有者維護，
-                        // 直接加入其他人的 uid 容易在儲存旅程時觸發 Missing or insufficient permissions。
-                        // 共編讀取改以 memberUsernameKeys / memberAuthEmails 判斷，顯示仍保留原大小寫名稱。
+                        // 同時保留三種辨識方式：顯示名稱、小寫查找 key、Auth Email。
+                        // 如果能查到 uid，也會放入 memberUids；若 Firestore rules 不允許更新 memberUids，儲存時會自動降級，不讓整筆儲存失敗。
                         tripModalForm.value.memberUsernames = Array.from(new Set([...(tripModalForm.value.memberUsernames || []), nextUsername]));
                         tripModalForm.value.memberUsernameKeys = Array.from(new Set([...(tripModalForm.value.memberUsernameKeys || []), nextUsernameKey]));
                         tripModalForm.value.memberAuthEmails = Array.from(new Set([...(tripModalForm.value.memberAuthEmails || []), nextAuthEmail]));
+                        if (nextUid) tripModalForm.value.memberUids = Array.from(new Set([...(tripModalForm.value.memberUids || []), nextUid]));
                         showShareMessage('success', '已加入共編清單，按「確認儲存」後生效。');
                         shareForm.value = { username: '' };
                     } catch (err) {
