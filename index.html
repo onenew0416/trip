@@ -24,11 +24,83 @@
         .text-primary { color: var(--app-primary) !important; }
         .border-primary { border-color: var(--app-primary) !important; }
         .focus-border-primary:focus { border-color: var(--app-primary) !important; }
+
+        /* 分頁選取狀態：以主題色描邊，但文字維持黑色，避免選取狀態不明顯 */
+        .itinerary-tab-active {
+            background: #ffffff !important;
+            color: #111827 !important;
+            border: 2px solid var(--app-primary) !important;
+            box-shadow: inset 0 4px 0 var(--app-primary), 0 8px 18px rgba(17, 24, 39, 0.08) !important;
+            transform: none !important;
+        }
+        .itinerary-tab-active * { color: #111827 !important; }
+        .itinerary-tab-active .day-badge {
+            background: #111827 !important;
+            border-color: #111827 !important;
+            color: #ffffff !important;
+        }
+        .itinerary-tab-idle {
+            background: #ffffff !important;
+            color: #525252 !important;
+            border-color: #e6e4dc !important;
+        }
+        .itinerary-tab-idle:hover { background: #f7f6f3 !important; }
+
+        /* 基礎深色主題覆蓋 */
+        #app.dark-theme {
+            background-color: #111827 !important;
+            color: #e5e7eb !important;
+        }
+        #app.dark-theme .bg-white,
+        #app.dark-theme [class*="bg-[#fcfbf9]"],
+        #app.dark-theme [class*="bg-[#f7f6f3]"],
+        #app.dark-theme .bg-neutral-50,
+        #app.dark-theme .bg-neutral-100 {
+            background-color: #1f2937 !important;
+        }
+        #app.dark-theme [class*="border-[#e6e4dc]"],
+        #app.dark-theme .border-neutral-100,
+        #app.dark-theme .border-neutral-200,
+        #app.dark-theme .border-neutral-300 {
+            border-color: #374151 !important;
+        }
+        #app.dark-theme .text-neutral-900,
+        #app.dark-theme .text-neutral-800,
+        #app.dark-theme .text-neutral-700,
+        #app.dark-theme .text-neutral-600,
+        #app.dark-theme .text-neutral-500 {
+            color: #e5e7eb !important;
+        }
+        #app.dark-theme .text-neutral-400,
+        #app.dark-theme .text-slate-400 {
+            color: #9ca3af !important;
+        }
+        #app.dark-theme input,
+        #app.dark-theme select,
+        #app.dark-theme textarea {
+            background-color: #111827 !important;
+            border-color: #374151 !important;
+            color: #e5e7eb !important;
+        }
+        #app.dark-theme input::placeholder,
+        #app.dark-theme textarea::placeholder { color: #6b7280 !important; }
+        #app.dark-theme .itinerary-tab-active {
+            background: #f9fafb !important;
+            color: #111827 !important;
+        }
+        #app.dark-theme .itinerary-tab-active * { color: #111827 !important; }
+        #app.dark-theme .itinerary-tab-active .day-badge { color: #ffffff !important; }
+        #app.dark-theme .itinerary-tab-idle {
+            background: #1f2937 !important;
+            color: #d1d5db !important;
+            border-color: #374151 !important;
+        }
+
     </style>
 </head>
 <body>
 
-    <div id="app" :style="themeStyles" class="min-h-screen flex flex-col">
+    <div id="app" :style="themeStyles" :class="['min-h-screen flex flex-col', themeMode === 'dark' ? 'dark-theme' : 'light-theme']">
         
         <div v-if="!user" class="flex-1 flex items-center justify-center p-4">
             <div class="bg-white border border-[#e6e4dc] p-8 rounded-2xl w-full max-w-md shadow-sm">
@@ -113,8 +185,38 @@
                         <span class="text-lg font-medium tracking-wide text-neutral-700">旅遊手冊網站</span>
                     </div>
                     
-                    <div class="flex items-center gap-4">
-                        <span class="text-xs text-neutral-500"><i class="fa-regular fa-user mr-1"></i> {{ user.username || user.email }}</span>
+                    <div class="flex items-center gap-3">
+                        <div class="relative">
+                            <button @click="showThemePanel = !showThemePanel" type="button" class="text-xs text-neutral-500 hover:text-neutral-800 transition-colors inline-flex items-center gap-1.5 border border-[#e6e4dc] bg-white px-2.5 py-1.5 rounded-xl shadow-sm">
+                                <i class="fa-solid fa-palette"></i>
+                                <span class="hidden sm:inline">主題</span>
+                            </button>
+                            <div v-if="showThemePanel" @click.self="showThemePanel = false" class="fixed inset-0 z-[55] bg-transparent">
+                                <div @click.stop class="absolute right-4 top-16 w-72 bg-white border border-[#e6e4dc] rounded-2xl shadow-xl p-4 space-y-4">
+                                    <div class="flex items-center justify-between border-b border-neutral-100 pb-2">
+                                        <p class="text-xs font-bold text-neutral-700"><i class="fa-solid fa-wand-magic-sparkles text-neutral-400 mr-1"></i> 外觀主題</p>
+                                        <button @click="showThemePanel = false" type="button" class="text-neutral-300 hover:text-neutral-600 text-xs"><i class="fa-solid fa-xmark"></i></button>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <button @click="setThemeMode('light')" type="button" :class="['text-xs px-3 py-2 rounded-xl border transition-colors', themeMode === 'light' ? 'bg-neutral-900 text-white border-neutral-900' : 'bg-white text-neutral-500 border-[#e6e4dc] hover:bg-neutral-50']">
+                                            <i class="fa-solid fa-sun mr-1"></i> 淺色
+                                        </button>
+                                        <button @click="setThemeMode('dark')" type="button" :class="['text-xs px-3 py-2 rounded-xl border transition-colors', themeMode === 'dark' ? 'bg-neutral-900 text-white border-neutral-900' : 'bg-white text-neutral-500 border-[#e6e4dc] hover:bg-neutral-50']">
+                                            <i class="fa-solid fa-moon mr-1"></i> 深色
+                                        </button>
+                                    </div>
+                                    <div>
+                                        <p class="text-[10px] font-bold text-neutral-400 tracking-widest mb-2 uppercase">主題色</p>
+                                        <div class="grid grid-cols-6 gap-2">
+                                            <button v-for="color in themeColorOptions" :key="color.value" @click="changeTheme(color.value)" type="button" :title="color.name" :class="['w-8 h-8 rounded-full border-2 transition-transform', activeThemeColor === color.value ? 'border-neutral-900 scale-110 shadow-md' : 'border-white shadow-sm hover:scale-105']" :style="{ backgroundColor: color.value }">
+                                                <span class="sr-only">{{ color.name }}</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <span class="text-xs text-neutral-500 hidden sm:inline"><i class="fa-regular fa-user mr-1"></i> {{ user.username || user.email }}</span>
                         <button @click="logout" class="text-xs text-neutral-400 hover:text-rose-500 transition-colors"><i class="fa-solid fa-arrow-right-from-bracket"></i></button>
                     </div>
                 </div>
@@ -185,7 +287,7 @@
                         <div v-if="isTripDayTabActive()" class="bg-[#fcfbf9] border border-[#e6e4dc] rounded-xl p-3 flex items-center gap-3 min-w-[210px]">
                             <i :class="getDayWeather(activeDayTab).icon" class="text-xl"></i>
                             <div>
-                                <p class="text-[10px] text-neutral-400 font-medium">Day {{ activeDayTab }} 當天天氣</p>
+                                <p class="text-[10px] text-neutral-400 font-medium">Day {{ activeDayTab }} 天氣</p>
                                 <p class="text-xs font-medium text-neutral-600">
                                     {{ getDayWeather(activeDayTab).desc }}｜{{ getDayWeather(activeDayTab).tempText }}｜降雨 {{ getDayWeather(activeDayTab).rainText }}
                                 </p>
@@ -205,16 +307,16 @@
                         <p class="text-[10px] font-bold text-neutral-400 tracking-widest px-2 mb-2 uppercase">行程分頁導覽</p>
                         <div class="flex gap-2 overflow-x-auto pb-1">
                             <button @click="activeDayTab = 'menu'" 
-                                    :class="['shrink-0 min-w-[170px] text-left px-3 py-2.5 text-xs rounded-xl transition-all flex items-center justify-between border', activeDayTab === 'menu' ? 'bg-primary text-neutral-900 font-bold border-neutral-900 shadow-lg ring-2 ring-offset-2 ring-neutral-900 scale-[1.02]' : 'text-neutral-600 border-[#e6e4dc] hover:bg-[#f7f6f3]']">
+                                    :class="['shrink-0 min-w-[170px] text-left px-3 py-2.5 text-xs rounded-xl transition-all flex items-center justify-between border', activeDayTab === 'menu' ? 'itinerary-tab-active font-bold' : 'itinerary-tab-idle hover:bg-[#f7f6f3]']">
                                 <span>📂 行程目錄</span>
                             </button>
                             
                             <button v-for="dayNum in currentTrip.days" :key="dayNum"
                                     @click="activeDayTab = dayNum" 
-                                    :class="['shrink-0 min-w-[145px] text-left px-3 py-2.5 text-xs rounded-xl transition-all flex flex-col items-start gap-0.5 border', activeDayTab === dayNum ? 'bg-primary text-neutral-900 font-bold border-neutral-900 shadow-lg ring-2 ring-offset-2 ring-neutral-900 scale-[1.02]' : 'text-neutral-600 border-[#e6e4dc] hover:bg-[#f7f6f3]']">
+                                    :class="['shrink-0 min-w-[145px] text-left px-3 py-2.5 text-xs rounded-xl transition-all flex flex-col items-start gap-0.5 border', activeDayTab === dayNum ? 'itinerary-tab-active font-bold' : 'itinerary-tab-idle hover:bg-[#f7f6f3]']">
                                 <div class="w-full flex justify-between items-center gap-2">
                                     <span>📍 Day {{ dayNum }}</span>
-                                    <span :class="['text-[9px] px-1 rounded border', activeDayTab === dayNum ? 'bg-white border-neutral-900 text-neutral-900' : 'bg-white border-neutral-200 text-neutral-400']">D{{ dayNum }}</span>
+                                    <span :class="['text-[9px] px-1 rounded border', activeDayTab === dayNum ? 'day-badge' : 'bg-white border-neutral-200 text-neutral-400']">D{{ dayNum }}</span>
                                 </div>
                                 <span :class="['text-[10px] block font-normal', activeDayTab === dayNum ? 'text-neutral-700' : 'text-neutral-400']">
                                     {{ getCalculatedDateStr(currentTrip.startDate, dayNum) }}
@@ -347,7 +449,7 @@
                                 <div class="flex flex-col">
                                     <h3 class="font-medium text-neutral-700 text-base">✨ 第 {{ activeDayTab }} 天 行程</h3>
                                     <span class="text-xs text-neutral-400 mt-0.5">
-                                        🗓️ 當天日期：{{ getCalculatedDateStr(currentTrip.startDate, activeDayTab, true) }}
+                                        🗓️ {{ getCalculatedDateStr(currentTrip.startDate, activeDayTab, true) }}
                                     </span>
                                 </div>
                                 <button @click="openAddSpotModal" type="button" class="bg-neutral-700 hover:bg-neutral-800 text-white text-xs px-3 py-2 rounded-xl font-medium shadow-sm transition-colors flex items-center gap-1.5">
@@ -929,7 +1031,19 @@
                 
                 const activeMainTab = ref('itinerary'); 
                 const activeDayTab = ref('menu');       
-                const activeThemeColor = ref('#6b705c');  
+                const activeThemeColor = ref(localStorage.getItem('travel_theme_color') || '#6b705c');
+                const themeMode = ref(localStorage.getItem('travel_theme_mode') || 'light');
+                const showThemePanel = ref(false);
+                const themeColorOptions = [
+                    { name: '鼠尾草綠', value: '#6b705c' },
+                    { name: '霧藍', value: '#4f6f8f' },
+                    { name: '奶茶棕', value: '#b08968' },
+                    { name: '莓果粉', value: '#c06c84' },
+                    { name: '薰衣草紫', value: '#7e6ba8' },
+                    { name: '森林綠', value: '#3f6f5e' },
+                    { name: '日落橘', value: '#d9845f' },
+                    { name: '石墨黑', value: '#4b5563' }
+                ];  
                 const weather = ref({ city: '偵測中', temp: '--°C', desc: '天氣預報', icon: 'fa-solid fa-feather' });
                 const weatherForecast = ref([]);
                 const weatherLoading = ref(false);
@@ -986,7 +1100,8 @@
 
                 const themeStyles = computed(() => ({
                     '--app-primary': activeThemeColor.value,
-                    '--primary-color': activeThemeColor.value
+                    '--primary-color': activeThemeColor.value,
+                    colorScheme: themeMode.value === 'dark' ? 'dark' : 'light'
                 }));
 
                 // 智慧動態載入記帳區塊分組
@@ -2320,10 +2435,18 @@
                     currentTrip.value.shopping = currentTrip.value.shopping.filter(i => i.id !== id); updatePrivateTripData();
                 };
 
-                const changeTheme = (color) => { activeThemeColor.value = color; };
+                const setThemeMode = (mode) => {
+                    themeMode.value = mode === 'dark' ? 'dark' : 'light';
+                    try { localStorage.setItem('travel_theme_mode', themeMode.value); } catch (e) {}
+                };
+
+                const changeTheme = (color) => {
+                    activeThemeColor.value = color;
+                    try { localStorage.setItem('travel_theme_color', color); } catch (e) {}
+                };
 
                 return {
-                    user, authForm, registerForm, authPage, authMessage, trips, currentTrip, activeMainTab, activeDayTab, weather, weatherForecast, weatherLoading, weatherError, weatherCity, showWeatherModal, showSpotModal, showExpenseModal, showShopModal, imagePreviewUrl, isKeyMissing, themeStyles, activeThemeColor, shareForm, shareMessage,
+                    user, authForm, registerForm, authPage, authMessage, trips, currentTrip, activeMainTab, activeDayTab, themeMode, showThemePanel, themeColorOptions, weather, weatherForecast, weatherLoading, weatherError, weatherCity, showWeatherModal, showSpotModal, showExpenseModal, showShopModal, imagePreviewUrl, isKeyMissing, themeStyles, activeThemeColor, shareForm, shareMessage,
                     showTripModal, isEditingTripMode, tripModalForm, openAddTripModal, openEditTripModal, saveTripModalAction,
                     expenseSections, getFilteredExpenses, sumByCurrency, getCurrencySymbol, sumExpensesInTwd, formatTwdAmount, getExchangeRateSummary,
                     editingMenuLinkIndex, editMenuLinkData, startMenuLinkEdit, saveMenuLinkEdit,
@@ -2333,7 +2456,7 @@
                     editingExpenseIndex, editExpenseData, startExpenseEdit, saveExpenseEdit,
                     editingShoppingId, editShoppingData, startShoppingEdit, saveShoppingEdit,
                     newSpot, newMenuLink, newTodoText, newLuggage, newExpense, newShopItem, getCalculatedDateStr, hasCustomImage, handleImageUpload, getSpotTypeIcon, getSpotTypeLabel, getSpotNoteText, getSpotLinkUrl, getSpotLinkName, getSpotDisplayTime, getSpotDepartureTime, getSpotArrivalTime, parseFlightInfo, isTripDayTabActive, getDayWeather, getTravelWeatherDays, getWeatherButtonSummary, openWeatherModal, closeWeatherModal, fetchWeather, openAddSpotModal, closeSpotModal, openAddExpenseModal, closeExpenseModal, openAddShopModal, closeShopModal, openImagePreview, closeImagePreview, switchMainTab, increaseNewShopQuantity, decreaseNewShopQuantity, increaseEditShopQuantity, decreaseEditShopQuantity,
-                    handleLogin, registerAccount, goToLogin, goToRegister, logout, selectTrip, deleteTrip, updateTripData, updateSharedTripData, updatePrivateTripData, inviteUserToTrip, removeTripModalMember, isTripOwner, getTripRoleText, addSpot, deleteSpot, addMenuLink, deleteMenuLink, addTodo, deleteTodo, addLuggage, deleteLuggage, addExpense, deleteExpense, addShopItem, deleteShopItem, changeTheme
+                    handleLogin, registerAccount, goToLogin, goToRegister, logout, selectTrip, deleteTrip, updateTripData, updateSharedTripData, updatePrivateTripData, inviteUserToTrip, removeTripModalMember, isTripOwner, getTripRoleText, addSpot, deleteSpot, addMenuLink, deleteMenuLink, addTodo, deleteTodo, addLuggage, deleteLuggage, addExpense, deleteExpense, addShopItem, deleteShopItem, setThemeMode, changeTheme
                 };
             }
         }).mount('#app');
