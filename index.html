@@ -1876,7 +1876,6 @@
                         title: sharedData.title || '未命名旅程',
                         days: normalizedDates.days,
                         startDate: normalizedDates.startDate,
-                        endDate: normalizedDates.endDate,
                         ownerUid: sharedData.ownerUid || '',
                         ownerUsername: sharedData.ownerUsername || '',
                         memberUids: Array.isArray(sharedData.memberUids) ? sharedData.memberUids : [],
@@ -1979,7 +1978,6 @@
                                 title: legacy.title || '未命名旅程',
                                 days: normalizeTripDateFields(legacy || {}).days,
                                 startDate: legacy.startDate || '',
-                                endDate: normalizeTripDateFields(legacy || {}).endDate,
                                 ownerUid: user.value.uid,
                                 ownerUsername: user.value.username || user.value.email,
                                 memberUids: [user.value.uid],
@@ -2116,6 +2114,7 @@
                 };
 
                 const saveTripModalAction = async () => {
+                    try {
                     const title = String(tripModalForm.value.title || '').trim();
                     const startDate = tripModalForm.value.startDate || '';
                     const endDate = tripModalForm.value.endDate || '';
@@ -2168,7 +2167,6 @@
                                 title,
                                 days,
                                 startDate,
-                                endDate,
                                 itinerary: nextItinerary,
                                 memberUids,
                                 memberUsernames,
@@ -2205,10 +2203,11 @@
                             itinerary
                         };
                         const combinedTrip = combineTripData(sharedTripData, privateTripDefaults());
+                        const { endDate: _unusedEndDateForFirebase, ...firebaseSharedTripData } = sharedTripData;
 
                         if (!isKeyMissing) {
                             await db.collection('trips').doc(id).set({
-                                ...sharedTripData,
+                                ...firebaseSharedTripData,
                                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                             });
@@ -2229,6 +2228,10 @@
                     }
                     resetTripShareForm();
                     showTripModal.value = false;
+                    } catch (err) {
+                        console.error('Save trip failed:', err);
+                        showShareMessage('error', '旅程儲存失敗：' + (err?.message || '請稍後再試。'));
+                    }
                 };
 
                 const selectTrip = (trip) => {
