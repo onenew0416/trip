@@ -1764,10 +1764,13 @@
 
                 const normalizeUsername = (value) => String(value || '').trim();
                 const getUsernameKey = (value) => normalizeUsername(value).toLowerCase();
+                const USERNAME_AUTH_DOMAIN = 'travelmanual.local';
+                const getUsernameAuthEmail = (value) => `${getUsernameKey(value)}@${USERNAME_AUTH_DOMAIN}`;
 
                 const getAuthErrorMessage = (err) => {
                     const code = err && err.code ? err.code : '';
-                    if (code === 'auth/email-already-in-use') return '這個電子郵件已經註冊過。';
+                    if (code === 'auth/email-already-in-use') return '此使用者名稱已被使用，請換一個使用者名稱。';
+                    if (code === 'permission-denied' || code === 'firestore/permission-denied') return '資料庫權限不足，請確認 Firebase Firestore 規則允許目前使用者寫入自己的資料。';
                     if (code === 'auth/invalid-email') return '電子郵件格式不正確。';
                     if (code === 'auth/weak-password') return '密碼強度不足，請至少輸入 6 碼。';
                     if (code === 'auth/wrong-password' || code === 'auth/invalid-credential') return '使用者名稱或密碼錯誤。';
@@ -1903,22 +1906,38 @@
                     }
 
                     try {
+                        const loginCandidates = usernameInput.includes('@')
+                            ? [usernameInput]
+                            : [getUsernameAuthEmail(usernameInput)];
+                        let authLoginError = null;
+
+                        for (const loginEmail of loginCandidates) {
+                            try {
+                                const res = await auth.signInWithEmailAndPassword(loginEmail, password);
+                                resetLoginForm();
+                                clearAuthMessage();
+                                await loadUserProfile(res.user, { username: usernameInput, usernameKey });
+                                return;
+                            } catch (loginErr) {
+                                authLoginError = loginErr;
+                            }
+                        }
+
+                        // 舊版相容：如果是以前用真實 email 建立並有 usernames 對照表的帳號，改走對照表登入。
                         const accountData = await findUsernameAccount(usernameInput);
-                        if (!accountData || !accountData.email) {
-                            showAuthMessage('error', '找不到此使用者名稱，請確認使用者名稱是否正確。');
+                        if (accountData && accountData.email) {
+                            const res = await auth.signInWithEmailAndPassword(accountData.email, password);
+                            resetLoginForm();
+                            clearAuthMessage();
+                            await loadUserProfile(res.user, {
+                                username: accountData.username || usernameInput,
+                                usernameKey: accountData.usernameKey || usernameKey,
+                                email: accountData.email
+                            });
                             return;
                         }
 
-                        const res = await auth.signInWithEmailAndPassword(accountData.email, password);
-                        resetLoginForm();
-                        clearAuthMessage();
-                        user.value = {
-                            uid: res.user.uid,
-                            email: res.user.email,
-                            username: accountData.username || usernameInput,
-                            usernameKey: accountData.usernameKey || usernameKey
-                        };
-                        loadUserData();
+                        throw authLoginError || new Error('找不到此使用者名稱，請確認使用者名稱是否正確。');
                     } catch (err) {
                         showAuthMessage('error', '登入失敗：' + getAuthErrorMessage(err));
                     }
@@ -1967,34 +1986,42 @@
 
                     let createdRegistrationUid = '';
                     try {
-                        const existedAccount = await findUsernameAccount(username);
-                        if (existedAccount) {
-                            showAuthMessage('error', '此使用者名稱已被使用，請換一個使用者名稱。');
-                            return;
-                        }
-
-                        const usernameRef = db.collection('usernames').doc(usernameKey);
+                        const authEmail = getUsernameAuthEmail(username);
                         registrationAuthInProgress.value = true;
-                        const res = await auth.createUserWithEmailAndPassword(email, password);
+                        const res = await auth.createUserWithEmailAndPassword(authEmail, password);
                         const uid = res.user.uid;
                         createdRegistrationUid = uid;
                         const now = firebase.firestore.FieldValue.serverTimestamp();
 
-                        await db.collection('users').doc(uid).set({
-                            uid,
-                            username,
-                            usernameKey,
-                            email,
-                            createdAt: now
-                        }, { merge: true });
+                        try {
+                            await res.user.updateProfile({ displayName: username });
+                        } catch (profileErr) {
+                            console.warn('Update Firebase Auth displayName failed:', profileErr);
+                        }
 
-                        await usernameRef.set({
+                        const profilePayload = {
                             uid,
                             username,
                             usernameKey,
                             email,
+                            authEmail,
                             createdAt: now
-                        });
+                        };
+
+                        // 主要資料寫入使用者自己的 users/{uid} 文件；若規則暫時擋住，不讓註冊整體失敗。
+                        try {
+                            await db.collection('users').doc(uid).set(profilePayload, { merge: true });
+                        } catch (profileWriteErr) {
+                            console.warn('Write user profile failed:', profileWriteErr);
+                            localStorage.setItem(`profile_${uid}`, JSON.stringify({ uid, username, usernameKey, email, authEmail }));
+                        }
+
+                        // usernames 對照表只做舊版共編邀請相容；若 Firestore 規則不允許，也不影響登入。
+                        try {
+                            await db.collection('usernames').doc(usernameKey).set(profilePayload, { merge: true });
+                        } catch (usernameWriteErr) {
+                            console.warn('Write username mapping skipped:', usernameWriteErr);
+                        }
 
                         await auth.signOut();
                         registrationAuthInProgress.value = false;
@@ -2079,25 +2106,32 @@
                     shareMessage.value = { type: '', text: '' };
                 };
 
-                const loadUserProfile = async (firebaseUser) => {
+                const loadUserProfile = async (firebaseUser, fallbackProfile = {}) => {
                     if (!firebaseUser) return;
+                    let profile = {};
                     try {
                         const profileDoc = await db.collection('users').doc(firebaseUser.uid).get();
-                        const profile = profileDoc.exists ? profileDoc.data() : {};
-                        user.value = {
-                            uid: firebaseUser.uid,
-                            email: firebaseUser.email,
-                            username: profile.username || firebaseUser.email,
-                            usernameKey: profile.usernameKey || getUsernameKey(profile.username || firebaseUser.email)
-                        };
+                        profile = profileDoc.exists ? (profileDoc.data() || {}) : {};
                     } catch (e) {
-                        user.value = {
-                            uid: firebaseUser.uid,
-                            email: firebaseUser.email,
-                            username: firebaseUser.email,
-                            usernameKey: getUsernameKey(firebaseUser.email)
-                        };
+                        try {
+                            profile = JSON.parse(localStorage.getItem(`profile_${firebaseUser.uid}`) || '{}');
+                        } catch (localProfileErr) {
+                            profile = {};
+                        }
                     }
+
+                    const displayUsername = profile.username
+                        || fallbackProfile.username
+                        || firebaseUser.displayName
+                        || (firebaseUser.email && firebaseUser.email.endsWith(`@${USERNAME_AUTH_DOMAIN}`) ? firebaseUser.email.split('@')[0] : firebaseUser.email);
+                    const displayEmail = profile.email || fallbackProfile.email || firebaseUser.email;
+
+                    user.value = {
+                        uid: firebaseUser.uid,
+                        email: displayEmail,
+                        username: displayUsername,
+                        usernameKey: profile.usernameKey || fallbackProfile.usernameKey || getUsernameKey(displayUsername)
+                    };
                     loadUserData();
                 };
 
@@ -2500,12 +2534,19 @@
                     try {
                         let invitee = null;
                         if (!isKeyMissing) {
-                            const usernameDoc = await db.collection('usernames').doc(usernameKey).get();
-                            if (!usernameDoc.exists) {
+                            invitee = await findUsernameAccount(username);
+                            if (!invitee) {
+                                try {
+                                    const userQuery = await db.collection('users').where('usernameKey', '==', usernameKey).limit(1).get();
+                                    if (!userQuery.empty) invitee = userQuery.docs[0].data();
+                                } catch (userQueryErr) {
+                                    console.warn('Query invitee by users.usernameKey failed:', userQueryErr);
+                                }
+                            }
+                            if (!invitee) {
                                 showShareMessage('error', '找不到此使用者名稱，請確認對方已完成註冊。');
                                 return;
                             }
-                            invitee = usernameDoc.data();
                         } else {
                             const saved = localStorage.getItem(`account_${usernameKey}`);
                             if (!saved) {
