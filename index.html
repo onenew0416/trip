@@ -2394,9 +2394,41 @@
                                 || memberAuthEmails.includes(userAuthEmail);
                         };
 
+                        const repairOwnerTripShareFields = (trip = {}) => {
+                            if (!trip.id || trip.ownerUid !== user.value.uid) return;
+                            const ownerUsername = trip.ownerUsername || user.value.username || user.value.email || '';
+                            const visibleNames = Array.from(new Set([
+                                ...(Array.isArray(trip.memberUsernames) ? trip.memberUsernames : []),
+                                ownerUsername,
+                                user.value.username || user.value.email
+                            ].filter(Boolean)));
+                            const aliasNames = getMemberUsernameAliases(visibleNames);
+                            const usernameKeys = Array.from(new Set([
+                                ...(Array.isArray(trip.memberUsernameKeys) ? trip.memberUsernameKeys : []),
+                                ...aliasNames.map(getUsernameKey),
+                                user.value.usernameKey || getUsernameKey(ownerUsername)
+                            ].filter(Boolean)));
+                            const authEmails = Array.from(new Set([
+                                ...(Array.isArray(trip.memberAuthEmails) ? trip.memberAuthEmails : []),
+                                ...usernameKeys.map(getUsernameAuthEmail),
+                                user.value.authEmail || getUsernameAuthEmail(ownerUsername)
+                            ].filter(Boolean)));
+                            const hasAllAliases = aliasNames.every(name => (trip.memberUsernames || []).includes(name));
+                            const hasAllKeys = usernameKeys.every(key => (trip.memberUsernameKeys || []).includes(key));
+                            const hasAllEmails = authEmails.every(mail => (trip.memberAuthEmails || []).includes(mail));
+                            if (hasAllAliases && hasAllKeys && hasAllEmails) return;
+                            db.collection('trips').doc(trip.id).update({
+                                memberUsernames: aliasNames,
+                                memberUsernameKeys: usernameKeys,
+                                memberAuthEmails: authEmails,
+                                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                            }).catch(e => console.warn('Auto repair trip share fields skipped:', e));
+                        };
+
                         const addSnapshotDocs = async (snapshot) => {
                             snapshot.docs.forEach(doc => {
                                 const data = { id: doc.id, ...doc.data() };
+                                repairOwnerTripShareFields(data);
                                 if (currentUserCanAccessTrip(data)) sharedTripMap.set(doc.id, data);
                             });
                             await refreshTripList();
@@ -2624,20 +2656,34 @@
                             const tripRef = db.collection('trips').doc(editingTripId.value);
                             // 避免 Firestore rules 因 memberUids 或新版欄位白名單而擋下整筆儲存。
                             // 主要共編資料先用既有 memberUsernames 儲存；新版查找欄位採非阻斷補寫。
-                            await tripRef.update({
-                                title,
-                                days,
-                                startDate,
-                                itinerary: nextItinerary,
-                                memberUsernames,
-                                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                            });
-                            tripRef.update({
-                                memberUids,
-                                memberUsernameKeys,
-                                memberAuthEmails,
-                                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                            }).catch(e => console.warn('Optional member uid/key fields update skipped:', e));
+                            // v25：共編成員看不到旅程的主因通常是 Firestore 讀取規則只認 memberUids 或 memberAuthEmails。
+                            // 因此這些欄位必須跟旅程一起成功儲存，不能再只當 optional update。
+                            try {
+                                await tripRef.update({
+                                    title,
+                                    days,
+                                    startDate,
+                                    itinerary: nextItinerary,
+                                    memberUids,
+                                    memberUsernames,
+                                    memberUsernameKeys,
+                                    memberAuthEmails,
+                                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                                });
+                            } catch (primaryShareErr) {
+                                console.warn('Full share fields update failed, retry without memberUids:', primaryShareErr);
+                                // 有些 rules 不允許寫入其他人的 uid，改用 authEmail / usernameKey 仍可支援共編讀取。
+                                await tripRef.update({
+                                    title,
+                                    days,
+                                    startDate,
+                                    itinerary: nextItinerary,
+                                    memberUsernames,
+                                    memberUsernameKeys,
+                                    memberAuthEmails,
+                                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                                });
+                            }
                         } else {
                             const list = getLocalSharedTrips();
                             const target = list.find(t => t.id === editingTripId.value);
@@ -2678,26 +2724,41 @@
                         if (!isKeyMissing) {
                             const tripRef = db.collection('trips').doc(id);
                             // 建立旅程先使用舊規則較可能允許的欄位，避免新版共編輔助欄位造成權限錯誤。
-                            await tripRef.set({
-                                id,
-                                title,
-                                days,
-                                startDate,
-                                ownerUid: tripModalForm.value.ownerUid || user.value.uid,
-                                ownerUsername,
-                                memberUids,
-                                memberUsernames,
-                                menuLinks: [],
-                                itinerary,
-                                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                            });
-                            tripRef.update({
-                                memberUids,
-                                memberUsernameKeys,
-                                memberAuthEmails,
-                                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                            }).catch(e => console.warn('Optional member uid/key fields update skipped:', e));
+                            try {
+                                await tripRef.set({
+                                    id,
+                                    title,
+                                    days,
+                                    startDate,
+                                    ownerUid: tripModalForm.value.ownerUid || user.value.uid,
+                                    ownerUsername,
+                                    memberUids,
+                                    memberUsernames,
+                                    memberUsernameKeys,
+                                    memberAuthEmails,
+                                    menuLinks: [],
+                                    itinerary,
+                                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                                });
+                            } catch (primaryCreateErr) {
+                                console.warn('Full share fields create failed, retry without memberUids:', primaryCreateErr);
+                                await tripRef.set({
+                                    id,
+                                    title,
+                                    days,
+                                    startDate,
+                                    ownerUid: tripModalForm.value.ownerUid || user.value.uid,
+                                    ownerUsername,
+                                    memberUsernames,
+                                    memberUsernameKeys,
+                                    memberAuthEmails,
+                                    menuLinks: [],
+                                    itinerary,
+                                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                                });
+                            }
                             await db.collection('users').doc(user.value.uid).collection('tripPrivate').doc(id).set({
                                 ...privateTripDefaults(),
                                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -2719,7 +2780,7 @@
                         console.error('Save trip failed:', err);
                         const errMsg = err?.message || '請稍後再試。';
                         showShareMessage('error', errMsg.includes('Missing or insufficient permissions')
-                            ? '旅程儲存失敗：Firestore 權限不足。已改成只寫入規則較可能允許的共編欄位，但目前仍被資料庫規則擋下；請確認你是此旅程擁有者，或調整 Firestore rules 允許旅程擁有者更新 memberUsernames。'
+                            ? '旅程儲存失敗：Firestore 權限不足。共編要讓對方看得到，trips 文件必須能寫入 memberAuthEmails 或 memberUids；請確認你是旅程擁有者，並調整 Firestore rules 允許 owner 更新 memberUsernames/memberUsernameKeys/memberAuthEmails/memberUids。'
                             : '旅程儲存失敗：' + errMsg);
                     }
                 };
