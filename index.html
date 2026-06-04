@@ -1246,7 +1246,7 @@
                 const showTripModal = ref(false);
                 const isEditingTripMode = ref(false);
                 const editingTripId = ref(null);
-                const tripModalForm = ref({ title: '', startDate: '', endDate: '', ownerUid: '', ownerUsername: '', memberUids: [], memberUsernames: [] });
+                const tripModalForm = ref({ title: '', startDate: '', endDate: '', ownerUid: '', ownerUsername: '', memberUids: [], memberUsernames: [], memberUsernameKeys: [], memberAuthEmails: [] });
 
                 // 原地編輯各項目索引暫存
                 const editingMenuLinkIndex = ref(null);
@@ -1881,66 +1881,74 @@
                 const findUsernameAccount = async (usernameInput) => {
                     const rawUsername = normalizeUsername(usernameInput);
                     const usernameKey = getUsernameKey(rawUsername);
-                    const usernameRef = db.collection('usernames');
+                    const authEmail = getUsernameAuthEmail(rawUsername);
+                    if (!rawUsername) return null;
 
+                    const normalizeAccountData = (data = {}, extra = {}) => ({
+                        ...data,
+                        ...extra,
+                        uid: data.uid || extra.uid || extra.docId || '',
+                        username: data.username || rawUsername,
+                        usernameKey: data.usernameKey || usernameKey,
+                        authEmail: data.authEmail || authEmail,
+                        email: data.email || data.authEmail || authEmail
+                    });
+
+                    // 新版主要查 users：註冊成功後應該會建立 users/{uid}，共編邀請需要從這裡拿到 uid。
+                    const userRef = db.collection('users');
+                    const userQueries = [
+                        ['usernameKey', usernameKey],
+                        ['username', rawUsername],
+                        ['username', usernameKey],
+                        ['authEmail', authEmail],
+                        ['email', authEmail]
+                    ];
+                    for (const [field, value] of userQueries) {
+                        if (!value) continue;
+                        try {
+                            const snap = await userRef.where(field, '==', value).limit(1).get();
+                            if (!snap.empty) {
+                                const doc = snap.docs[0];
+                                return normalizeAccountData(doc.data() || {}, { uid: doc.id, docId: doc.id });
+                            }
+                        } catch (e) {
+                            console.warn(`Query users by ${field} skipped:`, e);
+                        }
+                    }
+
+                    // 舊版相容：以前用 usernames/{usernameKey} 對照表查找。
+                    const usernameRef = db.collection('usernames');
                     const candidateDocIds = Array.from(new Set([usernameKey, rawUsername].filter(Boolean)));
                     for (const docId of candidateDocIds) {
                         try {
                             const snap = await usernameRef.doc(docId).get();
                             if (snap.exists) {
                                 const data = snap.data() || {};
-                                return {
-                                    ...data,
-                                    username: data.username || rawUsername,
-                                    usernameKey: data.usernameKey || getUsernameKey(data.username || rawUsername),
-                                    docId
-                                };
+                                return normalizeAccountData(data, { docId });
                             }
-                        } catch (e) {}
+                        } catch (e) {
+                            console.warn('Read username mapping skipped:', e);
+                        }
                     }
 
-                    try {
-                        const keyQuery = await usernameRef.where('usernameKey', '==', usernameKey).limit(1).get();
-                        if (!keyQuery.empty) {
-                            const doc = keyQuery.docs[0];
-                            const data = doc.data() || {};
-                            return {
-                                ...data,
-                                username: data.username || rawUsername,
-                                usernameKey: data.usernameKey || usernameKey,
-                                docId: doc.id
-                            };
-                        }
-                    } catch (e) {}
-
-                    try {
-                        const exactQuery = await usernameRef.where('username', '==', rawUsername).limit(1).get();
-                        if (!exactQuery.empty) {
-                            const doc = exactQuery.docs[0];
-                            const data = doc.data() || {};
-                            return {
-                                ...data,
-                                username: data.username || rawUsername,
-                                usernameKey: data.usernameKey || usernameKey,
-                                docId: doc.id
-                            };
-                        }
-                    } catch (e) {}
-
-                    if (rawUsername !== usernameKey) {
+                    const usernameQueries = [
+                        ['usernameKey', usernameKey],
+                        ['username', rawUsername],
+                        ['username', usernameKey],
+                        ['authEmail', authEmail],
+                        ['email', authEmail]
+                    ];
+                    for (const [field, value] of usernameQueries) {
+                        if (!value) continue;
                         try {
-                            const lowerQuery = await usernameRef.where('username', '==', usernameKey).limit(1).get();
-                            if (!lowerQuery.empty) {
-                                const doc = lowerQuery.docs[0];
-                                const data = doc.data() || {};
-                                return {
-                                    ...data,
-                                    username: data.username || rawUsername,
-                                    usernameKey: data.usernameKey || usernameKey,
-                                    docId: doc.id
-                                };
+                            const snap = await usernameRef.where(field, '==', value).limit(1).get();
+                            if (!snap.empty) {
+                                const doc = snap.docs[0];
+                                return normalizeAccountData(doc.data() || {}, { docId: doc.id });
                             }
-                        } catch (e) {}
+                        } catch (e) {
+                            console.warn(`Query usernames by ${field} skipped:`, e);
+                        }
                     }
 
                     return null;
@@ -1970,7 +1978,7 @@
                         }
                         resetLoginForm();
                         clearAuthMessage();
-                        user.value = { email: profile.email, uid: profile.uid, username: profile.username || usernameInput, usernameKey: profile.usernameKey || usernameKey };
+                        user.value = { email: profile.email, uid: profile.uid, username: profile.username || usernameInput, usernameKey: profile.usernameKey || usernameKey, authEmail: profile.authEmail || getUsernameAuthEmail(profile.username || usernameInput) };
                         loadUserData();
                         return;
                     }
@@ -2044,7 +2052,7 @@
                             showAuthMessage('error', '此使用者名稱已被使用，請換一個使用者名稱。');
                             return;
                         }
-                        const localProfile = { uid: `mock_${usernameKey}`, username, usernameKey, email, password };
+                        const localProfile = { uid: `mock_${usernameKey}`, username, usernameKey, email, authEmail: getUsernameAuthEmail(username), password };
                         localStorage.setItem(`account_${usernameKey}`, JSON.stringify(localProfile));
                         resetRegisterForm();
                         resetLoginForm();
@@ -2130,6 +2138,8 @@
                         ownerUsername: sharedData.ownerUsername || '',
                         memberUids: Array.isArray(sharedData.memberUids) ? sharedData.memberUids : [],
                         memberUsernames: Array.isArray(sharedData.memberUsernames) ? sharedData.memberUsernames : [],
+                        memberUsernameKeys: Array.isArray(sharedData.memberUsernameKeys) ? sharedData.memberUsernameKeys : (Array.isArray(sharedData.memberUsernames) ? sharedData.memberUsernames.map(getUsernameKey).filter(Boolean) : []),
+                        memberAuthEmails: Array.isArray(sharedData.memberAuthEmails) ? sharedData.memberAuthEmails : [],
                         menuLinks: Array.isArray(sharedData.menuLinks) ? sharedData.menuLinks : [],
                         itinerary: ensureItineraryDayKeys(sharedData.itinerary || {}, normalizedDates.days),
                         ...privatePart
@@ -2138,6 +2148,19 @@
 
                 const getSharedTripPayload = (trip) => {
                     const normalizedDates = normalizeTripDateFields(trip || {});
+                    const ownerUsername = trip.ownerUsername || user.value?.username || user.value?.email || '';
+                    const baseMemberUsernames = Array.isArray(trip.memberUsernames) && trip.memberUsernames.length ? trip.memberUsernames : [ownerUsername].filter(Boolean);
+                    const memberUsernames = Array.from(new Set([...baseMemberUsernames, ownerUsername].filter(Boolean)));
+                    const memberUsernameKeys = Array.from(new Set([
+                        ...(Array.isArray(trip.memberUsernameKeys) ? trip.memberUsernameKeys : []),
+                        ...memberUsernames.map(getUsernameKey),
+                        user.value?.usernameKey || getUsernameKey(ownerUsername)
+                    ].filter(Boolean)));
+                    const memberAuthEmails = Array.from(new Set([
+                        ...(Array.isArray(trip.memberAuthEmails) ? trip.memberAuthEmails : []),
+                        ...memberUsernameKeys.map(getUsernameAuthEmail),
+                        user.value?.authEmail || getUsernameAuthEmail(ownerUsername)
+                    ].filter(Boolean)));
                     return {
                         id: trip.id,
                         title: trip.title,
@@ -2145,9 +2168,11 @@
                         startDate: normalizedDates.startDate,
                         endDate: normalizedDates.endDate,
                         ownerUid: trip.ownerUid || user.value?.uid || '',
-                        ownerUsername: trip.ownerUsername || user.value?.username || user.value?.email || '',
-                        memberUids: Array.isArray(trip.memberUids) && trip.memberUids.length ? trip.memberUids : [user.value?.uid].filter(Boolean),
-                        memberUsernames: Array.isArray(trip.memberUsernames) && trip.memberUsernames.length ? trip.memberUsernames : [user.value?.username || user.value?.email].filter(Boolean),
+                        ownerUsername,
+                        memberUids: Array.from(new Set([...(Array.isArray(trip.memberUids) ? trip.memberUids : []), user.value?.uid].filter(Boolean))),
+                        memberUsernames,
+                        memberUsernameKeys,
+                        memberAuthEmails,
                         menuLinks: Array.isArray(trip.menuLinks) ? trip.menuLinks : [],
                         itinerary: ensureItineraryDayKeys(trip.itinerary || {}, normalizedDates.days)
                     };
@@ -2176,6 +2201,33 @@
                     shareMessage.value = { type: '', text: '' };
                 };
 
+                const ensureCurrentUserProfileMapping = async () => {
+                    if (isKeyMissing || !user.value || !user.value.uid) return;
+                    const username = normalizeUsername(user.value.username || user.value.email || '');
+                    const usernameKey = user.value.usernameKey || getUsernameKey(username);
+                    const authEmail = user.value.authEmail || getUsernameAuthEmail(username);
+                    if (!username || !usernameKey) return;
+                    const payload = {
+                        uid: user.value.uid,
+                        username,
+                        usernameKey,
+                        email: user.value.email || authEmail,
+                        authEmail,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    };
+                    try {
+                        await db.collection('users').doc(user.value.uid).set(payload, { merge: true });
+                    } catch (e) {
+                        console.warn('Sync users profile skipped:', e);
+                    }
+                    try {
+                        await db.collection('usernames').doc(usernameKey).set(payload, { merge: true });
+                    } catch (e) {
+                        console.warn('Sync username mapping skipped:', e);
+                    }
+                };
+
+
                 const loadUserProfile = async (firebaseUser, fallbackProfile = {}) => {
                     if (!firebaseUser) return;
                     let profile = {};
@@ -2200,8 +2252,10 @@
                         uid: firebaseUser.uid,
                         email: displayEmail,
                         username: displayUsername,
-                        usernameKey: profile.usernameKey || fallbackProfile.usernameKey || getUsernameKey(displayUsername)
+                        usernameKey: profile.usernameKey || fallbackProfile.usernameKey || getUsernameKey(displayUsername),
+                        authEmail: profile.authEmail || fallbackProfile.authEmail || firebaseUser.email || getUsernameAuthEmail(displayUsername)
                     };
+                    ensureCurrentUserProfileMapping();
                     loadUserData();
                 };
 
@@ -2246,6 +2300,8 @@
                                 ownerUsername: user.value.username || user.value.email,
                                 memberUids: [user.value.uid],
                                 memberUsernames: [user.value.username || user.value.email],
+                                memberUsernameKeys: [user.value.usernameKey || getUsernameKey(user.value.username || user.value.email)],
+                                memberAuthEmails: [user.value.authEmail || getUsernameAuthEmail(user.value.username || user.value.email)],
                                 menuLinks: Array.isArray(legacy.menuLinks) ? legacy.menuLinks : [],
                                 itinerary: legacy.itinerary || {},
                                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -2269,25 +2325,59 @@
                     if (!isKeyMissing) {
                         if (tripsUnsubscribe) tripsUnsubscribe();
                         try { await migrateLegacyTrips(); } catch (e) { console.warn('Legacy trip migration skipped:', e); }
-                        tripsUnsubscribe = db.collection('trips')
-                            .where('memberUids', 'array-contains', user.value.uid)
-                            .onSnapshot(async (snapshot) => {
-                                const list = [];
-                                for (const doc of snapshot.docs) {
-                                    const sharedData = { id: doc.id, ...doc.data() };
-                                    const privateDoc = await db.collection('users').doc(user.value.uid).collection('tripPrivate').doc(doc.id).get();
+
+                        const sharedTripMap = new Map();
+                        const refreshTripList = async () => {
+                            const list = [];
+                            for (const [docId, sharedData] of sharedTripMap.entries()) {
+                                try {
+                                    const privateDoc = await db.collection('users').doc(user.value.uid).collection('tripPrivate').doc(docId).get();
                                     const privateData = privateDoc.exists ? privateDoc.data() : {};
                                     list.push(combineTripData(sharedData, privateData));
+                                } catch (privateErr) {
+                                    console.warn('Read private trip data failed:', privateErr);
+                                    list.push(combineTripData(sharedData, {}));
                                 }
-                                list.sort((a, b) => String(a.startDate || '').localeCompare(String(b.startDate || '')) || String(a.title || '').localeCompare(String(b.title || '')));
-                                trips.value = list;
-                                if (currentTrip.value) {
-                                    const updated = list.find(t => t.id === currentTrip.value.id);
-                                    currentTrip.value = updated || null;
-                                }
-                            });
+                            }
+                            list.sort((a, b) => String(a.startDate || '').localeCompare(String(b.startDate || '')) || String(a.title || '').localeCompare(String(b.title || '')));
+                            trips.value = list;
+                            if (currentTrip.value) {
+                                const updated = list.find(t => t.id === currentTrip.value.id);
+                                currentTrip.value = updated || null;
+                            }
+                        };
+
+                        const unsubscribers = [];
+                        const queryConfigs = [
+                            ['memberUids', user.value.uid],
+                            ['memberUsernameKeys', user.value.usernameKey || getUsernameKey(user.value.username || user.value.email)],
+                            ['memberAuthEmails', user.value.authEmail || getUsernameAuthEmail(user.value.username || user.value.email)]
+                        ].filter(([, value]) => !!value);
+
+                        queryConfigs.forEach(([field, value]) => {
+                            try {
+                                const unsubscribe = db.collection('trips')
+                                    .where(field, 'array-contains', value)
+                                    .onSnapshot(async (snapshot) => {
+                                        snapshot.docs.forEach(doc => {
+                                            sharedTripMap.set(doc.id, { id: doc.id, ...doc.data() });
+                                        });
+                                        await refreshTripList();
+                                    }, err => console.warn(`Trips listener by ${field} skipped:`, err));
+                                unsubscribers.push(unsubscribe);
+                            } catch (e) {
+                                console.warn(`Create trips listener by ${field} skipped:`, e);
+                            }
+                        });
+                        tripsUnsubscribe = () => unsubscribers.forEach(unsub => { try { unsub(); } catch (e) {} });
                     } else {
-                        const localShared = getLocalSharedTrips().filter(t => (t.memberUids || []).includes(user.value.uid));
+                        const userKey = user.value.usernameKey || getUsernameKey(user.value.username || user.value.email);
+                        const userAuthEmail = user.value.authEmail || getUsernameAuthEmail(user.value.username || user.value.email);
+                        const localShared = getLocalSharedTrips().filter(t =>
+                            (t.memberUids || []).includes(user.value.uid)
+                            || (t.memberUsernameKeys || []).includes(userKey)
+                            || (t.memberAuthEmails || []).includes(userAuthEmail)
+                        );
                         trips.value = localShared.map(t => combineTripData(t, getLocalPrivateTrip(t.id)));
                         if (currentTrip.value) {
                             const updated = trips.value.find(t => t.id === currentTrip.value.id);
@@ -2376,7 +2466,9 @@
                         ownerUid: user.value.uid,
                         ownerUsername,
                         memberUids: [user.value.uid],
-                        memberUsernames: [ownerUsername]
+                        memberUsernames: [ownerUsername],
+                        memberUsernameKeys: [user.value.usernameKey || getUsernameKey(ownerUsername)],
+                        memberAuthEmails: [user.value.authEmail || getUsernameAuthEmail(ownerUsername)]
                     };
                     showTripModal.value = true;
                 };
@@ -2394,7 +2486,9 @@
                         ownerUid: trip.ownerUid || user.value.uid,
                         ownerUsername,
                         memberUids: Array.isArray(trip.memberUids) && trip.memberUids.length ? [...trip.memberUids] : [user.value.uid],
-                        memberUsernames: Array.isArray(trip.memberUsernames) && trip.memberUsernames.length ? [...trip.memberUsernames] : [ownerUsername]
+                        memberUsernames: Array.isArray(trip.memberUsernames) && trip.memberUsernames.length ? [...trip.memberUsernames] : [ownerUsername],
+                        memberUsernameKeys: Array.isArray(trip.memberUsernameKeys) && trip.memberUsernameKeys.length ? [...trip.memberUsernameKeys] : [user.value.usernameKey || getUsernameKey(ownerUsername)],
+                        memberAuthEmails: Array.isArray(trip.memberAuthEmails) && trip.memberAuthEmails.length ? [...trip.memberAuthEmails] : [user.value.authEmail || getUsernameAuthEmail(ownerUsername)]
                     };
                     showTripModal.value = true;
                 };
@@ -2423,8 +2517,12 @@
                     }
 
                     const ownerUsername = tripModalForm.value.ownerUsername || getCurrentUsername();
+                    const ownerUsernameKey = user.value.usernameKey || getUsernameKey(ownerUsername);
+                    const ownerAuthEmail = user.value.authEmail || getUsernameAuthEmail(ownerUsername);
                     const memberUids = Array.from(new Set([...(tripModalForm.value.memberUids || []), tripModalForm.value.ownerUid || user.value.uid].filter(Boolean)));
                     const memberUsernames = Array.from(new Set([...(tripModalForm.value.memberUsernames || []), ownerUsername].filter(Boolean)));
+                    const memberUsernameKeys = Array.from(new Set([...(tripModalForm.value.memberUsernameKeys || []), ...memberUsernames.map(getUsernameKey), ownerUsernameKey].filter(Boolean)));
+                    const memberAuthEmails = Array.from(new Set([...(tripModalForm.value.memberAuthEmails || []), ...memberUsernameKeys.map(getUsernameAuthEmail), ownerAuthEmail].filter(Boolean)));
 
                     if (isEditingTripMode.value) {
                         const matched = trips.value.find(t => t.id === editingTripId.value);
@@ -2437,6 +2535,8 @@
                             matched.itinerary = nextItinerary;
                             matched.memberUids = memberUids;
                             matched.memberUsernames = memberUsernames;
+                            matched.memberUsernameKeys = memberUsernameKeys;
+                            matched.memberAuthEmails = memberAuthEmails;
                             if (currentTrip.value?.id === matched.id) {
                                 currentTrip.value.title = matched.title;
                                 currentTrip.value.startDate = matched.startDate;
@@ -2445,6 +2545,8 @@
                                 currentTrip.value.itinerary = matched.itinerary;
                                 currentTrip.value.memberUids = memberUids;
                                 currentTrip.value.memberUsernames = memberUsernames;
+                                currentTrip.value.memberUsernameKeys = memberUsernameKeys;
+                                currentTrip.value.memberAuthEmails = memberAuthEmails;
                                 if (activeDayTab.value !== 'menu' && Number(activeDayTab.value) > days) activeDayTab.value = 'menu';
                             }
                         }
@@ -2456,6 +2558,8 @@
                                 itinerary: nextItinerary,
                                 memberUids,
                                 memberUsernames,
+                                memberUsernameKeys,
+                                memberAuthEmails,
                                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                             }, { merge: true });
                         } else {
@@ -2469,6 +2573,8 @@
                                 target.itinerary = nextItinerary;
                                 target.memberUids = memberUids;
                                 target.memberUsernames = memberUsernames;
+                                target.memberUsernameKeys = memberUsernameKeys;
+                                target.memberAuthEmails = memberAuthEmails;
                             }
                             setLocalSharedTrips(list);
                         }
@@ -2485,6 +2591,8 @@
                             ownerUsername,
                             memberUids,
                             memberUsernames,
+                            memberUsernameKeys,
+                            memberAuthEmails,
                             menuLinks: [],
                             itinerary
                         };
@@ -2541,6 +2649,8 @@
                             await db.collection('trips').doc(id).update({
                                 memberUids: firebase.firestore.FieldValue.arrayRemove(user.value.uid),
                                 memberUsernames: firebase.firestore.FieldValue.arrayRemove(user.value.username || user.value.email),
+                                memberUsernameKeys: firebase.firestore.FieldValue.arrayRemove(user.value.usernameKey || getUsernameKey(user.value.username || user.value.email)),
+                                memberAuthEmails: firebase.firestore.FieldValue.arrayRemove(user.value.authEmail || getUsernameAuthEmail(user.value.username || user.value.email)),
                                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                             });
                             await db.collection('users').doc(user.value.uid).collection('tripPrivate').doc(id).delete().catch(() => {});
@@ -2554,6 +2664,8 @@
                             if (shared) {
                                 shared.memberUids = (shared.memberUids || []).filter(uid => uid !== user.value.uid);
                                 shared.memberUsernames = (shared.memberUsernames || []).filter(name => name !== (user.value.username || user.value.email));
+                                shared.memberUsernameKeys = (shared.memberUsernameKeys || []).filter(key => key !== (user.value.usernameKey || getUsernameKey(user.value.username || user.value.email)));
+                                shared.memberAuthEmails = (shared.memberAuthEmails || []).filter(mail => mail !== (user.value.authEmail || getUsernameAuthEmail(user.value.username || user.value.email)));
                             }
                         }
                         setLocalSharedTrips(list);
@@ -2602,11 +2714,14 @@
                 const inviteUserToTrip = async () => {
                     const username = normalizeUsername(shareForm.value.username);
                     const usernameKey = getUsernameKey(username);
+                    const authEmail = getUsernameAuthEmail(username);
                     if (!username) {
                         showShareMessage('error', '請輸入要邀請的使用者名稱。');
                         return;
                     }
-                    const memberUsernameKeys = (tripModalForm.value.memberUsernames || []).map(name => getUsernameKey(name));
+                    const memberUsernameKeys = (tripModalForm.value.memberUsernameKeys && tripModalForm.value.memberUsernameKeys.length)
+                        ? tripModalForm.value.memberUsernameKeys
+                        : (tripModalForm.value.memberUsernames || []).map(name => getUsernameKey(name));
                     if (memberUsernameKeys.includes(usernameKey)) {
                         showShareMessage('error', '此使用者名稱已經在共編成員中。');
                         return;
@@ -2616,40 +2731,32 @@
                         let invitee = null;
                         if (!isKeyMissing) {
                             invitee = await findUsernameAccount(username);
-                            if (!invitee) {
-                                try {
-                                    const userQuery = await db.collection('users').where('usernameKey', '==', usernameKey).limit(1).get();
-                                    if (!userQuery.empty) invitee = userQuery.docs[0].data();
-                                } catch (userQueryErr) {
-                                    console.warn('Query invitee by users.usernameKey failed:', userQueryErr);
-                                }
-                            }
-                            if (!invitee) {
-                                showShareMessage('error', '找不到此使用者名稱，請確認對方已完成註冊。');
-                                return;
-                            }
                         } else {
                             const saved = localStorage.getItem(`account_${usernameKey}`);
-                            if (!saved) {
-                                showShareMessage('error', '找不到此使用者名稱，請確認對方已完成註冊。');
-                                return;
-                            }
-                            invitee = JSON.parse(saved);
+                            if (saved) invitee = JSON.parse(saved);
                         }
 
-                        if (!invitee || !invitee.uid) {
-                            showShareMessage('error', '此使用者名稱資料不完整，無法邀請。');
-                            return;
-                        }
-                        if ((tripModalForm.value.memberUids || []).includes(invitee.uid)) {
+                        // Firebase Auth 本身不能從前端用使用者名稱反查 uid。
+                        // 若 Firestore 對照資料暫時查不到，仍先以 usernameKey/authEmail 加入邀請清單，讓已修正版登入的對方可用使用者名稱條件載入旅程。
+                        const nextUsername = invitee?.username || username;
+                        const nextUsernameKey = invitee?.usernameKey || usernameKey;
+                        const nextAuthEmail = invitee?.authEmail || authEmail;
+
+                        if (invitee?.uid && (tripModalForm.value.memberUids || []).includes(invitee.uid)) {
                             showShareMessage('error', '此使用者名稱已經在共編成員中。');
                             return;
                         }
 
-                        tripModalForm.value.memberUids = Array.from(new Set([...(tripModalForm.value.memberUids || []), invitee.uid]));
-                        tripModalForm.value.memberUsernames = Array.from(new Set([...(tripModalForm.value.memberUsernames || []), invitee.username || username]));
+                        tripModalForm.value.memberUsernames = Array.from(new Set([...(tripModalForm.value.memberUsernames || []), nextUsername]));
+                        tripModalForm.value.memberUsernameKeys = Array.from(new Set([...(tripModalForm.value.memberUsernameKeys || []), nextUsernameKey]));
+                        tripModalForm.value.memberAuthEmails = Array.from(new Set([...(tripModalForm.value.memberAuthEmails || []), nextAuthEmail]));
+                        if (invitee?.uid) {
+                            tripModalForm.value.memberUids = Array.from(new Set([...(tripModalForm.value.memberUids || []), invitee.uid]));
+                            showShareMessage('success', '已加入共編清單，按「確認儲存」後生效。');
+                        } else {
+                            showShareMessage('success', '已用使用者名稱加入共編清單，按「確認儲存」後生效。若對方仍看不到，請讓對方先用新版登入一次。');
+                        }
                         shareForm.value = { username: '' };
-                        showShareMessage('success', '已加入共編清單，按「確認儲存」後生效。');
                     } catch (err) {
                         showShareMessage('error', '邀請失敗：' + (err.message || '請稍後再試。'));
                     }
@@ -2657,15 +2764,18 @@
 
                 const removeTripModalMember = (username) => {
                     const ownerUsername = tripModalForm.value.ownerUsername || getCurrentUsername();
-                    if (username === ownerUsername) {
+                    const removeKey = getUsernameKey(username);
+                    if (removeKey === getUsernameKey(ownerUsername)) {
                         showShareMessage('error', '無法移除旅程擁有者。');
                         return;
                     }
                     const names = tripModalForm.value.memberUsernames || [];
-                    const index = names.indexOf(username);
+                    const index = names.findIndex(name => getUsernameKey(name) === removeKey);
                     if (index < 0) return;
                     tripModalForm.value.memberUsernames = names.filter((_, i) => i !== index);
                     tripModalForm.value.memberUids = (tripModalForm.value.memberUids || []).filter((_, i) => i !== index);
+                    tripModalForm.value.memberUsernameKeys = (tripModalForm.value.memberUsernameKeys || []).filter(key => key !== removeKey);
+                    tripModalForm.value.memberAuthEmails = (tripModalForm.value.memberAuthEmails || []).filter(mail => getUsernameKey(String(mail).split('@')[0]) !== removeKey);
                     showShareMessage('success', '已從共編清單移除，按「確認儲存」後生效。');
                 };
 
