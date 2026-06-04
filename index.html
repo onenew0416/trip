@@ -123,7 +123,8 @@
             <div v-if="!currentTrip" class="flex-1 max-w-4xl w-full mx-auto p-6 md:py-12">
                 <div class="flex justify-between items-center mb-8">
                     <div>
-                        <h2 class="text-2xl font-light text-neutral-700">目前共有 {{ trips.length }} 個可編輯旅程</h2>
+                        <h2 class="text-2xl font-light text-neutral-700">期待下一次出發</h2>
+                        <p class="text-xs text-neutral-400 mt-1">目前共有 {{ trips.length }} 個可編輯旅程</p>
                     </div>
                     <button @click="openAddTripModal" class="bg-neutral-700 hover:bg-neutral-800 text-white text-xs px-4 py-2.5 rounded-xl font-medium tracking-wider shadow-sm transition-colors">
                         ＋ 新增旅程紀錄
@@ -252,9 +253,9 @@
                                 <div class="bg-white border border-[#e6e4dc] rounded-2xl p-5 space-y-4">
                                     <h3 class="text-sm font-medium border-b pb-2 text-neutral-700"><i class="fa-solid fa-ticket text-neutral-400 mr-1.5"></i> 交通娛樂與優惠券</h3>
                                     <div class="flex flex-col gap-2">
-                                        <div class="flex gap-2">
-                                            <input v-model="newMenuLink.title" type="text" placeholder="名稱" class="border border-[#e6e4dc] rounded-xl p-2 text-xs flex-1 focus:outline-none focus-border-primary">
-                                            <input v-model="newMenuLink.url" type="text" placeholder="網址連結" class="border border-[#e6e4dc] rounded-xl p-2 text-xs flex-1 focus:outline-none focus-border-primary">
+                                        <div class="flex flex-col gap-2">
+                                            <input v-model="newMenuLink.title" type="text" placeholder="名稱" class="border border-[#e6e4dc] rounded-xl p-2 text-xs w-full focus:outline-none focus-border-primary">
+                                            <input v-model="newMenuLink.url" type="text" placeholder="網址連結" class="border border-[#e6e4dc] rounded-xl p-2 text-xs w-full focus:outline-none focus-border-primary">
                                         </div>
                                         <button @click="addMenuLink" class="w-full bg-neutral-700 text-white py-2 rounded-xl text-xs hover:bg-neutral-800 transition-colors">＋ 新增</button>
                                     </div>
@@ -262,17 +263,22 @@
                                         <div v-if="!currentTrip.menuLinks || !currentTrip.menuLinks.length" class="text-center text-neutral-400 text-xs py-4">尚無交通、票券或優惠券連結</div>
                                         <div v-for="(link, idx) in currentTrip.menuLinks" :key="idx" class="flex justify-between items-center bg-[#fcfbf9] border border-[#e6e4dc] p-2.5 rounded-xl text-xs group">
                                             <div class="flex-1 min-w-0 pr-2">
-                                                <div v-if="editingMenuLinkIndex === idx" class="flex gap-1">
-                                                    <input v-model="editMenuLinkData.title" type="text" class="border text-[11px] p-1 rounded w-1/2">
-                                                    <input v-model="editMenuLinkData.url" type="text" class="border text-[11px] p-1 rounded w-1/2">
-                                                    <button @click="saveMenuLinkEdit(idx)" class="text-green-600 font-bold px-1"><i class="fa-solid fa-check"></i></button>
-                                                    <button @click="editingMenuLinkIndex = null" class="text-neutral-400 px-1"><i class="fa-solid fa-xmark"></i></button>
+                                                <div v-if="editingMenuLinkIndex === idx" class="flex flex-col gap-1">
+                                                    <input v-model="editMenuLinkData.title" type="text" class="border text-[11px] p-1.5 rounded w-full" placeholder="名稱">
+                                                    <input v-model="editMenuLinkData.url" type="text" class="border text-[11px] p-1.5 rounded w-full" placeholder="網址連結">
+                                                    <div class="flex justify-end gap-2">
+                                                        <button @click="saveMenuLinkEdit(idx)" class="text-green-600 font-bold px-1"><i class="fa-solid fa-check"></i></button>
+                                                        <button @click="editingMenuLinkIndex = null" class="text-neutral-400 px-1"><i class="fa-solid fa-xmark"></i></button>
+                                                    </div>
                                                 </div>
-                                                <a v-else :href="link.url" target="_blank" class="text-primary font-medium hover:underline block truncate">
-                                                    <i class="fa-solid fa-arrow-up-right-from-square mr-1 text-[10px]"></i> {{ link.title }}
-                                                </a>
+                                                <div v-else class="space-y-0.5">
+                                                    <a :href="link.url" target="_blank" class="text-primary font-medium hover:underline block truncate">
+                                                        <i class="fa-solid fa-arrow-up-right-from-square mr-1 text-[10px]"></i> {{ link.title }}
+                                                    </a>
+                                                    <a :href="link.url" target="_blank" class="text-[10px] text-neutral-400 hover:text-primary hover:underline block truncate">{{ link.url }}</a>
+                                                </div>
                                             </div>
-                                            <div v-if="editingMenuLinkIndex !== idx" class="flex gap-2 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <div v-if="editingMenuLinkIndex !== idx" class="flex gap-2 shrink-0">
                                                 <button @click="startMenuLinkEdit(idx, link)" class="text-neutral-400 hover:text-blue-500"><i class="fa-solid fa-pen text-[11px]"></i></button>
                                                 <button @click="deleteMenuLink(idx)" class="text-neutral-300 hover:text-rose-500"><i class="fa-solid fa-xmark"></i></button>
                                             </div>
@@ -291,15 +297,15 @@
                                         <div v-if="!currentTrip.todos || !currentTrip.todos.length" class="text-center text-neutral-400 text-xs py-4">尚無待辦事項</div>
                                         <div v-for="item in currentTrip.todos" :key="item.id" class="flex items-center justify-between text-xs text-neutral-600 p-2 hover:bg-[#fcfbf9] rounded-xl group">
                                             <div class="flex-1 flex items-center gap-2 min-w-0 pr-2">
-                                                <input type="checkbox" v-model="item.done" @change="updateTripData" class="rounded text-neutral-700 focus:ring-0 border-[#e6e4dc] shrink-0">
+                                                <input type="checkbox" v-model="item.done" @change="updatePrivateTripData" class="rounded text-neutral-700 focus:ring-0 border-[#e6e4dc] shrink-0">
                                                 <div v-if="editingTodoId === item.id" class="flex flex-1 gap-1">
                                                     <input v-model="editTodoTextData" type="text" class="border text-[11px] p-1 rounded w-full">
                                                     <button @click="saveTodoEdit(item.id)" class="text-green-600 font-bold px-1"><i class="fa-solid fa-check"></i></button>
                                                     <button @click="editingTodoId = null" class="text-neutral-400 px-1"><i class="fa-solid fa-xmark"></i></button>
                                                 </div>
-                                                <span v-else :class="['truncate', {'line-through text-neutral-300': item.done}]">{{ item.text }}</span>
+                                                <button v-else @click="toggleTodoDone(item)" type="button" :class="['text-left truncate cursor-pointer flex-1', {'line-through text-neutral-300': item.done}]">{{ item.text }}</button>
                                             </div>
-                                            <div v-if="editingTodoId !== item.id" class="flex gap-2 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <div v-if="editingTodoId !== item.id" class="flex gap-2 shrink-0">
                                                 <button @click="startTodoEdit(item)" class="text-neutral-400 hover:text-blue-500"><i class="fa-solid fa-pen text-[11px]"></i></button>
                                                 <button @click="deleteTodo(item.id)" class="text-neutral-300 hover:text-rose-500"><i class="fa-solid fa-xmark"></i></button>
                                             </div>
@@ -333,7 +339,7 @@
                                             <div v-for="item in (currentTrip.luggage || []).filter(i => i.category === cat)" :key="item.id"
                                                  class="flex items-start justify-between text-xs text-neutral-600 p-2 hover:bg-white rounded-xl group">
                                                 <div class="flex-1 flex items-start gap-2 min-w-0 pr-2">
-                                                    <input type="checkbox" v-model="item.done" @change="updateTripData" class="rounded text-neutral-700 focus:ring-0 border-[#e6e4dc] shrink-0 mt-0.5">
+                                                    <input type="checkbox" v-model="item.done" @change="updatePrivateTripData" class="rounded text-neutral-700 focus:ring-0 border-[#e6e4dc] shrink-0 mt-0.5">
                                                     <div v-if="editingLuggageId === item.id" class="flex flex-1 flex-col gap-1">
                                                         <select v-model="editLuggageData.category" class="border text-[11px] p-1 rounded">
                                                             <option value="隨身包包">🎒 隨身包包</option>
@@ -346,9 +352,9 @@
                                                             <button @click="editingLuggageId = null" class="text-neutral-400 px-1"><i class="fa-solid fa-xmark"></i></button>
                                                         </div>
                                                     </div>
-                                                    <span v-else :class="['truncate', {'line-through text-neutral-300': item.done}]">{{ item.text }}</span>
+                                                    <button v-else @click="toggleLuggageDone(item)" type="button" :class="['text-left truncate cursor-pointer flex-1', {'line-through text-neutral-300': item.done}]">{{ item.text }}</button>
                                                 </div>
-                                                <div v-if="editingLuggageId !== item.id" class="flex gap-2 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <div v-if="editingLuggageId !== item.id" class="flex gap-2 shrink-0">
                                                     <button @click="startLuggageEdit(item)" class="text-neutral-400 hover:text-blue-500"><i class="fa-solid fa-pen text-[11px]"></i></button>
                                                     <button @click="deleteLuggage(item.id)" class="text-neutral-300 hover:text-rose-500"><i class="fa-solid fa-xmark"></i></button>
                                                 </div>
@@ -372,17 +378,35 @@
 
                             <div class="space-y-4 relative border-l border-neutral-200 pl-4 ml-2">
                                 <div v-if="!currentTrip.itinerary[activeDayTab] || currentTrip.itinerary[activeDayTab].length === 0" class="text-neutral-400 text-xs py-4 pl-2">
-                                    今天還空空的，在下方填寫景點來填滿這天吧！
+                                    今天還空空的，在下方填寫行程項目來填滿這天吧！
                                 </div>
                                 <div v-for="(spot, index) in (currentTrip.itinerary[activeDayTab] || [])" :key="index" class="relative bg-[#fcfbf9] border border-[#e6e4dc] rounded-xl p-4 flex flex-col sm:flex-row gap-4 group">
                                     <div class="absolute -left-[21px] top-5 w-2 h-2 rounded-full bg-primary border-2 border-white shadow-sm"></div>
-                                    <img v-if="hasCustomImage(spot.imgUrl)" :src="spot.imgUrl" class="w-full sm:w-20 h-20 object-cover rounded-lg bg-white border border-[#e6e4dc] shrink-0">
+                                    <div class="w-full sm:w-20 shrink-0 flex sm:flex-col gap-2">
+                                        <div class="w-12 h-12 sm:w-20 sm:h-20 rounded-lg bg-white border border-[#e6e4dc] flex items-center justify-center shrink-0">
+                                            <i :class="getSpotTypeIcon(spot)" class="text-xl text-neutral-500"></i>
+                                        </div>
+                                        <img v-if="hasCustomImage(spot.imgUrl)" :src="spot.imgUrl" class="w-20 h-20 object-cover rounded-lg bg-white border border-[#e6e4dc] shrink-0">
+                                    </div>
                                     
-                                    <div class="flex-1 min-w-0 space-y-1">
+                                    <div class="flex-1 min-w-0 space-y-2">
                                         <div v-if="editingSpotIndex === index" class="space-y-2 bg-white p-3 rounded-lg border border-neutral-200">
-                                            <div class="grid grid-cols-2 gap-2">
-                                                <input v-model="editSpotData.name" type="text" class="border text-xs p-1.5 rounded" placeholder="景點名稱">
-                                                <input v-model="editSpotData.link" type="text" class="border text-xs p-1.5 rounded" placeholder="連結">
+                                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                <select v-model="editSpotData.type" class="border text-xs p-1.5 rounded bg-white">
+                                                    <option value="航班">✈️ 航班</option>
+                                                    <option value="交通">🚇 交通</option>
+                                                    <option value="景點">📍 景點</option>
+                                                    <option value="餐飲">🍽️ 餐飲</option>
+                                                    <option value="購物">🛍️ 購物</option>
+                                                    <option value="租車">🚗 租車</option>
+                                                    <option value="住宿">🏨 住宿</option>
+                                                </select>
+                                                <input v-model="editSpotData.name" type="text" class="border text-xs p-1.5 rounded" placeholder="名稱">
+                                            </div>
+                                            <input v-model="editSpotData.placeNote" type="text" class="border text-xs p-1.5 rounded w-full" :placeholder="editSpotData.type === '航班' ? '航班資訊，例：[TPE 台北(桃園) - HSG 佐賀]' : '地點 / 備註'">
+                                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                <input v-model="editSpotData.linkName" type="text" class="border text-xs p-1.5 rounded" placeholder="連結名稱（例：Google 地圖）">
+                                                <input v-model="editSpotData.linkUrl" type="text" class="border text-xs p-1.5 rounded" placeholder="連結網址">
                                             </div>
                                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                                 <input v-model="editSpotData.imgUrl" type="text" class="border text-xs p-1.5 rounded" placeholder="圖片網址（選填）">
@@ -391,7 +415,6 @@
                                                     <input type="file" accept="image/*" @change="handleImageUpload($event, editSpotData)" class="hidden">
                                                 </label>
                                             </div>
-                                            <input v-model="editSpotData.note" type="text" class="border text-xs p-1.5 rounded w-full" placeholder="備註內容">
                                             <div v-if="editSpotData.imgUrl" class="flex items-center gap-2 bg-[#fcfbf9] border border-neutral-200 rounded-lg p-2">
                                                 <img :src="editSpotData.imgUrl" class="w-14 h-14 object-cover rounded-lg border bg-white">
                                                 <button @click="editSpotData.imgUrl = ''" class="text-[11px] text-rose-500 hover:underline">移除圖片</button>
@@ -402,14 +425,34 @@
                                             </div>
                                         </div>
                                         <div v-else>
-                                            <h4 class="font-medium text-sm text-neutral-700 truncate">{{ spot.name }}</h4>
-                                            <p class="text-xs text-neutral-400 break-words" v-if="spot.note">{{ spot.note }}</p>
-                                            <a v-if="spot.link" :href="spot.link" target="_blank" class="inline-flex items-center text-[11px] text-primary font-medium hover:underline gap-1 mt-1">
-                                                <i class="fa-solid fa-link text-[9px]"></i> 查看參考連結 / 地圖
+                                            <div class="flex flex-wrap items-center gap-2 mb-1">
+                                                <span class="text-[10px] px-2 py-0.5 rounded-full bg-white border border-[#e6e4dc] text-neutral-500">
+                                                    <i :class="getSpotTypeIcon(spot)" class="mr-1"></i>{{ getSpotTypeLabel(spot) }}
+                                                </span>
+                                                <h4 class="font-medium text-sm text-neutral-700 truncate">{{ spot.name }}</h4>
+                                            </div>
+                                            <div v-if="getSpotTypeLabel(spot) === '航班' && parseFlightInfo(getSpotNoteText(spot))" class="bg-white border border-[#e6e4dc] rounded-xl p-3 my-2">
+                                                <div class="flex items-center justify-between gap-3">
+                                                    <div class="min-w-0">
+                                                        <p class="text-[10px] text-neutral-400">出發</p>
+                                                        <p class="text-sm font-bold text-neutral-700">{{ parseFlightInfo(getSpotNoteText(spot)).from.code }}</p>
+                                                        <p class="text-[11px] text-neutral-500 truncate">{{ parseFlightInfo(getSpotNoteText(spot)).from.name }}</p>
+                                                    </div>
+                                                    <i class="fa-solid fa-plane text-neutral-300 shrink-0"></i>
+                                                    <div class="min-w-0 text-right">
+                                                        <p class="text-[10px] text-neutral-400">抵達</p>
+                                                        <p class="text-sm font-bold text-neutral-700">{{ parseFlightInfo(getSpotNoteText(spot)).to.code }}</p>
+                                                        <p class="text-[11px] text-neutral-500 truncate">{{ parseFlightInfo(getSpotNoteText(spot)).to.name }}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <p v-else class="text-xs text-neutral-400 break-words" v-if="getSpotNoteText(spot)">{{ getSpotNoteText(spot) }}</p>
+                                            <a v-if="getSpotLinkUrl(spot)" :href="getSpotLinkUrl(spot)" target="_blank" class="inline-flex items-center text-[11px] text-primary font-medium hover:underline gap-1 mt-1">
+                                                <i class="fa-solid fa-link text-[9px]"></i> {{ getSpotLinkName(spot) }}
                                             </a>
                                         </div>
                                     </div>
-                                    <div v-if="editingSpotIndex !== index" class="text-xs self-start shrink-0 flex gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <div v-if="editingSpotIndex !== index" class="text-xs self-start shrink-0 flex gap-3">
                                         <button @click="startSpotEdit(index, spot)" class="text-neutral-400 hover:text-blue-500"><i class="fa-solid fa-pen"></i></button>
                                         <button @click="deleteSpot(index)" class="text-neutral-300 hover:text-rose-500"><i class="fa-solid fa-trash-can"></i></button>
                                     </div>
@@ -417,10 +460,23 @@
                             </div>
 
                             <div class="border-t border-neutral-100 pt-5 space-y-3 bg-[#fcfbf9] p-4 rounded-xl border border-[#e6e4dc]">
-                                <p class="text-xs font-bold text-neutral-400">＋ 新增今日行程景點</p>
+                                <p class="text-xs font-bold text-neutral-400">＋ 新增今日行程項目</p>
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <input v-model="newSpot.name" type="text" placeholder="景點或餐廳名稱 (例: 淺草寺)" class="border border-[#e6e4dc] text-xs rounded-xl p-2.5 bg-white focus:outline-none focus-border-primary">
-                                    <input v-model="newSpot.link" type="text" placeholder="網址或 Google 地圖連結" class="border border-[#e6e4dc] text-xs rounded-xl p-2.5 bg-white focus:outline-none focus-border-primary">
+                                    <select v-model="newSpot.type" class="border border-[#e6e4dc] text-xs rounded-xl p-2.5 bg-white focus:outline-none focus-border-primary">
+                                        <option value="航班">✈️ 航班</option>
+                                        <option value="交通">🚇 交通</option>
+                                        <option value="景點">📍 景點</option>
+                                        <option value="餐飲">🍽️ 餐飲</option>
+                                        <option value="購物">🛍️ 購物</option>
+                                        <option value="租車">🚗 租車</option>
+                                        <option value="住宿">🏨 住宿</option>
+                                    </select>
+                                    <input v-model="newSpot.name" type="text" placeholder="名稱" class="border border-[#e6e4dc] text-xs rounded-xl p-2.5 bg-white focus:outline-none focus-border-primary">
+                                </div>
+                                <input v-model="newSpot.placeNote" type="text" :placeholder="newSpot.type === '航班' ? '航班資訊，例：[TPE 台北(桃園) - HSG 佐賀]' : '地點 / 備註'" class="border border-[#e6e4dc] text-xs rounded-xl p-2.5 bg-white focus:outline-none focus-border-primary w-full">
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <input v-model="newSpot.linkName" type="text" placeholder="連結名稱（例：Google 地圖）" class="border border-[#e6e4dc] text-xs rounded-xl p-2.5 bg-white focus:outline-none focus-border-primary">
+                                    <input v-model="newSpot.linkUrl" type="text" placeholder="連結網址" class="border border-[#e6e4dc] text-xs rounded-xl p-2.5 bg-white focus:outline-none focus-border-primary">
                                 </div>
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <input v-model="newSpot.imgUrl" type="text" placeholder="圖片網址（選填）" class="border border-[#e6e4dc] text-xs rounded-xl p-2.5 bg-white focus:outline-none focus-border-primary">
@@ -433,7 +489,6 @@
                                     <img :src="newSpot.imgUrl" class="w-16 h-16 object-cover rounded-lg border bg-white">
                                     <button @click="newSpot.imgUrl = ''" class="text-xs text-rose-500 hover:underline">移除圖片</button>
                                 </div>
-                                <input v-model="newSpot.note" type="text" placeholder="備註" class="border border-[#e6e4dc] text-xs rounded-xl p-2.5 bg-white focus:outline-none focus-border-primary w-full">
                                 <button @click="addSpot" class="w-full bg-neutral-700 hover:bg-neutral-800 text-white text-xs font-medium py-2.5 rounded-xl transition-colors shadow-sm">
                                     儲存並加入今日時間軸
                                 </button>
@@ -551,12 +606,7 @@
                             <div v-if="!currentTrip.shopping || currentTrip.shopping.length === 0" class="text-center py-6 text-neutral-400 text-xs col-span-2">購物清單還是空的。</div>
                             
                             <div v-for="item in currentTrip.shopping" :key="item.id" class="flex gap-3 text-xs text-neutral-600 p-3 bg-[#fcfbf9] border border-[#e6e4dc] rounded-xl group hover:bg-neutral-50 relative">
-                                <button v-if="hasCustomImage(item.imgUrl)" @click.stop="openShoppingImagePreview(item)" type="button" class="relative w-14 h-14 rounded-lg bg-white border shrink-0 overflow-hidden cursor-zoom-in focus:outline-none focus:ring-2 focus:ring-neutral-300 group" :title="'放大查看：' + item.text">
-                                    <img :src="item.imgUrl" :alt="item.text + '圖片'" class="w-full h-full object-cover">
-                                    <span class="absolute inset-0 bg-black/0 group-hover:bg-black/25 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-all">
-                                        <i class="fa-solid fa-magnifying-glass-plus text-xs"></i>
-                                    </span>
-                                </button>
+                                <img v-if="hasCustomImage(item.imgUrl)" :src="item.imgUrl" class="w-14 h-14 object-cover rounded-lg bg-white border shrink-0">
                                 
                                 <div class="flex-1 min-w-0 flex flex-col justify-between">
                                     <div class="flex items-start gap-2 min-w-0">
@@ -650,35 +700,6 @@
                             重新整理
                         </button>
                         <button @click="closeWeatherModal" type="button" class="px-4 py-2 text-xs bg-neutral-700 text-white rounded-xl hover:bg-neutral-800 shadow-sm">
-                            關閉
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <div v-if="showShoppingImageModal" @click.self="closeShoppingImagePreview" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
-                <div class="bg-white border border-[#e6e4dc] rounded-2xl p-4 w-full max-w-4xl shadow-lg space-y-3 max-h-[92vh] flex flex-col">
-                    <div class="flex items-start justify-between gap-4 border-b border-neutral-100 pb-3">
-                        <div class="min-w-0">
-                            <h3 class="text-base font-medium text-neutral-700 truncate">
-                                <i class="fa-solid fa-magnifying-glass-plus text-neutral-400 mr-1.5"></i> {{ shoppingImagePreview.title || '購物圖片' }}
-                            </h3>
-                            <p class="text-[11px] text-neutral-400 mt-1">點擊背景或右上角可關閉圖片預覽</p>
-                        </div>
-                        <button @click="closeShoppingImagePreview" type="button" class="text-neutral-300 hover:text-neutral-600 text-sm shrink-0">
-                            <i class="fa-solid fa-xmark"></i>
-                        </button>
-                    </div>
-
-                    <div class="flex-1 min-h-0 flex items-center justify-center bg-[#fcfbf9] border border-[#e6e4dc] rounded-2xl p-3 overflow-auto">
-                        <img :src="shoppingImagePreview.url" :alt="shoppingImagePreview.title || '購物圖片'" class="max-w-full max-h-[70vh] object-contain rounded-xl bg-white">
-                    </div>
-
-                    <div class="flex flex-col sm:flex-row justify-end gap-2 pt-1">
-                        <a v-if="shoppingImagePreview.itemUrl" :href="shoppingImagePreview.itemUrl" target="_blank" class="px-4 py-2 text-xs border border-neutral-300 rounded-xl text-neutral-500 hover:bg-neutral-50 text-center">
-                            <i class="fa-solid fa-arrow-up-right-from-square mr-1"></i> 開啟商品連結
-                        </a>
-                        <button @click="closeShoppingImagePreview" type="button" class="px-4 py-2 text-xs bg-neutral-700 text-white rounded-xl hover:bg-neutral-800 shadow-sm">
                             關閉
                         </button>
                     </div>
@@ -794,8 +815,6 @@
                 const weatherError = ref('');
                 const weatherCity = ref('台北');
                 const showWeatherModal = ref(false);
-                const showShoppingImageModal = ref(false);
-                const shoppingImagePreview = ref({ url: '', title: '', itemUrl: '' });
                 const authForm = ref({ username: '', password: '' });
                 const registerForm = ref({ username: '', email: '', password: '', confirmPassword: '' });
                 const authPage = ref(window.location.hash === '#register' ? 'register' : 'login');
@@ -818,7 +837,7 @@
                 const editLuggageData = ref({ text: '', category: '隨身包包' });
 
                 const editingSpotIndex = ref(null);
-                const editSpotData = ref({ name: '', link: '', imgUrl: '', note: '' });
+                const editSpotData = ref({ type: '景點', name: '', placeNote: '', linkName: '', linkUrl: '', imgUrl: '' });
 
                 const editingExpenseIndex = ref(null);
                 const editExpenseData = ref({ dayKey: 'pre', title: '', amount: 0, currency: 'TWD' });
@@ -827,7 +846,7 @@
                 const editShoppingData = ref({ text: '', url: '', imgUrl: '' });
 
                 // 新增用欄位暫存
-                const newSpot = ref({ name: '', link: '', imgUrl: '', note: '' });
+                const newSpot = ref({ type: '景點', name: '', placeNote: '', linkName: '', linkUrl: '', imgUrl: '' });
                 const newMenuLink = ref({ title: '', url: '' });
                 const newTodoText = ref('');
                 const newLuggage = ref({ text: '', category: '隨身包包' });
@@ -879,6 +898,46 @@
 
                 const hasCustomImage = (url) => {
                     return !!(url && String(url).trim() && !isAutoGeneratedImage(url));
+                };
+
+                const spotTypeList = ['航班', '交通', '景點', '餐飲', '購物', '租車', '住宿'];
+                const normalizeSpotType = (spotOrType) => {
+                    const type = typeof spotOrType === 'string' ? spotOrType : (spotOrType?.type || '景點');
+                    return spotTypeList.includes(type) ? type : '景點';
+                };
+                const getSpotTypeLabel = (spotOrType) => normalizeSpotType(spotOrType);
+                const getSpotTypeIcon = (spotOrType) => {
+                    const type = normalizeSpotType(spotOrType);
+                    const iconMap = {
+                        '航班': 'fa-solid fa-plane',
+                        '交通': 'fa-solid fa-train-subway',
+                        '景點': 'fa-solid fa-location-dot',
+                        '餐飲': 'fa-solid fa-utensils',
+                        '購物': 'fa-solid fa-bag-shopping',
+                        '租車': 'fa-solid fa-car',
+                        '住宿': 'fa-solid fa-hotel'
+                    };
+                    return iconMap[type] || iconMap['景點'];
+                };
+                const getSpotNoteText = (spot) => spot?.placeNote || spot?.note || '';
+                const getSpotLinkUrl = (spot) => spot?.linkUrl || spot?.link || '';
+                const getSpotLinkName = (spot) => spot?.linkName || (getSpotLinkUrl(spot) ? '查看參考連結' : '');
+                const parseFlightInfo = (text) => {
+                    const raw = String(text || '').trim();
+                    if (!raw) return null;
+                    const bracketMatch = raw.match(/\[([^\]]+)\]/);
+                    const routeText = (bracketMatch ? bracketMatch[1] : raw).trim();
+                    const parts = routeText.split(/\s+-\s+/);
+                    if (parts.length < 2) return null;
+                    const parseAirport = (value) => {
+                        const cleaned = String(value || '').trim();
+                        const match = cleaned.match(/^([A-Z]{3})\s*(.*)$/i);
+                        return {
+                            code: match ? match[1].toUpperCase() : '',
+                            name: match ? match[2].trim() : cleaned
+                        };
+                    };
+                    return { from: parseAirport(parts[0]), to: parseAirport(parts.slice(1).join(' - ')) };
                 };
 
                 const handleImageUpload = (event, target) => {
@@ -1766,6 +1825,11 @@
                     if (todo) todo.text = editTodoTextData.value;
                     updatePrivateTripData(); editingTodoId.value = null;
                 };
+                const toggleTodoDone = (item) => {
+                    if (!item) return;
+                    item.done = !item.done;
+                    updatePrivateTripData();
+                };
                 const addTodo = () => {
                     if (!newTodoText.value.trim()) return;
                     if (!currentTrip.value.todos) currentTrip.value.todos = [];
@@ -1787,6 +1851,11 @@
                     if (item) { item.text = editLuggageData.value.text; item.category = editLuggageData.value.category; }
                     updatePrivateTripData(); editingLuggageId.value = null;
                 };
+                const toggleLuggageDone = (item) => {
+                    if (!item) return;
+                    item.done = !item.done;
+                    updatePrivateTripData();
+                };
                 const addLuggage = () => {
                     if (!newLuggage.value.text.trim()) return;
                     if (!currentTrip.value.luggage) currentTrip.value.luggage = [];
@@ -1798,24 +1867,35 @@
                     currentTrip.value.luggage = currentTrip.value.luggage.filter(i => i.id !== id); updatePrivateTripData();
                 };
 
-                // 原地編輯：景點行程
+                // 原地編輯：分類行程
                 const startSpotEdit = (index, spot) => {
                     editingSpotIndex.value = index;
-                    editSpotData.value = { name: spot.name, link: spot.link || '', imgUrl: hasCustomImage(spot.imgUrl) ? spot.imgUrl : '', note: spot.note || '' };
+                    editSpotData.value = {
+                        type: normalizeSpotType(spot),
+                        name: spot.name || '',
+                        placeNote: getSpotNoteText(spot),
+                        linkName: spot.linkName || '',
+                        linkUrl: getSpotLinkUrl(spot),
+                        imgUrl: hasCustomImage(spot.imgUrl) ? spot.imgUrl : ''
+                    };
                 };
                 const saveSpotEdit = (index) => {
                     currentTrip.value.itinerary[activeDayTab.value][index] = { ...editSpotData.value };
                     updateSharedTripData(); editingSpotIndex.value = null;
                 };
                 const addSpot = () => {
-                    if (!newSpot.value.name.trim()) return alert('請填寫景點名稱');
+                    if (!newSpot.value.name.trim()) return alert('請填寫名稱');
                     if (!currentTrip.value.itinerary[activeDayTab.value]) currentTrip.value.itinerary[activeDayTab.value] = [];
-                    let finalImg = newSpot.value.imgUrl.trim();
-                    
-                    currentTrip.value.itinerary[activeDayTab.value].push({
-                        name: newSpot.value.name, link: newSpot.value.link, imgUrl: finalImg, note: newSpot.value.note
-                    });
-                    updateSharedTripData(); newSpot.value = { name: '', link: '', imgUrl: '', note: '' };
+                    const spotData = {
+                        type: normalizeSpotType(newSpot.value.type),
+                        name: newSpot.value.name.trim(),
+                        placeNote: String(newSpot.value.placeNote || '').trim(),
+                        linkName: String(newSpot.value.linkName || '').trim(),
+                        linkUrl: String(newSpot.value.linkUrl || '').trim(),
+                        imgUrl: String(newSpot.value.imgUrl || '').trim()
+                    };
+                    currentTrip.value.itinerary[activeDayTab.value].push(spotData);
+                    updateSharedTripData(); newSpot.value = { type: newSpot.value.type || '景點', name: '', placeNote: '', linkName: '', linkUrl: '', imgUrl: '' };
                 };
                 const deleteSpot = (index) => {
                     if (!confirm('確定要自今日時間軸刪除此景點嗎？')) return;
@@ -1883,34 +1963,19 @@
                     currentTrip.value.shopping = currentTrip.value.shopping.filter(i => i.id !== id); updatePrivateTripData();
                 };
 
-                const openShoppingImagePreview = (item) => {
-                    if (!item || !hasCustomImage(item.imgUrl)) return;
-                    shoppingImagePreview.value = {
-                        url: item.imgUrl,
-                        title: item.text || '購物圖片',
-                        itemUrl: item.url || ''
-                    };
-                    showShoppingImageModal.value = true;
-                };
-
-                const closeShoppingImagePreview = () => {
-                    showShoppingImageModal.value = false;
-                    shoppingImagePreview.value = { url: '', title: '', itemUrl: '' };
-                };
-
                 const changeTheme = (color) => { activeThemeColor.value = color; };
 
                 return {
-                    user, authForm, registerForm, authPage, authMessage, trips, currentTrip, activeMainTab, activeDayTab, weather, weatherForecast, weatherLoading, weatherError, weatherCity, showWeatherModal, showShoppingImageModal, shoppingImagePreview, isKeyMissing, themeStyles, activeThemeColor, shareForm, shareMessage,
+                    user, authForm, registerForm, authPage, authMessage, trips, currentTrip, activeMainTab, activeDayTab, weather, weatherForecast, weatherLoading, weatherError, weatherCity, showWeatherModal, isKeyMissing, themeStyles, activeThemeColor, shareForm, shareMessage,
                     showTripModal, isEditingTripMode, tripModalForm, openAddTripModal, openEditTripModal, saveTripModalAction,
                     expenseSections, getFilteredExpenses, sumByCurrency, getCurrencySymbol,
                     editingMenuLinkIndex, editMenuLinkData, startMenuLinkEdit, saveMenuLinkEdit,
-                    editingTodoId, editTodoTextData, startTodoEdit, saveTodoEdit,
-                    editingLuggageId, editLuggageData, startLuggageEdit, saveLuggageEdit,
+                    editingTodoId, editTodoTextData, startTodoEdit, saveTodoEdit, toggleTodoDone,
+                    editingLuggageId, editLuggageData, startLuggageEdit, saveLuggageEdit, toggleLuggageDone,
                     editingSpotIndex, editSpotData, startSpotEdit, saveSpotEdit,
                     editingExpenseIndex, editExpenseData, startExpenseEdit, saveExpenseEdit,
                     editingShoppingId, editShoppingData, startShoppingEdit, saveShoppingEdit,
-                    newSpot, newMenuLink, newTodoText, newLuggage, newExpense, newShopItem, getCalculatedDateStr, hasCustomImage, handleImageUpload, isTripDayTabActive, getDayWeather, getTravelWeatherDays, getWeatherButtonSummary, openWeatherModal, closeWeatherModal, fetchWeather, openShoppingImagePreview, closeShoppingImagePreview,
+                    newSpot, newMenuLink, newTodoText, newLuggage, newExpense, newShopItem, getCalculatedDateStr, hasCustomImage, handleImageUpload, getSpotTypeIcon, getSpotTypeLabel, getSpotNoteText, getSpotLinkUrl, getSpotLinkName, parseFlightInfo, isTripDayTabActive, getDayWeather, getTravelWeatherDays, getWeatherButtonSummary, openWeatherModal, closeWeatherModal, fetchWeather,
                     handleLogin, registerAccount, goToLogin, goToRegister, logout, selectTrip, deleteTrip, updateTripData, updateSharedTripData, updatePrivateTripData, inviteUserToTrip, removeTripModalMember, isTripOwner, getTripRoleText, addSpot, deleteSpot, addMenuLink, deleteMenuLink, addTodo, deleteTodo, addLuggage, deleteLuggage, addExpense, deleteExpense, addShopItem, deleteShopItem, changeTheme
                 };
             }
