@@ -757,7 +757,7 @@
                 </div>
             </div>
 
-            <div v-if="showSpotModal" @click.self="closeSpotModal" class="fixed inset-0 bg-black/20 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+            <div v-if="showSpotModal" @mousedown.self="closeSpotModal" class="fixed inset-0 bg-black/20 backdrop-blur-xs flex items-center justify-center p-4 z-50">
                 <div class="bg-white border border-[#e6e4dc] rounded-2xl p-6 w-full max-w-lg shadow-lg space-y-4 max-h-[90vh] overflow-y-auto">
                     <div class="flex items-start justify-between gap-4 border-b border-neutral-100 pb-3">
                         <div>
@@ -820,7 +820,7 @@
                 </div>
             </div>
 
-            <div v-if="showExpenseModal" @click.self="closeExpenseModal" class="fixed inset-0 bg-black/20 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+            <div v-if="showExpenseModal" @mousedown.self="closeExpenseModal" class="fixed inset-0 bg-black/20 backdrop-blur-xs flex items-center justify-center p-4 z-50">
                 <div class="bg-white border border-[#e6e4dc] rounded-2xl p-6 w-full max-w-lg shadow-lg space-y-4 max-h-[90vh] overflow-y-auto">
                     <div class="flex items-start justify-between gap-4 border-b border-neutral-100 pb-3">
                         <div>
@@ -855,7 +855,7 @@
                 </div>
             </div>
 
-            <div v-if="showShopModal" @click.self="closeShopModal" class="fixed inset-0 bg-black/20 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+            <div v-if="showShopModal" @mousedown.self="closeShopModal" class="fixed inset-0 bg-black/20 backdrop-blur-xs flex items-center justify-center p-4 z-50">
                 <div class="bg-white border border-[#e6e4dc] rounded-2xl p-6 w-full max-w-lg shadow-lg space-y-4 max-h-[90vh] overflow-y-auto">
                     <div class="flex items-start justify-between gap-4 border-b border-neutral-100 pb-3">
                         <div>
@@ -903,7 +903,7 @@
                 </div>
             </div>
 
-            <div v-if="imagePreviewUrl" @click.self="closeImagePreview" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
+            <div v-if="imagePreviewUrl" @mousedown.self="closeImagePreview" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
                 <div class="relative max-w-4xl max-h-[88vh] w-full flex items-center justify-center">
                     <button @click="closeImagePreview" type="button" class="absolute -top-3 -right-3 w-9 h-9 rounded-full bg-white text-neutral-600 shadow flex items-center justify-center hover:bg-neutral-100 z-10">
                         <i class="fa-solid fa-xmark"></i>
@@ -912,7 +912,7 @@
                 </div>
             </div>
 
-            <div v-if="showWeatherModal" @click.self="closeWeatherModal" class="fixed inset-0 bg-black/20 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+            <div v-if="showWeatherModal" @mousedown.self="closeWeatherModal" class="fixed inset-0 bg-black/20 backdrop-blur-xs flex items-center justify-center p-4 z-50">
                 <div class="bg-white border border-[#e6e4dc] rounded-2xl p-6 w-full max-w-2xl shadow-lg space-y-4 max-h-[90vh] overflow-y-auto">
                     <div class="flex items-start justify-between gap-4 border-b border-neutral-100 pb-3">
                         <div>
@@ -967,7 +967,7 @@
                 </div>
             </div>
 
-            <div v-if="showTripModal" @click.self="showTripModal = false" class="fixed inset-0 bg-black/20 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+            <div v-if="showTripModal" @mousedown.self="showTripModal = false" class="fixed inset-0 bg-black/20 backdrop-blur-xs flex items-center justify-center p-4 z-50">
                 <div class="bg-white border border-[#e6e4dc] rounded-2xl p-6 w-full max-w-lg shadow-lg space-y-4 max-h-[90vh] overflow-y-auto">
                     <h3 class="text-base font-medium text-neutral-700 border-b pb-2">
                         {{ isEditingTripMode ? '📝 編輯旅程手冊設定' : '📂 建立新旅程手冊' }}
@@ -1876,6 +1876,7 @@
                         title: sharedData.title || '未命名旅程',
                         days: normalizedDates.days,
                         startDate: normalizedDates.startDate,
+                        endDate: normalizedDates.endDate,
                         ownerUid: sharedData.ownerUid || '',
                         ownerUsername: sharedData.ownerUsername || '',
                         memberUids: Array.isArray(sharedData.memberUids) ? sharedData.memberUids : [],
@@ -1901,6 +1902,11 @@
                         menuLinks: Array.isArray(trip.menuLinks) ? trip.menuLinks : [],
                         itinerary: ensureItineraryDayKeys(trip.itinerary || {}, normalizedDates.days)
                     };
+                };
+
+                const getFirebaseSharedTripPayload = (trip) => {
+                    const { endDate, ...payload } = getSharedTripPayload(trip);
+                    return payload;
                 };
 
                 const getPrivateTripPayload = (trip) => ({
@@ -2279,20 +2285,21 @@
 
                 const updateSharedTripData = async () => {
                     if (!currentTrip.value) return;
+                    const sharedPayload = getSharedTripPayload(currentTrip.value);
+                    const tripIdx = trips.value.findIndex(t => t.id === currentTrip.value.id);
+                    if (tripIdx >= 0) trips.value[tripIdx] = { ...trips.value[tripIdx], ...currentTrip.value, ...sharedPayload };
+
                     if (!isKeyMissing) {
                         await db.collection('trips').doc(currentTrip.value.id).set({
-                            ...getSharedTripPayload(currentTrip.value),
+                            ...getFirebaseSharedTripPayload(currentTrip.value),
                             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                         }, { merge: true });
                     } else {
                         const list = getLocalSharedTrips();
                         const idx = list.findIndex(t => t.id === currentTrip.value.id);
-                        const sharedPayload = getSharedTripPayload(currentTrip.value);
                         if (idx >= 0) list[idx] = sharedPayload;
                         else list.push(sharedPayload);
                         setLocalSharedTrips(list);
-                        const tripIdx = trips.value.findIndex(t => t.id === currentTrip.value.id);
-                        if (tripIdx >= 0) trips.value[tripIdx] = { ...trips.value[tripIdx], ...currentTrip.value };
                     }
                 };
 
@@ -2491,14 +2498,39 @@
                         imgUrl: hasCustomImage(spot.imgUrl) ? spot.imgUrl : ''
                     };
                 };
-                const saveSpotEdit = (index) => {
-                    currentTrip.value.itinerary[activeDayTab.value][index] = { ...editSpotData.value };
-                    currentTrip.value.itinerary[activeDayTab.value] = sortItineraryItems(currentTrip.value.itinerary[activeDayTab.value]);
-                    updateSharedTripData(); editingSpotIndex.value = null;
+                const saveSpotEdit = async (index) => {
+                    if (!currentTrip.value || activeDayTab.value === 'menu') return;
+                    const dayKey = activeDayTab.value;
+                    const backupItinerary = JSON.parse(JSON.stringify(currentTrip.value.itinerary || {}));
+                    const spotData = {
+                        type: normalizeSpotType(editSpotData.value.type),
+                        time: String(editSpotData.value.time || '').trim(),
+                        departureTime: String(editSpotData.value.departureTime || '').trim(),
+                        arrivalTime: String(editSpotData.value.arrivalTime || '').trim(),
+                        name: String(editSpotData.value.name || '').trim(),
+                        placeNote: String(editSpotData.value.placeNote || '').trim(),
+                        linkName: String(editSpotData.value.linkName || '').trim(),
+                        linkUrl: String(editSpotData.value.linkUrl || '').trim(),
+                        imgUrl: String(editSpotData.value.imgUrl || '').trim()
+                    };
+                    if (!spotData.name) return alert('請填寫名稱');
+                    try {
+                        if (!Array.isArray(currentTrip.value.itinerary[dayKey])) currentTrip.value.itinerary[dayKey] = [];
+                        currentTrip.value.itinerary[dayKey][index] = spotData;
+                        currentTrip.value.itinerary[dayKey] = sortItineraryItems(currentTrip.value.itinerary[dayKey]);
+                        await updateSharedTripData();
+                        editingSpotIndex.value = null;
+                    } catch (err) {
+                        currentTrip.value.itinerary = backupItinerary;
+                        console.error('Save itinerary item failed:', err);
+                        alert('行程儲存失敗：' + (err?.message || '請稍後再試。'));
+                    }
                 };
-                const addSpot = () => {
+                const addSpot = async () => {
+                    if (!currentTrip.value || activeDayTab.value === 'menu') return alert('請先選擇要新增的 Day 分頁');
                     if (!newSpot.value.name.trim()) return alert('請填寫名稱');
-                    if (!currentTrip.value.itinerary[activeDayTab.value]) currentTrip.value.itinerary[activeDayTab.value] = [];
+                    const dayKey = activeDayTab.value;
+                    const backupItinerary = JSON.parse(JSON.stringify(currentTrip.value.itinerary || {}));
                     const spotData = {
                         type: normalizeSpotType(newSpot.value.type),
                         time: String(newSpot.value.time || '').trim(),
@@ -2510,12 +2542,20 @@
                         linkUrl: String(newSpot.value.linkUrl || '').trim(),
                         imgUrl: String(newSpot.value.imgUrl || '').trim()
                     };
-                    currentTrip.value.itinerary[activeDayTab.value].push(spotData);
-                    currentTrip.value.itinerary[activeDayTab.value] = sortItineraryItems(currentTrip.value.itinerary[activeDayTab.value]);
-                    updateSharedTripData();
-                    const keepType = newSpot.value.type || '景點';
-                    newSpot.value = emptySpotForm(keepType);
-                    closeSpotModal();
+                    try {
+                        if (!currentTrip.value.itinerary) currentTrip.value.itinerary = ensureItineraryDayKeys({}, currentTrip.value.days || 1);
+                        if (!Array.isArray(currentTrip.value.itinerary[dayKey])) currentTrip.value.itinerary[dayKey] = [];
+                        currentTrip.value.itinerary[dayKey].push(spotData);
+                        currentTrip.value.itinerary[dayKey] = sortItineraryItems(currentTrip.value.itinerary[dayKey]);
+                        await updateSharedTripData();
+                        const keepType = newSpot.value.type || '景點';
+                        newSpot.value = emptySpotForm(keepType);
+                        closeSpotModal();
+                    } catch (err) {
+                        currentTrip.value.itinerary = backupItinerary;
+                        console.error('Add itinerary item failed:', err);
+                        alert('行程儲存失敗：' + (err?.message || '請稍後再試。'));
+                    }
                 };
                 const deleteSpot = (index) => {
                     if (!confirm('確定要自今日時間軸刪除此景點嗎？')) return;
