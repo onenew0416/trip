@@ -66,30 +66,21 @@
             box-shadow: 0 0 0 3px rgba(var(--app-primary-rgb), 0.22), 0 8px 18px rgba(17, 24, 39, 0.16) !important;
         }
 
-        /* 行程分頁選取狀態：黑字 + 主題色外框 + 底線，手機上也更明顯 */
+        /* 行程分頁選取狀態：黑底白字，讓目前分頁一眼可見 */
         .itinerary-tab-active {
             position: relative !important;
-            background: linear-gradient(180deg, rgba(var(--app-primary-rgb), 0.18) 0%, #ffffff 58%) !important;
-            color: #111827 !important;
-            border: 2px solid var(--app-primary) !important;
-            box-shadow: 0 0 0 2px rgba(var(--app-primary-rgb), 0.20), 0 10px 22px rgba(17, 24, 39, 0.10) !important;
+            background: #111827 !important;
+            color: #ffffff !important;
+            border: 2px solid #111827 !important;
+            box-shadow: 0 10px 22px rgba(17, 24, 39, 0.18) !important;
             transform: translateY(-1px) !important;
         }
-        .itinerary-tab-active::after {
-            content: '';
-            position: absolute;
-            left: 12px;
-            right: 12px;
-            bottom: 5px;
-            height: 3px;
-            border-radius: 999px;
-            background: var(--app-primary);
-        }
-        .itinerary-tab-active * { color: #111827 !important; }
+        .itinerary-tab-active::after { display: none !important; }
+        .itinerary-tab-active * { color: #ffffff !important; }
         .itinerary-tab-active .day-badge {
-            background: #111827 !important;
-            border-color: #111827 !important;
-            color: #ffffff !important;
+            background: #ffffff !important;
+            border-color: #ffffff !important;
+            color: #111827 !important;
         }
         .itinerary-tab-idle {
             background: #ffffff !important;
@@ -102,30 +93,21 @@
             color: #111827 !important;
         }
 
-        /* 底部主分頁選取狀態加強 */
+        /* 底部主分頁選取狀態加強：黑底白字 */
         .main-tab-active {
             position: relative !important;
-            color: #111827 !important;
+            color: #ffffff !important;
             font-weight: 800 !important;
-            background: rgba(var(--app-primary-rgb), 0.15) !important;
-            box-shadow: inset 0 0 0 1px rgba(var(--app-primary-rgb), 0.30) !important;
+            background: #111827 !important;
+            box-shadow: 0 8px 18px rgba(17, 24, 39, 0.18) !important;
         }
-        .main-tab-active::before {
-            content: '';
-            position: absolute;
-            top: 7px;
-            left: 50%;
-            width: 28px;
-            height: 3px;
-            border-radius: 999px;
-            transform: translateX(-50%);
-            background: var(--app-primary);
-        }
-        .main-tab-active i { color: var(--app-primary) !important; }
+        .main-tab-active::before { display: none !important; }
+        .main-tab-active i,
+        .main-tab-active span { color: #ffffff !important; }
         .main-tab-idle { color: #94a3b8 !important; }
         .main-tab-idle:hover {
             color: #111827 !important;
-            background: rgba(var(--app-primary-rgb), 0.08) !important;
+            background: #f3f4f6 !important;
         }
 
         /* 基礎深色主題覆蓋 */
@@ -167,18 +149,18 @@
         #app.dark-theme input::placeholder,
         #app.dark-theme textarea::placeholder { color: #6b7280 !important; }
         #app.dark-theme .itinerary-tab-active {
-            background: linear-gradient(180deg, rgba(var(--app-primary-rgb), 0.32) 0%, #f9fafb 64%) !important;
-            color: #111827 !important;
+            background: #111827 !important;
+            color: #ffffff !important;
         }
-        #app.dark-theme .itinerary-tab-active * { color: #111827 !important; }
-        #app.dark-theme .itinerary-tab-active .day-badge { color: #ffffff !important; }
+        #app.dark-theme .itinerary-tab-active * { color: #ffffff !important; }
+        #app.dark-theme .itinerary-tab-active .day-badge { color: #111827 !important; }
         #app.dark-theme .itinerary-tab-idle {
             background: #1f2937 !important;
             color: #d1d5db !important;
             border-color: #374151 !important;
         }
         #app.dark-theme .main-tab-active {
-            background: rgba(var(--app-primary-rgb), 0.26) !important;
+            background: #111827 !important;
             color: #ffffff !important;
         }
         #app.dark-theme .main-tab-active span { color: #ffffff !important; }
@@ -190,7 +172,7 @@
 </head>
 <body>
 
-    <div id="app" :style="themeStyles" :class="['min-h-screen flex flex-col', themeMode === 'dark' ? 'dark-theme' : 'light-theme']">
+    <div id="app" class="min-h-screen flex flex-col">
         
         <div v-if="!user" class="flex-1 flex items-center justify-center p-4">
             <div class="bg-white border border-[#e6e4dc] p-8 rounded-2xl w-full max-w-md shadow-sm">
@@ -276,36 +258,6 @@
                     </div>
                     
                     <div class="flex items-center gap-3">
-                        <div class="relative">
-                            <button @click.stop="toggleThemePanel" type="button" :class="['text-xs text-neutral-500 hover:text-neutral-800 transition-colors inline-flex items-center gap-1.5 border border-[#e6e4dc] bg-white px-2.5 py-1.5 rounded-xl shadow-sm', showThemePanel ? 'theme-trigger-active' : '']">
-                                <i class="fa-solid fa-palette"></i>
-                                <span class="hidden sm:inline">主題</span>
-                            </button>
-                            <div v-if="showThemePanel" @click.self="showThemePanel = false" class="fixed inset-0 z-[90] bg-black/5">
-                                <div @click.stop class="fixed right-4 top-16 w-72 theme-panel-card border rounded-2xl shadow-xl p-4 space-y-4">
-                                    <div class="flex items-center justify-between border-b border-neutral-100 pb-2">
-                                        <p class="text-xs font-bold text-neutral-700"><i class="fa-solid fa-wand-magic-sparkles text-neutral-400 mr-1"></i> 外觀主題</p>
-                                        <button @click="showThemePanel = false" type="button" class="text-neutral-300 hover:text-neutral-600 text-xs"><i class="fa-solid fa-xmark"></i></button>
-                                    </div>
-                                    <div class="grid grid-cols-2 gap-2">
-                                        <button @click.stop="setThemeMode('light')" type="button" :class="['text-xs px-3 py-2 rounded-xl border transition-colors', themeMode === 'light' ? 'bg-neutral-900 text-white border-neutral-900 font-bold' : 'bg-white text-neutral-500 border-[#e6e4dc] hover:bg-neutral-50']">
-                                            <i class="fa-solid fa-sun mr-1"></i> 淺色
-                                        </button>
-                                        <button @click.stop="setThemeMode('dark')" type="button" :class="['text-xs px-3 py-2 rounded-xl border transition-colors', themeMode === 'dark' ? 'bg-neutral-900 text-white border-neutral-900 font-bold' : 'bg-white text-neutral-500 border-[#e6e4dc] hover:bg-neutral-50']">
-                                            <i class="fa-solid fa-moon mr-1"></i> 深色
-                                        </button>
-                                    </div>
-                                    <div>
-                                        <p class="text-[10px] font-bold text-neutral-400 tracking-widest mb-2 uppercase">主題色</p>
-                                        <div class="grid grid-cols-6 gap-2">
-                                            <button v-for="color in themeColorOptions" :key="color.value" @click.stop="changeTheme(color.value)" type="button" :title="color.name" :class="['w-8 h-8 rounded-full border-2 transition-transform', activeThemeColor === color.value ? 'theme-color-active' : 'border-white shadow-sm hover:scale-105']" :style="{ backgroundColor: color.value }">
-                                                <span class="sr-only">{{ color.name }}</span>
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
                         <span class="text-xs text-neutral-500 hidden sm:inline"><i class="fa-regular fa-user mr-1"></i> {{ user.username || user.email }}</span>
                         <button @click="logout" class="text-xs text-neutral-400 hover:text-rose-500 transition-colors"><i class="fa-solid fa-arrow-right-from-bracket"></i></button>
                     </div>
@@ -331,11 +283,8 @@
                     <div v-for="trip in trips" :key="trip.id" @click="selectTrip(trip)" class="bg-white border border-[#e6e4dc] rounded-2xl p-6 cursor-pointer hover:shadow-md transition-all relative group flex flex-col justify-between min-h-[180px]">
                         <div>
                             <div class="flex justify-between items-start mb-2">
-                                <span class="text-[10px] bg-[#f7f6f3] border border-[#e6e4dc] px-2 py-0.5 rounded text-neutral-500 font-medium tracking-wide">
-                                    {{ trip.days }} DAYS
-                                </span>
-                                <span class="text-[11px] text-neutral-400 font-medium bg-neutral-50 px-2 py-0.5 rounded border border-neutral-100">
-                                    📅 {{ trip.startDate || '未設定出發日' }}
+                                <span class="text-[11px] text-neutral-500 font-medium bg-neutral-50 px-2 py-0.5 rounded border border-neutral-100">
+                                    📅 {{ getTripDateRangeText(trip) }}
                                 </span>
                             </div>
                             <h3 class="text-lg font-medium text-neutral-700 group-hover:text-primary transition-colors mt-1">{{ trip.title }}</h3>
@@ -369,8 +318,7 @@
                     <div class="sticky top-[72px] z-40 bg-white border border-[#e6e4dc] rounded-2xl p-6 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <div>
                             <div class="flex items-center gap-2">
-                                <span class="bg-primary/10 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full">{{ currentTrip.days }}天</span>
-                                <span class="text-xs text-neutral-400">📅 出發日期: {{ currentTrip.startDate || '未設定' }}</span>
+                                <span class="text-xs text-neutral-500 bg-[#fcfbf9] border border-[#e6e4dc] px-2 py-0.5 rounded-full">📅 {{ getTripDateRangeText(currentTrip) }}</span>
                             </div>
                             <h2 class="text-xl font-medium text-neutral-700 mt-1">{{ currentTrip.title }}</h2>
                         </div>
@@ -1035,11 +983,11 @@
                                 <input v-model="tripModalForm.startDate" type="date" class="w-full border border-[#e6e4dc] rounded-xl p-2.5 text-xs focus:outline-none">
                             </div>
                             <div>
-                                <label class="text-[11px] font-bold text-neutral-400 block mb-1">規劃總天數</label>
-                                <input v-model.number="tripModalForm.days" type="number" min="1" max="31" :disabled="isEditingTripMode" class="w-full border border-[#e6e4dc] rounded-xl p-2.5 text-xs focus:outline-none bg-white disabled:bg-neutral-50 disabled:text-neutral-400">
+                                <label class="text-[11px] font-bold text-neutral-400 block mb-1">📅 回程日期</label>
+                                <input v-model="tripModalForm.endDate" type="date" class="w-full border border-[#e6e4dc] rounded-xl p-2.5 text-xs focus:outline-none">
                             </div>
                         </div>
-                        <p v-if="isEditingTripMode" class="text-[10px] text-neutral-400">⚠️ 注意：為確保行程完整，編輯模式不支援直接更改天數。</p>
+                        <p class="text-[10px] text-neutral-400">系統會依出發日期與回程日期自動產生 Day 分頁。</p>
 
                         <div class="border border-[#e6e4dc] bg-[#fcfbf9] rounded-2xl p-4 space-y-3">
                             <div class="flex items-start justify-between gap-2">
@@ -1121,23 +1069,10 @@
                 
                 const activeMainTab = ref('itinerary'); 
                 const activeDayTab = ref('menu');       
-                const getSavedSetting = (key, fallback) => {
-                    try { return localStorage.getItem(key) || fallback; }
-                    catch (e) { return fallback; }
-                };
-                const activeThemeColor = ref(getSavedSetting('travel_theme_color', '#6b705c'));
-                const themeMode = ref(getSavedSetting('travel_theme_mode', 'light') === 'dark' ? 'dark' : 'light');
+                const activeThemeColor = ref('#6b705c');
+                const themeMode = ref('light');
                 const showThemePanel = ref(false);
-                const themeColorOptions = [
-                    { name: '鼠尾草綠', value: '#6b705c' },
-                    { name: '霧藍', value: '#4f6f8f' },
-                    { name: '奶茶棕', value: '#b08968' },
-                    { name: '莓果粉', value: '#c06c84' },
-                    { name: '薰衣草紫', value: '#7e6ba8' },
-                    { name: '森林綠', value: '#3f6f5e' },
-                    { name: '日落橘', value: '#d9845f' },
-                    { name: '石墨黑', value: '#4b5563' }
-                ];  
+                const themeColorOptions = [];
                 const hexToRgbText = (hex) => {
                     const cleaned = String(hex || '#6b705c').replace('#', '').trim();
                     const normalized = cleaned.length === 3
@@ -1148,14 +1083,16 @@
                     return `${(num >> 16) & 255}, ${(num >> 8) & 255}, ${num & 255}`;
                 };
                 const applyThemeToDocument = () => {
-                    const rgb = hexToRgbText(activeThemeColor.value);
-                    document.documentElement.style.setProperty('--app-primary', activeThemeColor.value);
-                    document.documentElement.style.setProperty('--app-primary-rgb', rgb);
-                    document.body.classList.toggle('travel-dark-theme', themeMode.value === 'dark');
+                    const defaultColor = '#6b705c';
+                    document.documentElement.style.setProperty('--app-primary', defaultColor);
+                    document.documentElement.style.setProperty('--app-primary-rgb', hexToRgbText(defaultColor));
+                    document.body.classList.remove('travel-dark-theme');
+                    try {
+                        localStorage.removeItem('travel_theme_mode');
+                        localStorage.removeItem('travel_theme_color');
+                    } catch (e) {}
                 };
-                const toggleThemePanel = () => {
-                    showThemePanel.value = !showThemePanel.value;
-                };
+                const toggleThemePanel = () => {};
                 const weather = ref({ city: '偵測中', temp: '--°C', desc: '天氣預報', icon: 'fa-solid fa-feather' });
                 const weatherForecast = ref([]);
                 const weatherLoading = ref(false);
@@ -1178,7 +1115,7 @@
                 const showTripModal = ref(false);
                 const isEditingTripMode = ref(false);
                 const editingTripId = ref(null);
-                const tripModalForm = ref({ title: '', days: 5, startDate: '', ownerUid: '', ownerUsername: '', memberUids: [], memberUsernames: [] });
+                const tripModalForm = ref({ title: '', startDate: '', endDate: '', ownerUid: '', ownerUsername: '', memberUids: [], memberUsernames: [] });
 
                 // 原地編輯各項目索引暫存
                 const editingMenuLinkIndex = ref(null);
@@ -1403,6 +1340,58 @@
                     const mm = String(date.getMonth() + 1).padStart(2, '0');
                     const dd = String(date.getDate()).padStart(2, '0');
                     return `${yy}-${mm}-${dd}`;
+                };
+                const getTripEndDateFromStartDays = (startDateStr, days = 1) => {
+                    const start = parseLocalDate(startDateStr);
+                    if (!start) return '';
+                    const safeDays = Math.max(1, Number(days || 1));
+                    start.setDate(start.getDate() + safeDays - 1);
+                    return formatLocalDate(start);
+                };
+
+                const getTripDaysFromDates = (startDateStr, endDateStr) => {
+                    const start = parseLocalDate(startDateStr);
+                    const end = parseLocalDate(endDateStr);
+                    if (!start || !end || end < start) return 0;
+                    return Math.floor((end - start) / 86400000) + 1;
+                };
+
+                const formatDateWithWeek = (dateStr) => {
+                    const date = parseLocalDate(dateStr);
+                    if (!date) return '未設定日期';
+                    const yy = date.getFullYear();
+                    const mm = String(date.getMonth() + 1).padStart(2, '0');
+                    const dd = String(date.getDate()).padStart(2, '0');
+                    const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
+                    return `${yy}/${mm}/${dd}(星期${weekDays[date.getDay()]})`;
+                };
+
+                const normalizeTripDateFields = (trip = {}) => {
+                    const startDate = trip.startDate || '';
+                    const legacyDays = Math.max(1, Number(trip.days || 1));
+                    const fallbackEndDate = startDate ? getTripEndDateFromStartDays(startDate, legacyDays) : '';
+                    const endDate = trip.endDate || fallbackEndDate;
+                    const calculatedDays = getTripDaysFromDates(startDate, endDate);
+                    return {
+                        startDate,
+                        endDate,
+                        days: calculatedDays > 0 ? calculatedDays : legacyDays
+                    };
+                };
+
+                const getTripDateRangeText = (trip = {}) => {
+                    const normalized = normalizeTripDateFields(trip || {});
+                    if (!normalized.startDate || !normalized.endDate) return '未設定日期';
+                    return `${formatDateWithWeek(normalized.startDate)}~${formatDateWithWeek(normalized.endDate)}`;
+                };
+
+                const ensureItineraryDayKeys = (itinerary = {}, days = 1) => {
+                    const output = normalizeSortedItinerary(itinerary || {});
+                    const safeDays = Math.max(1, Number(days || 1));
+                    for (let i = 1; i <= safeDays; i++) {
+                        if (!Array.isArray(output[i])) output[i] = [];
+                    }
+                    return output;
                 };
 
                 const formatWeatherDateLabel = (dateStr) => {
@@ -1865,33 +1854,39 @@
 
                 const combineTripData = (sharedData = {}, privateData = {}) => {
                     const privatePart = { ...privateTripDefaults(), ...(privateData || {}) };
+                    const normalizedDates = normalizeTripDateFields(sharedData || {});
                     return {
                         id: sharedData.id,
                         title: sharedData.title || '未命名旅程',
-                        days: Number(sharedData.days || 1),
-                        startDate: sharedData.startDate || '',
+                        days: normalizedDates.days,
+                        startDate: normalizedDates.startDate,
+                        endDate: normalizedDates.endDate,
                         ownerUid: sharedData.ownerUid || '',
                         ownerUsername: sharedData.ownerUsername || '',
                         memberUids: Array.isArray(sharedData.memberUids) ? sharedData.memberUids : [],
                         memberUsernames: Array.isArray(sharedData.memberUsernames) ? sharedData.memberUsernames : [],
                         menuLinks: Array.isArray(sharedData.menuLinks) ? sharedData.menuLinks : [],
-                        itinerary: normalizeSortedItinerary(sharedData.itinerary || {}),
+                        itinerary: ensureItineraryDayKeys(sharedData.itinerary || {}, normalizedDates.days),
                         ...privatePart
                     };
                 };
 
-                const getSharedTripPayload = (trip) => ({
-                    id: trip.id,
-                    title: trip.title,
-                    days: Number(trip.days || 1),
-                    startDate: trip.startDate || '',
-                    ownerUid: trip.ownerUid || user.value?.uid || '',
-                    ownerUsername: trip.ownerUsername || user.value?.username || user.value?.email || '',
-                    memberUids: Array.isArray(trip.memberUids) && trip.memberUids.length ? trip.memberUids : [user.value?.uid].filter(Boolean),
-                    memberUsernames: Array.isArray(trip.memberUsernames) && trip.memberUsernames.length ? trip.memberUsernames : [user.value?.username || user.value?.email].filter(Boolean),
-                    menuLinks: Array.isArray(trip.menuLinks) ? trip.menuLinks : [],
-                    itinerary: trip.itinerary || {}
-                });
+                const getSharedTripPayload = (trip) => {
+                    const normalizedDates = normalizeTripDateFields(trip || {});
+                    return {
+                        id: trip.id,
+                        title: trip.title,
+                        days: normalizedDates.days,
+                        startDate: normalizedDates.startDate,
+                        endDate: normalizedDates.endDate,
+                        ownerUid: trip.ownerUid || user.value?.uid || '',
+                        ownerUsername: trip.ownerUsername || user.value?.username || user.value?.email || '',
+                        memberUids: Array.isArray(trip.memberUids) && trip.memberUids.length ? trip.memberUids : [user.value?.uid].filter(Boolean),
+                        memberUsernames: Array.isArray(trip.memberUsernames) && trip.memberUsernames.length ? trip.memberUsernames : [user.value?.username || user.value?.email].filter(Boolean),
+                        menuLinks: Array.isArray(trip.menuLinks) ? trip.menuLinks : [],
+                        itinerary: ensureItineraryDayKeys(trip.itinerary || {}, normalizedDates.days)
+                    };
+                };
 
                 const getPrivateTripPayload = (trip) => ({
                     todos: Array.isArray(trip.todos) ? trip.todos : [],
@@ -1966,8 +1961,9 @@
                             const sharedData = {
                                 id: tripId,
                                 title: legacy.title || '未命名旅程',
-                                days: Number(legacy.days || 1),
+                                days: normalizeTripDateFields(legacy || {}).days,
                                 startDate: legacy.startDate || '',
+                                endDate: normalizeTripDateFields(legacy || {}).endDate,
                                 ownerUid: user.value.uid,
                                 ownerUsername: user.value.username || user.value.email,
                                 memberUids: [user.value.uid],
@@ -2052,10 +2048,11 @@
                     editingTripId.value = null;
                     resetTripShareForm();
                     const ownerUsername = getCurrentUsername();
+                    const today = new Date().toISOString().split('T')[0];
                     tripModalForm.value = {
                         title: '',
-                        days: 5,
-                        startDate: new Date().toISOString().split('T')[0],
+                        startDate: today,
+                        endDate: getTripEndDateFromStartDays(today, 5),
                         ownerUid: user.value.uid,
                         ownerUsername,
                         memberUids: [user.value.uid],
@@ -2069,10 +2066,11 @@
                     editingTripId.value = trip.id;
                     resetTripShareForm();
                     const ownerUsername = trip.ownerUsername || getCurrentUsername();
+                    const normalizedDates = normalizeTripDateFields(trip || {});
                     tripModalForm.value = {
                         title: trip.title,
-                        days: trip.days,
-                        startDate: trip.startDate || '',
+                        startDate: normalizedDates.startDate,
+                        endDate: normalizedDates.endDate,
                         ownerUid: trip.ownerUid || user.value.uid,
                         ownerUsername,
                         memberUids: Array.isArray(trip.memberUids) && trip.memberUids.length ? [...trip.memberUids] : [user.value.uid],
@@ -2083,8 +2081,23 @@
 
                 const saveTripModalAction = async () => {
                     const title = String(tripModalForm.value.title || '').trim();
+                    const startDate = tripModalForm.value.startDate || '';
+                    const endDate = tripModalForm.value.endDate || '';
+                    const days = getTripDaysFromDates(startDate, endDate);
                     if (!title) {
                         showShareMessage('error', '請填寫手冊名稱。');
+                        return;
+                    }
+                    if (!startDate || !endDate) {
+                        showShareMessage('error', '請選擇出發日期與回程日期。');
+                        return;
+                    }
+                    if (days <= 0) {
+                        showShareMessage('error', '回程日期不能早於出發日期。');
+                        return;
+                    }
+                    if (days > 31) {
+                        showShareMessage('error', '旅程天數目前最多支援 31 天，請調整日期區間。');
                         return;
                     }
 
@@ -2094,22 +2107,33 @@
 
                     if (isEditingTripMode.value) {
                         const matched = trips.value.find(t => t.id === editingTripId.value);
+                        const nextItinerary = ensureItineraryDayKeys(matched?.itinerary || {}, days);
                         if (matched) {
                             matched.title = title;
-                            matched.startDate = tripModalForm.value.startDate;
+                            matched.startDate = startDate;
+                            matched.endDate = endDate;
+                            matched.days = days;
+                            matched.itinerary = nextItinerary;
                             matched.memberUids = memberUids;
                             matched.memberUsernames = memberUsernames;
                             if (currentTrip.value?.id === matched.id) {
                                 currentTrip.value.title = matched.title;
                                 currentTrip.value.startDate = matched.startDate;
+                                currentTrip.value.endDate = matched.endDate;
+                                currentTrip.value.days = matched.days;
+                                currentTrip.value.itinerary = matched.itinerary;
                                 currentTrip.value.memberUids = memberUids;
                                 currentTrip.value.memberUsernames = memberUsernames;
+                                if (activeDayTab.value !== 'menu' && Number(activeDayTab.value) > days) activeDayTab.value = 'menu';
                             }
                         }
                         if (!isKeyMissing) {
                             await db.collection('trips').doc(editingTripId.value).set({
                                 title,
-                                startDate: tripModalForm.value.startDate,
+                                days,
+                                startDate,
+                                endDate,
+                                itinerary: nextItinerary,
                                 memberUids,
                                 memberUsernames,
                                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -2119,7 +2143,10 @@
                             const target = list.find(t => t.id === editingTripId.value);
                             if (target) {
                                 target.title = title;
-                                target.startDate = tripModalForm.value.startDate;
+                                target.days = days;
+                                target.startDate = startDate;
+                                target.endDate = endDate;
+                                target.itinerary = nextItinerary;
                                 target.memberUids = memberUids;
                                 target.memberUsernames = memberUsernames;
                             }
@@ -2127,14 +2154,13 @@
                         }
                     } else {
                         const id = 'trip_' + Date.now();
-                        const itinerary = {};
-                        const days = parseInt(tripModalForm.value.days);
-                        for (let i = 1; i <= days; i++) itinerary[i] = [];
+                        const itinerary = ensureItineraryDayKeys({}, days);
                         const sharedTripData = {
                             id,
                             title,
                             days,
-                            startDate: tripModalForm.value.startDate,
+                            startDate,
+                            endDate,
                             ownerUid: tripModalForm.value.ownerUid || user.value.uid,
                             ownerUsername,
                             memberUids,
@@ -2549,20 +2575,12 @@
                     currentTrip.value.shopping = currentTrip.value.shopping.filter(i => i.id !== id); updatePrivateTripData();
                 };
 
-                const setThemeMode = (mode) => {
-                    themeMode.value = mode === 'dark' ? 'dark' : 'light';
-                    try { localStorage.setItem('travel_theme_mode', themeMode.value); } catch (e) {}
-                    applyThemeToDocument();
-                };
+                const setThemeMode = () => applyThemeToDocument();
 
-                const changeTheme = (color) => {
-                    activeThemeColor.value = color;
-                    try { localStorage.setItem('travel_theme_color', color); } catch (e) {}
-                    applyThemeToDocument();
-                };
+                const changeTheme = () => applyThemeToDocument();
 
                 return {
-                    user, authForm, registerForm, authPage, authMessage, trips, currentTrip, activeMainTab, activeDayTab, themeMode, showThemePanel, toggleThemePanel, themeColorOptions, weather, weatherForecast, weatherLoading, weatherError, weatherCity, showWeatherModal, showSpotModal, showExpenseModal, showShopModal, imagePreviewUrl, isKeyMissing, themeStyles, activeThemeColor, shareForm, shareMessage,
+                    user, authForm, registerForm, authPage, authMessage, trips, currentTrip, activeMainTab, activeDayTab, weather, weatherForecast, weatherLoading, weatherError, weatherCity, showWeatherModal, showSpotModal, showExpenseModal, showShopModal, imagePreviewUrl, isKeyMissing, shareForm, shareMessage,
                     showTripModal, isEditingTripMode, tripModalForm, openAddTripModal, openEditTripModal, saveTripModalAction,
                     expenseSections, getFilteredExpenses, sumByCurrency, getCurrencySymbol, sumExpensesInTwd, formatTwdAmount, getExchangeRateSummary,
                     editingMenuLinkIndex, editMenuLinkData, startMenuLinkEdit, saveMenuLinkEdit,
@@ -2571,8 +2589,8 @@
                     editingSpotIndex, editSpotData, startSpotEdit, saveSpotEdit,
                     editingExpenseIndex, editExpenseData, startExpenseEdit, saveExpenseEdit,
                     editingShoppingId, editShoppingData, startShoppingEdit, saveShoppingEdit,
-                    newSpot, newMenuLink, newTodoText, newLuggage, newExpense, newShopItem, getCalculatedDateStr, hasCustomImage, handleImageUpload, getSpotTypeIcon, getSpotTypeLabel, getSpotNoteText, getSpotLinkUrl, getSpotLinkName, getSpotDisplayTime, getSpotDepartureTime, getSpotArrivalTime, parseFlightInfo, isTripDayTabActive, getDayWeather, getTravelWeatherDays, getWeatherButtonSummary, openWeatherModal, closeWeatherModal, fetchWeather, openAddSpotModal, closeSpotModal, openAddExpenseModal, closeExpenseModal, openAddShopModal, closeShopModal, openImagePreview, closeImagePreview, switchMainTab, increaseNewShopQuantity, decreaseNewShopQuantity, increaseEditShopQuantity, decreaseEditShopQuantity,
-                    handleLogin, registerAccount, goToLogin, goToRegister, logout, selectTrip, deleteTrip, updateTripData, updateSharedTripData, updatePrivateTripData, inviteUserToTrip, removeTripModalMember, isTripOwner, getTripRoleText, addSpot, deleteSpot, addMenuLink, deleteMenuLink, addTodo, deleteTodo, addLuggage, deleteLuggage, addExpense, deleteExpense, addShopItem, deleteShopItem, setThemeMode, changeTheme
+                    newSpot, newMenuLink, newTodoText, newLuggage, newExpense, newShopItem, getCalculatedDateStr, getTripDateRangeText, hasCustomImage, handleImageUpload, getSpotTypeIcon, getSpotTypeLabel, getSpotNoteText, getSpotLinkUrl, getSpotLinkName, getSpotDisplayTime, getSpotDepartureTime, getSpotArrivalTime, parseFlightInfo, isTripDayTabActive, getDayWeather, getTravelWeatherDays, getWeatherButtonSummary, openWeatherModal, closeWeatherModal, fetchWeather, openAddSpotModal, closeSpotModal, openAddExpenseModal, closeExpenseModal, openAddShopModal, closeShopModal, openImagePreview, closeImagePreview, switchMainTab, increaseNewShopQuantity, decreaseNewShopQuantity, increaseEditShopQuantity, decreaseEditShopQuantity,
+                    handleLogin, registerAccount, goToLogin, goToRegister, logout, selectTrip, deleteTrip, updateTripData, updateSharedTripData, updatePrivateTripData, inviteUserToTrip, removeTripModalMember, isTripOwner, getTripRoleText, addSpot, deleteSpot, addMenuLink, deleteMenuLink, addTodo, deleteTodo, addLuggage, deleteLuggage, addExpense, deleteExpense, addShopItem, deleteShopItem
                 };
             }
         }).mount('#app');
