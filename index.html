@@ -167,7 +167,7 @@
                 </div>
             </div>
 
-            <div v-else class="flex-1 max-w-6xl w-full mx-auto p-4 md:p-6 pb-28">
+            <div v-else class="flex-1 max-w-6xl w-full mx-auto p-4 md:p-6 pb-36">
                 <button @click="currentTrip = null" class="text-xs text-neutral-500 hover:text-neutral-800 transition-colors flex items-center gap-1.5 px-2 mb-4">
                     <i class="fa-solid fa-chevron-left"></i> 返回手冊列表
                 </button>
@@ -205,18 +205,18 @@
                         <p class="text-[10px] font-bold text-neutral-400 tracking-widest px-2 mb-2 uppercase">行程分頁導覽</p>
                         <div class="flex gap-2 overflow-x-auto pb-1">
                             <button @click="activeDayTab = 'menu'" 
-                                    :class="['shrink-0 min-w-[170px] text-left px-3 py-2.5 text-xs rounded-xl transition-all flex items-center justify-between border', activeDayTab === 'menu' ? 'bg-primary text-white font-bold border-primary shadow-lg ring-2 ring-offset-2 ring-[var(--app-primary)] scale-[1.02]' : 'text-neutral-600 border-[#e6e4dc] hover:bg-[#f7f6f3]']">
+                                    :class="['shrink-0 min-w-[170px] text-left px-3 py-2.5 text-xs rounded-xl transition-all flex items-center justify-between border', activeDayTab === 'menu' ? 'bg-primary text-neutral-900 font-bold border-neutral-900 shadow-lg ring-2 ring-offset-2 ring-neutral-900 scale-[1.02]' : 'text-neutral-600 border-[#e6e4dc] hover:bg-[#f7f6f3]']">
                                 <span>📂 行程目錄</span>
                             </button>
                             
                             <button v-for="dayNum in currentTrip.days" :key="dayNum"
                                     @click="activeDayTab = dayNum" 
-                                    :class="['shrink-0 min-w-[145px] text-left px-3 py-2.5 text-xs rounded-xl transition-all flex flex-col items-start gap-0.5 border', activeDayTab === dayNum ? 'bg-primary text-white font-bold border-primary shadow-lg ring-2 ring-offset-2 ring-[var(--app-primary)] scale-[1.02]' : 'text-neutral-600 border-[#e6e4dc] hover:bg-[#f7f6f3]']">
+                                    :class="['shrink-0 min-w-[145px] text-left px-3 py-2.5 text-xs rounded-xl transition-all flex flex-col items-start gap-0.5 border', activeDayTab === dayNum ? 'bg-primary text-neutral-900 font-bold border-neutral-900 shadow-lg ring-2 ring-offset-2 ring-neutral-900 scale-[1.02]' : 'text-neutral-600 border-[#e6e4dc] hover:bg-[#f7f6f3]']">
                                 <div class="w-full flex justify-between items-center gap-2">
                                     <span>📍 Day {{ dayNum }}</span>
-                                    <span :class="['text-[9px] px-1 rounded border', activeDayTab === dayNum ? 'bg-white/90 border-white/70 text-neutral-800' : 'bg-white border-neutral-200 text-neutral-400']">D{{ dayNum }}</span>
+                                    <span :class="['text-[9px] px-1 rounded border', activeDayTab === dayNum ? 'bg-white border-neutral-900 text-neutral-900' : 'bg-white border-neutral-200 text-neutral-400']">D{{ dayNum }}</span>
                                 </div>
-                                <span :class="['text-[10px] block font-normal', activeDayTab === dayNum ? 'text-white/90' : 'text-neutral-400']">
+                                <span :class="['text-[10px] block font-normal', activeDayTab === dayNum ? 'text-neutral-700' : 'text-neutral-400']">
                                     {{ getCalculatedDateStr(currentTrip.startDate, dayNum) }}
                                 </span>
                             </button>
@@ -537,7 +537,9 @@
                             <div v-if="!currentTrip.shopping || currentTrip.shopping.length === 0" class="text-center py-6 text-neutral-400 text-xs col-span-2">購物清單還是空的。</div>
                             
                             <div v-for="item in currentTrip.shopping" :key="item.id" class="flex gap-3 text-xs text-neutral-600 p-3 bg-[#fcfbf9] border border-[#e6e4dc] rounded-xl group hover:bg-neutral-50 relative">
-                                <img v-if="hasCustomImage(item.imgUrl)" :src="item.imgUrl" class="w-14 h-14 object-cover rounded-lg bg-white border shrink-0">
+                                <button v-if="hasCustomImage(item.imgUrl)" @click.stop="openImagePreview(item.imgUrl)" type="button" class="w-14 h-14 shrink-0 rounded-lg overflow-hidden border bg-white cursor-zoom-in hover:opacity-90 transition-opacity">
+                                    <img :src="item.imgUrl" class="w-full h-full object-cover" alt="商品圖片">
+                                </button>
                                 
                                 <div class="flex-1 min-w-0 flex flex-col justify-between">
                                     <div class="flex items-start gap-2 min-w-0">
@@ -545,8 +547,16 @@
                                         
                                         <div v-if="editingShoppingId === item.id" class="flex flex-col gap-1 w-full bg-white p-2 border rounded shadow-xs z-10">
                                             <input v-model="editShoppingData.text" type="text" class="border text-[11px] p-1 rounded" placeholder="品項名稱">
-                                            <div class="grid grid-cols-2 gap-1">
-                                                <input v-model="editShoppingData.quantity" type="text" class="border text-[11px] p-1 rounded" placeholder="數量">
+                                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                                                <div class="flex items-center bg-white border border-[#e6e4dc] rounded overflow-hidden">
+                                                    <button @click="decreaseEditShopQuantity" type="button" class="w-8 h-8 text-neutral-500 hover:bg-neutral-50 border-r border-[#e6e4dc] flex items-center justify-center">
+                                                        <i class="fa-solid fa-minus text-[9px]"></i>
+                                                    </button>
+                                                    <input v-model.number="editShoppingData.quantity" type="number" min="1" class="w-full text-center text-[11px] p-1.5 bg-white focus:outline-none" placeholder="數量">
+                                                    <button @click="increaseEditShopQuantity" type="button" class="w-8 h-8 text-neutral-500 hover:bg-neutral-50 border-l border-[#e6e4dc] flex items-center justify-center">
+                                                        <i class="fa-solid fa-plus text-[9px]"></i>
+                                                    </button>
+                                                </div>
                                                 <input v-model="editShoppingData.note" type="text" class="border text-[11px] p-1 rounded" placeholder="備註">
                                             </div>
                                             <input v-model="editShoppingData.url" type="text" class="border text-[11px] p-1 rounded" placeholder="商品連結">
@@ -556,7 +566,7 @@
                                                 <input type="file" accept="image/*" @change="handleImageUpload($event, editShoppingData)" class="hidden">
                                             </label>
                                             <div v-if="editShoppingData.imgUrl" class="flex items-center gap-2 bg-[#fcfbf9] border border-neutral-200 rounded-lg p-1.5">
-                                                <img :src="editShoppingData.imgUrl" class="w-12 h-12 object-cover rounded border bg-white">
+                                                <button @click="openImagePreview(editShoppingData.imgUrl)" type="button" class="w-12 h-12 rounded border bg-white overflow-hidden cursor-zoom-in hover:opacity-90 transition-opacity"><img :src="editShoppingData.imgUrl" class="w-full h-full object-cover" alt="商品圖片預覽"></button>
                                                 <button @click="editShoppingData.imgUrl = ''" class="text-[11px] text-rose-500 hover:underline">移除</button>
                                             </div>
                                             <div class="flex justify-end gap-1 mt-1">
@@ -590,17 +600,17 @@
             </div>
 
 
-            <div v-if="currentTrip" class="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur border-t border-[#e6e4dc] shadow-[0_-8px_24px_rgba(0,0,0,0.04)]" style="padding-bottom: env(safe-area-inset-bottom);">
+            <div v-if="currentTrip" class="fixed left-3 right-3 md:left-0 md:right-0 z-50 bg-white/95 backdrop-blur border border-[#e6e4dc] md:border-x-0 md:border-b-0 rounded-2xl md:rounded-none shadow-[0_-8px_24px_rgba(0,0,0,0.08)]" style="bottom: calc(env(safe-area-inset-bottom) + 12px);">
                 <div class="max-w-6xl mx-auto grid grid-cols-3 h-16">
-                    <button @click="switchMainTab('itinerary')" type="button" :class="['flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors', activeMainTab === 'itinerary' ? 'text-primary' : 'text-slate-400 hover:text-neutral-600']">
+                    <button @click="switchMainTab('itinerary')" type="button" :class="['flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors', activeMainTab === 'itinerary' ? 'text-neutral-900 font-bold' : 'text-slate-400 hover:text-neutral-600']">
                         <i class="fa-solid fa-map text-lg"></i>
                         <span>行程</span>
                     </button>
-                    <button @click="switchMainTab('accounting')" type="button" :class="['flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors', activeMainTab === 'accounting' ? 'text-primary' : 'text-slate-400 hover:text-neutral-600']">
+                    <button @click="switchMainTab('accounting')" type="button" :class="['flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors', activeMainTab === 'accounting' ? 'text-neutral-900 font-bold' : 'text-slate-400 hover:text-neutral-600']">
                         <i class="fa-solid fa-wallet text-lg"></i>
                         <span>記帳</span>
                     </button>
-                    <button @click="switchMainTab('shopping')" type="button" :class="['flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors', activeMainTab === 'shopping' ? 'text-primary' : 'text-slate-400 hover:text-neutral-600']">
+                    <button @click="switchMainTab('shopping')" type="button" :class="['flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors', activeMainTab === 'shopping' ? 'text-neutral-900 font-bold' : 'text-slate-400 hover:text-neutral-600']">
                         <i class="fa-solid fa-bag-shopping text-lg"></i>
                         <span>購物</span>
                     </button>
@@ -741,7 +751,7 @@
                             </label>
                         </div>
                         <div v-if="newShopItem.imgUrl" class="flex items-center gap-3 bg-white border border-[#e6e4dc] rounded-xl p-2">
-                            <img :src="newShopItem.imgUrl" class="w-16 h-16 object-cover rounded-lg border bg-white">
+                            <button @click="openImagePreview(newShopItem.imgUrl)" type="button" class="w-16 h-16 rounded-lg border bg-white overflow-hidden cursor-zoom-in hover:opacity-90 transition-opacity"><img :src="newShopItem.imgUrl" class="w-full h-full object-cover" alt="商品圖片預覽"></button>
                             <button @click="newShopItem.imgUrl = ''" class="text-xs text-rose-500 hover:underline">移除圖片</button>
                         </div>
                     </div>
@@ -750,6 +760,15 @@
                         <button @click="closeShopModal" type="button" class="px-4 py-2 text-xs border border-neutral-300 rounded-xl text-neutral-500 hover:bg-neutral-50">取消</button>
                         <button @click="addShopItem" type="button" class="px-4 py-2 text-xs bg-neutral-700 text-white rounded-xl hover:bg-neutral-800 shadow-sm">儲存並加入清單</button>
                     </div>
+                </div>
+            </div>
+
+            <div v-if="imagePreviewUrl" @click.self="closeImagePreview" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
+                <div class="relative max-w-4xl max-h-[88vh] w-full flex items-center justify-center">
+                    <button @click="closeImagePreview" type="button" class="absolute -top-3 -right-3 w-9 h-9 rounded-full bg-white text-neutral-600 shadow flex items-center justify-center hover:bg-neutral-100 z-10">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                    <img :src="imagePreviewUrl" class="max-w-full max-h-[88vh] object-contain rounded-2xl bg-white shadow-2xl" alt="商品圖片放大預覽">
                 </div>
             </div>
 
@@ -920,6 +939,7 @@
                 const showSpotModal = ref(false);
                 const showExpenseModal = ref(false);
                 const showShopModal = ref(false);
+                const imagePreviewUrl = ref('');
                 const exchangeRates = ref({});
                 const exchangeRateLoading = ref(false);
                 const exchangeRateError = ref('');
@@ -2154,6 +2174,13 @@
                 const closeShopModal = () => {
                     showShopModal.value = false;
                 };
+                const openImagePreview = (url) => {
+                    if (!hasCustomImage(url)) return;
+                    imagePreviewUrl.value = url;
+                };
+                const closeImagePreview = () => {
+                    imagePreviewUrl.value = '';
+                };
 
                 // 原地編輯：分類行程
                 const startSpotEdit = (index, spot) => {
@@ -2246,7 +2273,7 @@
                     const shop = currentTrip.value.shopping.find(s => s.id === id);
                     if (shop) {
                         shop.text = editShoppingData.value.text;
-                        shop.quantity = String(editShoppingData.value.quantity || '').trim();
+                        shop.quantity = String(normalizeQuantityValue(editShoppingData.value.quantity)).trim();
                         shop.note = String(editShoppingData.value.note || '').trim();
                         shop.url = String(editShoppingData.value.url || '').trim();
                         shop.imgUrl = String(editShoppingData.value.imgUrl || '').trim();
@@ -2263,6 +2290,12 @@
                 const decreaseNewShopQuantity = () => {
                     newShopItem.value.quantity = Math.max(1, normalizeQuantityValue(newShopItem.value.quantity) - 1);
                 };
+                const increaseEditShopQuantity = () => {
+                    editShoppingData.value.quantity = normalizeQuantityValue(editShoppingData.value.quantity) + 1;
+                };
+                const decreaseEditShopQuantity = () => {
+                    editShoppingData.value.quantity = Math.max(1, normalizeQuantityValue(editShoppingData.value.quantity) - 1);
+                };
                 const addShopItem = () => {
                     if (!newShopItem.value.text.trim()) return alert('請填寫品項名稱');
                     if (!currentTrip.value.shopping) currentTrip.value.shopping = [];
@@ -2272,7 +2305,7 @@
                     currentTrip.value.shopping.push({ 
                         id: Date.now(), 
                         text: newShopItem.value.text.trim(),
-                        quantity: String(newShopItem.value.quantity || '').trim(),
+                        quantity: String(normalizeQuantityValue(newShopItem.value.quantity)).trim(),
                         note: String(newShopItem.value.note || '').trim(),
                         url: String(newShopItem.value.url || '').trim(),
                         imgUrl: finalImg,
@@ -2290,7 +2323,7 @@
                 const changeTheme = (color) => { activeThemeColor.value = color; };
 
                 return {
-                    user, authForm, registerForm, authPage, authMessage, trips, currentTrip, activeMainTab, activeDayTab, weather, weatherForecast, weatherLoading, weatherError, weatherCity, showWeatherModal, showSpotModal, showExpenseModal, showShopModal, isKeyMissing, themeStyles, activeThemeColor, shareForm, shareMessage,
+                    user, authForm, registerForm, authPage, authMessage, trips, currentTrip, activeMainTab, activeDayTab, weather, weatherForecast, weatherLoading, weatherError, weatherCity, showWeatherModal, showSpotModal, showExpenseModal, showShopModal, imagePreviewUrl, isKeyMissing, themeStyles, activeThemeColor, shareForm, shareMessage,
                     showTripModal, isEditingTripMode, tripModalForm, openAddTripModal, openEditTripModal, saveTripModalAction,
                     expenseSections, getFilteredExpenses, sumByCurrency, getCurrencySymbol, sumExpensesInTwd, formatTwdAmount, getExchangeRateSummary,
                     editingMenuLinkIndex, editMenuLinkData, startMenuLinkEdit, saveMenuLinkEdit,
@@ -2299,7 +2332,7 @@
                     editingSpotIndex, editSpotData, startSpotEdit, saveSpotEdit,
                     editingExpenseIndex, editExpenseData, startExpenseEdit, saveExpenseEdit,
                     editingShoppingId, editShoppingData, startShoppingEdit, saveShoppingEdit,
-                    newSpot, newMenuLink, newTodoText, newLuggage, newExpense, newShopItem, getCalculatedDateStr, hasCustomImage, handleImageUpload, getSpotTypeIcon, getSpotTypeLabel, getSpotNoteText, getSpotLinkUrl, getSpotLinkName, getSpotDisplayTime, getSpotDepartureTime, getSpotArrivalTime, parseFlightInfo, isTripDayTabActive, getDayWeather, getTravelWeatherDays, getWeatherButtonSummary, openWeatherModal, closeWeatherModal, fetchWeather, openAddSpotModal, closeSpotModal, openAddExpenseModal, closeExpenseModal, openAddShopModal, closeShopModal, switchMainTab, increaseNewShopQuantity, decreaseNewShopQuantity,
+                    newSpot, newMenuLink, newTodoText, newLuggage, newExpense, newShopItem, getCalculatedDateStr, hasCustomImage, handleImageUpload, getSpotTypeIcon, getSpotTypeLabel, getSpotNoteText, getSpotLinkUrl, getSpotLinkName, getSpotDisplayTime, getSpotDepartureTime, getSpotArrivalTime, parseFlightInfo, isTripDayTabActive, getDayWeather, getTravelWeatherDays, getWeatherButtonSummary, openWeatherModal, closeWeatherModal, fetchWeather, openAddSpotModal, closeSpotModal, openAddExpenseModal, closeExpenseModal, openAddShopModal, closeShopModal, openImagePreview, closeImagePreview, switchMainTab, increaseNewShopQuantity, decreaseNewShopQuantity, increaseEditShopQuantity, decreaseEditShopQuantity,
                     handleLogin, registerAccount, goToLogin, goToRegister, logout, selectTrip, deleteTrip, updateTripData, updateSharedTripData, updatePrivateTripData, inviteUserToTrip, removeTripModalMember, isTripOwner, getTripRoleText, addSpot, deleteSpot, addMenuLink, deleteMenuLink, addTodo, deleteTodo, addLuggage, deleteLuggage, addExpense, deleteExpense, addShopItem, deleteShopItem, changeTheme
                 };
             }
