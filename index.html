@@ -1028,7 +1028,7 @@
                 </div>
             </div>
 
-            <div v-if="showTripModal" @mousedown.self="showTripModal = false" class="fixed inset-0 bg-black/20 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+            <div v-if="showTripModal" @mousedown.self="closeTripModal" class="fixed inset-0 bg-black/20 backdrop-blur-xs flex items-center justify-center p-4 z-50">
                 <div class="bg-white border border-[#e6e4dc] rounded-2xl p-6 w-full max-w-lg shadow-lg space-y-4 max-h-[90vh] overflow-y-auto">
                     <h3 class="text-base font-medium text-neutral-700 border-b pb-2">
                         {{ isEditingTripMode ? '📝 編輯旅程手冊設定' : '📂 建立新旅程手冊' }}
@@ -1091,7 +1091,7 @@
                         </div>
                     </div>
                     <div class="flex justify-end gap-2 pt-2 border-t border-neutral-100">
-                        <button @click="showTripModal = false" class="px-4 py-2 text-xs border border-neutral-300 rounded-xl text-neutral-500 hover:bg-neutral-50">取消</button>
+                        <button @click="closeTripModal" class="px-4 py-2 text-xs border border-neutral-300 rounded-xl text-neutral-500 hover:bg-neutral-50">取消</button>
                         <button @click="saveTripModalAction" class="px-4 py-2 text-xs bg-neutral-700 text-white rounded-xl hover:bg-neutral-800 shadow-sm">確認儲存</button>
                     </div>
                 </div>
@@ -1172,6 +1172,26 @@
                 const authPage = ref(window.location.hash === '#register' ? 'register' : 'login');
                 const authMessage = ref({ type: '', text: '' });
                 const registrationAuthInProgress = ref(false);
+
+                // 手機版鍵盤收合：點擊非輸入欄位時，主動讓目前輸入框失焦，避免鍵盤一直停留
+                const isKeyboardInputElement = (el) => {
+                    if (!el || !el.matches) return false;
+                    return el.matches('input, textarea, select, [contenteditable="true"]');
+                };
+                const blurActiveInput = () => {
+                    const active = document.activeElement;
+                    if (isKeyboardInputElement(active)) {
+                        active.blur();
+                    }
+                };
+                const handleMobileKeyboardDismiss = (event) => {
+                    const target = event?.target;
+                    const isTappingEditable = !!(target && target.closest && target.closest('input, textarea, select, [contenteditable="true"]'));
+                    if (isTappingEditable) return;
+                    if (window.matchMedia && window.matchMedia('(max-width: 768px)').matches) {
+                        setTimeout(blurActiveInput, 0);
+                    }
+                };
 
                 // 旅程彈窗表單
                 const showTripModal = ref(false);
@@ -1759,6 +1779,7 @@
                 };
 
                 const closeWeatherModal = () => {
+                    blurActiveInput();
                     showWeatherModal.value = false;
                 };
 
@@ -2228,6 +2249,8 @@
 
                 onMounted(() => {
                     applyThemeToDocument();
+                    document.addEventListener('touchstart', handleMobileKeyboardDismiss, { passive: true, capture: true });
+                    document.addEventListener('mousedown', handleMobileKeyboardDismiss, true);
                     window.addEventListener('hashchange', () => {
                         const nextPage = window.location.hash === '#register' ? 'register' : 'login';
                         if (nextPage !== authPage.value) {
@@ -2280,6 +2303,11 @@
                         tripModalForm.value.endDate = getMinimumReturnDate(tripModalForm.value.startDate);
                         showShareMessage('error', '回程日期必須晚於出發日期。');
                     }
+                };
+
+                const closeTripModal = () => {
+                    blurActiveInput();
+                    showTripModal.value = false;
                 };
 
                 const openAddTripModal = () => {
@@ -2665,6 +2693,7 @@
                     showSpotModal.value = true;
                 };
                 const closeSpotModal = () => {
+                    blurActiveInput();
                     showSpotModal.value = false;
                 };
                 const openAddExpenseModal = () => {
@@ -2674,6 +2703,7 @@
                     showExpenseModal.value = true;
                 };
                 const closeExpenseModal = () => {
+                    blurActiveInput();
                     showExpenseModal.value = false;
                 };
                 const openAddShopModal = () => {
@@ -2681,6 +2711,7 @@
                     showShopModal.value = true;
                 };
                 const closeShopModal = () => {
+                    blurActiveInput();
                     showShopModal.value = false;
                 };
                 const openImagePreview = (url) => {
@@ -2688,6 +2719,7 @@
                     imagePreviewUrl.value = url;
                 };
                 const closeImagePreview = () => {
+                    blurActiveInput();
                     imagePreviewUrl.value = '';
                 };
 
@@ -2868,7 +2900,7 @@
 
                 return {
                     user, authForm, registerForm, authPage, authMessage, trips, currentTrip, activeMainTab, activeDayTab, weather, weatherForecast, weatherLoading, weatherError, weatherCity, showWeatherModal, showSpotModal, showExpenseModal, showShopModal, imagePreviewUrl, isKeyMissing, shareForm, shareMessage,
-                    showTripModal, isEditingTripMode, tripModalForm, getMinimumReturnDate, handleTripStartDateChange, handleTripEndDateChange, openAddTripModal, openEditTripModal, saveTripModalAction,
+                    showTripModal, isEditingTripMode, tripModalForm, getMinimumReturnDate, handleTripStartDateChange, handleTripEndDateChange, openAddTripModal, openEditTripModal, closeTripModal, saveTripModalAction,
                     expenseSections, getFilteredExpenses, sumByCurrency, getCurrencySymbol, sumExpensesInTwd, formatTwdAmount, getExchangeRateSummary,
                     editingMenuLinkIndex, editMenuLinkData, startMenuLinkEdit, saveMenuLinkEdit,
                     editingTodoId, editTodoTextData, startTodoEdit, saveTodoEdit, toggleTodoDone,
