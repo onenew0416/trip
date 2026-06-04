@@ -123,7 +123,7 @@
                 <div class="flex justify-between items-center mb-8">
                     <div>
                         <h2 class="text-2xl font-light text-neutral-700">期待下一次出發</h2>
-                        <p class="text-xs text-neutral-400 mt-1">目前共有 {{ trips.length }} 個記錄中的旅程</p>
+                        <p class="text-xs text-neutral-400 mt-1">目前共有 {{ trips.length }} 個可編輯旅程</p>
                     </div>
                     <button @click="openAddTripModal" class="bg-neutral-700 hover:bg-neutral-800 text-white text-xs px-4 py-2.5 rounded-xl font-medium tracking-wider shadow-sm transition-colors">
                         ＋ 新增旅程紀錄
@@ -147,6 +147,10 @@
                                 </span>
                             </div>
                             <h3 class="text-lg font-medium text-neutral-700 group-hover:text-primary transition-colors mt-1">{{ trip.title }}</h3>
+                            <div class="flex flex-wrap gap-2 mt-2">
+                                <span class="text-[10px] bg-[#fcfbf9] border border-[#e6e4dc] text-neutral-500 px-2 py-0.5 rounded-full">{{ getTripRoleText(trip) }}</span>
+                                <span class="text-[10px] bg-[#fcfbf9] border border-[#e6e4dc] text-neutral-500 px-2 py-0.5 rounded-full">{{ (trip.memberUsernames || []).length }} 人共編</span>
+                            </div>
                         </div>
                         <div class="flex justify-between items-center mt-6 border-t border-[#f7f6f3] pt-3">
                             <span class="text-xs text-neutral-400"><i class="fa-regular fa-calendar-check mr-1"></i> 點擊翻開旅遊手冊</span>
@@ -227,6 +231,32 @@
                                 <p class="text-[10px] text-neutral-400 font-medium">當地即時氣象</p>
                                 <p class="text-xs font-medium text-neutral-600">{{ weather.temp }} ({{ weather.desc }})</p>
                             </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white border border-[#e6e4dc] rounded-2xl p-5 shadow-sm space-y-3">
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-[#f7f6f3] pb-3">
+                            <div>
+                                <h3 class="text-sm font-medium text-neutral-700"><i class="fa-solid fa-users text-neutral-400 mr-1.5"></i> 旅程共用</h3>
+                                <p class="text-[11px] text-neutral-400 mt-0.5">共用行程、交通票券與旅程基本資料可由成員共同編輯；待辦、行李、記帳、購物只會顯示自己的資料。</p>
+                            </div>
+                            <span class="text-[10px] bg-[#f7f6f3] border border-[#e6e4dc] text-neutral-500 px-2 py-1 rounded-full shrink-0">
+                                {{ getTripRoleText(currentTrip) }}
+                            </span>
+                        </div>
+                        <div class="flex flex-col sm:flex-row gap-2">
+                            <input v-model="shareForm.username" @keyup.enter="inviteUserToTrip" type="text" placeholder="輸入對方帳號邀請共同編輯" class="border border-[#e6e4dc] rounded-xl p-2.5 text-xs flex-1 focus:outline-none focus-border-primary">
+                            <button @click="inviteUserToTrip" class="bg-neutral-700 hover:bg-neutral-800 text-white px-4 py-2.5 rounded-xl text-xs font-medium transition-colors">
+                                <i class="fa-solid fa-user-plus mr-1"></i> 邀請
+                            </button>
+                        </div>
+                        <div v-if="shareMessage.text" :class="['text-xs p-2.5 rounded-xl border', shareMessage.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-rose-50 border-rose-100 text-rose-700']">
+                            {{ shareMessage.text }}
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            <span v-for="name in (currentTrip.memberUsernames || [])" :key="name" class="text-[10px] px-2 py-1 rounded-full bg-[#fcfbf9] border border-[#e6e4dc] text-neutral-500">
+                                <i class="fa-regular fa-user mr-1"></i>{{ name }}
+                            </span>
                         </div>
                     </div>
 
@@ -681,6 +711,9 @@
                 const newLuggage = ref({ text: '', category: '隨身包包' });
                 const newExpense = ref({ dayKey: 'pre', title: '', amount: null, currency: 'TWD' });
                 const newShopItem = ref({ text: '', url: '', imgUrl: '' });
+                const shareForm = ref({ username: '' });
+                const shareMessage = ref({ type: '', text: '' });
+                let tripsUnsubscribe = null;
 
                 const themeStyles = computed(() => ({
                     '--app-primary': activeThemeColor.value,
@@ -955,6 +988,56 @@
                     }
                 };
 
+                const privateTripDefaults = () => ({ todos: [], luggage: [], expenses: [], shopping: [] });
+
+                const combineTripData = (sharedData = {}, privateData = {}) => {
+                    const privatePart = { ...privateTripDefaults(), ...(privateData || {}) };
+                    return {
+                        id: sharedData.id,
+                        title: sharedData.title || '未命名旅程',
+                        days: Number(sharedData.days || 1),
+                        startDate: sharedData.startDate || '',
+                        ownerUid: sharedData.ownerUid || '',
+                        ownerUsername: sharedData.ownerUsername || '',
+                        memberUids: Array.isArray(sharedData.memberUids) ? sharedData.memberUids : [],
+                        memberUsernames: Array.isArray(sharedData.memberUsernames) ? sharedData.memberUsernames : [],
+                        menuLinks: Array.isArray(sharedData.menuLinks) ? sharedData.menuLinks : [],
+                        itinerary: sharedData.itinerary || {},
+                        ...privatePart
+                    };
+                };
+
+                const getSharedTripPayload = (trip) => ({
+                    id: trip.id,
+                    title: trip.title,
+                    days: Number(trip.days || 1),
+                    startDate: trip.startDate || '',
+                    ownerUid: trip.ownerUid || user.value?.uid || '',
+                    ownerUsername: trip.ownerUsername || user.value?.username || user.value?.email || '',
+                    memberUids: Array.isArray(trip.memberUids) && trip.memberUids.length ? trip.memberUids : [user.value?.uid].filter(Boolean),
+                    memberUsernames: Array.isArray(trip.memberUsernames) && trip.memberUsernames.length ? trip.memberUsernames : [user.value?.username || user.value?.email].filter(Boolean),
+                    menuLinks: Array.isArray(trip.menuLinks) ? trip.menuLinks : [],
+                    itinerary: trip.itinerary || {}
+                });
+
+                const getPrivateTripPayload = (trip) => ({
+                    todos: Array.isArray(trip.todos) ? trip.todos : [],
+                    luggage: Array.isArray(trip.luggage) ? trip.luggage : [],
+                    expenses: Array.isArray(trip.expenses) ? trip.expenses : [],
+                    shopping: Array.isArray(trip.shopping) ? trip.shopping : []
+                });
+
+                const isTripOwner = (trip) => !!(trip && user.value && trip.ownerUid === user.value.uid);
+                const getTripRoleText = (trip) => isTripOwner(trip) ? '旅程擁有者' : '共同編輯者';
+
+                const showShareMessage = (type, text) => {
+                    shareMessage.value = { type, text };
+                };
+
+                const clearShareMessage = () => {
+                    shareMessage.value = { type: '', text: '' };
+                };
+
                 const loadUserProfile = async (firebaseUser) => {
                     if (!firebaseUser) return;
                     try {
@@ -976,6 +1059,10 @@
                 };
 
                 const logout = () => {
+                    if (tripsUnsubscribe) {
+                        tripsUnsubscribe();
+                        tripsUnsubscribe = null;
+                    }
                     if (!isKeyMissing) auth.signOut();
                     user.value = null;
                     trips.value = [];
@@ -983,26 +1070,82 @@
                     resetLoginForm();
                     resetRegisterForm();
                     clearAuthMessage();
+                    clearShareMessage();
                     authPage.value = 'login';
                     window.location.hash = 'login';
                 };
 
-                const loadUserData = () => {
+                const getLocalSharedTrips = () => JSON.parse(localStorage.getItem('shared_trips') || '[]');
+                const setLocalSharedTrips = (list) => localStorage.setItem('shared_trips', JSON.stringify(list));
+                const getLocalPrivateTrip = (tripId) => JSON.parse(localStorage.getItem(`trip_private_${user.value.uid}_${tripId}`) || '{}');
+                const setLocalPrivateTrip = (tripId, data) => localStorage.setItem(`trip_private_${user.value.uid}_${tripId}`, JSON.stringify({ ...privateTripDefaults(), ...data }));
+
+                const migrateLegacyTrips = async () => {
+                    if (isKeyMissing || !user.value) return;
+                    const legacySnap = await db.collection('users').doc(user.value.uid).collection('trips').get();
+                    for (const legacyDoc of legacySnap.docs) {
+                        const legacy = legacyDoc.data() || {};
+                        if (legacy.migratedTo) continue;
+                        const tripId = legacyDoc.id;
+                        const sharedRef = db.collection('trips').doc(tripId);
+                        const sharedDoc = await sharedRef.get();
+                        if (!sharedDoc.exists) {
+                            const sharedData = {
+                                id: tripId,
+                                title: legacy.title || '未命名旅程',
+                                days: Number(legacy.days || 1),
+                                startDate: legacy.startDate || '',
+                                ownerUid: user.value.uid,
+                                ownerUsername: user.value.username || user.value.email,
+                                memberUids: [user.value.uid],
+                                memberUsernames: [user.value.username || user.value.email],
+                                menuLinks: Array.isArray(legacy.menuLinks) ? legacy.menuLinks : [],
+                                itinerary: legacy.itinerary || {},
+                                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                            };
+                            await sharedRef.set(sharedData);
+                            await db.collection('users').doc(user.value.uid).collection('tripPrivate').doc(tripId).set({
+                                todos: Array.isArray(legacy.todos) ? legacy.todos : [],
+                                luggage: Array.isArray(legacy.luggage) ? legacy.luggage : [],
+                                expenses: Array.isArray(legacy.expenses) ? legacy.expenses : [],
+                                shopping: Array.isArray(legacy.shopping) ? legacy.shopping : [],
+                                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                            }, { merge: true });
+                        }
+                        await legacyDoc.ref.set({ migratedTo: tripId }, { merge: true });
+                    }
+                };
+
+                const loadUserData = async () => {
                     if (!user.value) return;
                     if (!isKeyMissing) {
-                        db.collection("users").doc(user.value.uid).collection("trips")
-                          .onSnapshot((snapshot) => {
-                              const list = [];
-                              snapshot.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
-                              trips.value = list;
-                              if (currentTrip.value) {
-                                  const updated = list.find(t => t.id === currentTrip.value.id);
-                                  if (updated) currentTrip.value = updated;
-                              }
-                          });
+                        if (tripsUnsubscribe) tripsUnsubscribe();
+                        try { await migrateLegacyTrips(); } catch (e) { console.warn('Legacy trip migration skipped:', e); }
+                        tripsUnsubscribe = db.collection('trips')
+                            .where('memberUids', 'array-contains', user.value.uid)
+                            .onSnapshot(async (snapshot) => {
+                                const list = [];
+                                for (const doc of snapshot.docs) {
+                                    const sharedData = { id: doc.id, ...doc.data() };
+                                    const privateDoc = await db.collection('users').doc(user.value.uid).collection('tripPrivate').doc(doc.id).get();
+                                    const privateData = privateDoc.exists ? privateDoc.data() : {};
+                                    list.push(combineTripData(sharedData, privateData));
+                                }
+                                list.sort((a, b) => String(a.startDate || '').localeCompare(String(b.startDate || '')) || String(a.title || '').localeCompare(String(b.title || '')));
+                                trips.value = list;
+                                if (currentTrip.value) {
+                                    const updated = list.find(t => t.id === currentTrip.value.id);
+                                    currentTrip.value = updated || null;
+                                }
+                            });
                     } else {
-                        const local = localStorage.getItem(`trips_${user.value.email}`);
-                        if (local) trips.value = JSON.parse(local);
+                        const localShared = getLocalSharedTrips().filter(t => (t.memberUids || []).includes(user.value.uid));
+                        trips.value = localShared.map(t => combineTripData(t, getLocalPrivateTrip(t.id)));
+                        if (currentTrip.value) {
+                            const updated = trips.value.find(t => t.id === currentTrip.value.id);
+                            currentTrip.value = updated || null;
+                        }
                     }
                 };
 
@@ -1038,37 +1181,67 @@
 
                 const saveTripModalAction = async () => {
                     if (!tripModalForm.value.title.trim()) return alert('請填寫名稱');
-                    
+
                     if (isEditingTripMode.value) {
-                        if (!isKeyMissing) {
-                            await db.collection("users").doc(user.value.uid).collection("trips").doc(editingTripId.value).update({
-                                title: tripModalForm.value.title,
-                                startDate: tripModalForm.value.startDate
-                            });
-                        } else {
-                            const matched = trips.value.find(t => t.id === editingTripId.value);
-                            if (matched) {
-                                matched.title = tripModalForm.value.title;
-                                matched.startDate = tripModalForm.value.startDate;
+                        const matched = trips.value.find(t => t.id === editingTripId.value);
+                        if (matched) {
+                            matched.title = tripModalForm.value.title;
+                            matched.startDate = tripModalForm.value.startDate;
+                            if (currentTrip.value?.id === matched.id) {
+                                currentTrip.value.title = matched.title;
+                                currentTrip.value.startDate = matched.startDate;
                             }
-                            localStorage.setItem(`trips_${user.value.email}`, JSON.stringify(trips.value));
+                        }
+                        if (!isKeyMissing) {
+                            await db.collection('trips').doc(editingTripId.value).set({
+                                title: tripModalForm.value.title,
+                                startDate: tripModalForm.value.startDate,
+                                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                            }, { merge: true });
+                        } else {
+                            const list = getLocalSharedTrips();
+                            const target = list.find(t => t.id === editingTripId.value);
+                            if (target) {
+                                target.title = tripModalForm.value.title;
+                                target.startDate = tripModalForm.value.startDate;
+                            }
+                            setLocalSharedTrips(list);
                         }
                     } else {
                         const id = 'trip_' + Date.now();
-                        const tripData = {
-                            id: id,
+                        const itinerary = {};
+                        const days = parseInt(tripModalForm.value.days);
+                        for (let i = 1; i <= days; i++) itinerary[i] = [];
+                        const sharedTripData = {
+                            id,
                             title: tripModalForm.value.title,
-                            days: parseInt(tripModalForm.value.days),
+                            days,
                             startDate: tripModalForm.value.startDate,
-                            menuLinks: [], todos: [], itinerary: {}, expenses: [], shopping: []
+                            ownerUid: user.value.uid,
+                            ownerUsername: user.value.username || user.value.email,
+                            memberUids: [user.value.uid],
+                            memberUsernames: [user.value.username || user.value.email],
+                            menuLinks: [],
+                            itinerary
                         };
-                        for(let i = 1; i <= tripData.days; i++) { tripData.itinerary[i] = []; }
+                        const combinedTrip = combineTripData(sharedTripData, privateTripDefaults());
 
                         if (!isKeyMissing) {
-                            await db.collection("users").doc(user.value.uid).collection("trips").doc(id).set(tripData);
+                            await db.collection('trips').doc(id).set({
+                                ...sharedTripData,
+                                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                            });
+                            await db.collection('users').doc(user.value.uid).collection('tripPrivate').doc(id).set({
+                                ...privateTripDefaults(),
+                                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                            });
                         } else {
-                            trips.value.push(tripData);
-                            localStorage.setItem(`trips_${user.value.email}`, JSON.stringify(trips.value));
+                            const list = getLocalSharedTrips();
+                            list.push(sharedTripData);
+                            setLocalSharedTrips(list);
+                            setLocalPrivateTrip(id, privateTripDefaults());
+                            trips.value.push(combinedTrip);
                         }
                     }
                     showTripModal.value = false;
@@ -1076,26 +1249,137 @@
 
                 const selectTrip = (trip) => {
                     currentTrip.value = trip; activeMainTab.value = 'itinerary'; activeDayTab.value = 'menu';
+                    clearShareMessage();
+                    shareForm.value = { username: '' };
                     fetchWeather(trip.title);
                 };
 
                 const deleteTrip = async (id) => {
-                    if (!confirm('確定要永久刪除此本旅遊手冊嗎？')) return;
+                    const target = trips.value.find(t => t.id === id);
+                    if (!target) return;
+                    const owner = isTripOwner(target);
+                    const message = owner ? '確定要永久刪除此本旅遊手冊嗎？此操作會讓所有共同編輯者都看不到此旅程。' : '確定要退出此共用旅程嗎？你的個人待辦、行李、記帳與購物資料也會從此裝置／帳號移除。';
+                    if (!confirm(message)) return;
                     if (!isKeyMissing) {
-                        await db.collection("users").doc(user.value.uid).collection("trips").doc(id).delete();
+                        if (owner) {
+                            await db.collection('trips').doc(id).delete();
+                            await db.collection('users').doc(user.value.uid).collection('tripPrivate').doc(id).delete().catch(() => {});
+                        } else {
+                            await db.collection('trips').doc(id).update({
+                                memberUids: firebase.firestore.FieldValue.arrayRemove(user.value.uid),
+                                memberUsernames: firebase.firestore.FieldValue.arrayRemove(user.value.username || user.value.email),
+                                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                            });
+                            await db.collection('users').doc(user.value.uid).collection('tripPrivate').doc(id).delete().catch(() => {});
+                        }
                     } else {
+                        let list = getLocalSharedTrips();
+                        if (owner) {
+                            list = list.filter(t => t.id !== id);
+                        } else {
+                            const shared = list.find(t => t.id === id);
+                            if (shared) {
+                                shared.memberUids = (shared.memberUids || []).filter(uid => uid !== user.value.uid);
+                                shared.memberUsernames = (shared.memberUsernames || []).filter(name => name !== (user.value.username || user.value.email));
+                            }
+                        }
+                        setLocalSharedTrips(list);
+                        localStorage.removeItem(`trip_private_${user.value.uid}_${id}`);
                         trips.value = trips.value.filter(t => t.id !== id);
-                        localStorage.setItem(`trips_${user.value.email}`, JSON.stringify(trips.value));
                     }
                     if (currentTrip.value?.id === id) currentTrip.value = null;
                 };
 
-                const updateTripData = async () => {
+                const updateSharedTripData = async () => {
                     if (!currentTrip.value) return;
                     if (!isKeyMissing) {
-                        await db.collection("users").doc(user.value.uid).collection("trips").doc(currentTrip.value.id).set({ ...currentTrip.value });
+                        await db.collection('trips').doc(currentTrip.value.id).set({
+                            ...getSharedTripPayload(currentTrip.value),
+                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                        }, { merge: true });
                     } else {
-                        localStorage.setItem(`trips_${user.value.email}`, JSON.stringify(trips.value));
+                        const list = getLocalSharedTrips();
+                        const idx = list.findIndex(t => t.id === currentTrip.value.id);
+                        const sharedPayload = getSharedTripPayload(currentTrip.value);
+                        if (idx >= 0) list[idx] = sharedPayload;
+                        else list.push(sharedPayload);
+                        setLocalSharedTrips(list);
+                        const tripIdx = trips.value.findIndex(t => t.id === currentTrip.value.id);
+                        if (tripIdx >= 0) trips.value[tripIdx] = { ...trips.value[tripIdx], ...currentTrip.value };
+                    }
+                };
+
+                const updatePrivateTripData = async () => {
+                    if (!currentTrip.value) return;
+                    if (!isKeyMissing) {
+                        await db.collection('users').doc(user.value.uid).collection('tripPrivate').doc(currentTrip.value.id).set({
+                            ...getPrivateTripPayload(currentTrip.value),
+                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                        }, { merge: true });
+                    } else {
+                        setLocalPrivateTrip(currentTrip.value.id, getPrivateTripPayload(currentTrip.value));
+                        const tripIdx = trips.value.findIndex(t => t.id === currentTrip.value.id);
+                        if (tripIdx >= 0) trips.value[tripIdx] = { ...trips.value[tripIdx], ...currentTrip.value };
+                    }
+                };
+
+                const updateTripData = updatePrivateTripData;
+
+                const inviteUserToTrip = async () => {
+                    if (!currentTrip.value) return;
+                    const username = normalizeUsername(shareForm.value.username);
+                    if (!username) {
+                        showShareMessage('error', '請輸入要邀請的帳號。');
+                        return;
+                    }
+                    if ((currentTrip.value.memberUsernames || []).includes(username)) {
+                        showShareMessage('error', '此帳號已經在共用成員中。');
+                        return;
+                    }
+
+                    try {
+                        if (!isKeyMissing) {
+                            const usernameDoc = await db.collection('usernames').doc(username).get();
+                            if (!usernameDoc.exists) {
+                                showShareMessage('error', '找不到此帳號，請確認對方已完成註冊。');
+                                return;
+                            }
+                            const invitee = usernameDoc.data();
+                            if (!invitee.uid) {
+                                showShareMessage('error', '此帳號資料不完整，無法邀請。');
+                                return;
+                            }
+                            if ((currentTrip.value.memberUids || []).includes(invitee.uid)) {
+                                showShareMessage('error', '此帳號已經在共用成員中。');
+                                return;
+                            }
+                            await db.collection('trips').doc(currentTrip.value.id).update({
+                                memberUids: firebase.firestore.FieldValue.arrayUnion(invitee.uid),
+                                memberUsernames: firebase.firestore.FieldValue.arrayUnion(invitee.username || username),
+                                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                            });
+                            currentTrip.value.memberUids = [...(currentTrip.value.memberUids || []), invitee.uid];
+                            currentTrip.value.memberUsernames = [...(currentTrip.value.memberUsernames || []), invitee.username || username];
+                        } else {
+                            const saved = localStorage.getItem(`account_${username}`);
+                            if (!saved) {
+                                showShareMessage('error', '找不到此帳號，請確認對方已完成註冊。');
+                                return;
+                            }
+                            const invitee = JSON.parse(saved);
+                            const list = getLocalSharedTrips();
+                            const target = list.find(t => t.id === currentTrip.value.id);
+                            if (!target) throw new Error('找不到旅程資料');
+                            target.memberUids = Array.from(new Set([...(target.memberUids || []), invitee.uid]));
+                            target.memberUsernames = Array.from(new Set([...(target.memberUsernames || []), invitee.username || username]));
+                            setLocalSharedTrips(list);
+                            currentTrip.value.memberUids = target.memberUids;
+                            currentTrip.value.memberUsernames = target.memberUsernames;
+                        }
+                        shareForm.value = { username: '' };
+                        showShareMessage('success', '已邀請此帳號加入共同編輯。');
+                    } catch (err) {
+                        showShareMessage('error', '邀請失敗：' + (err.message || '請稍後再試。'));
                     }
                 };
 
@@ -1106,16 +1390,17 @@
                 };
                 const saveMenuLinkEdit = (idx) => {
                     currentTrip.value.menuLinks[idx] = { ...editMenuLinkData.value };
-                    updateTripData(); editingMenuLinkIndex.value = null;
+                    updateSharedTripData(); editingMenuLinkIndex.value = null;
                 };
                 const addMenuLink = () => {
                     if (!newMenuLink.value.title || !newMenuLink.value.url) return alert('請填寫完整');
+                    if (!currentTrip.value.menuLinks) currentTrip.value.menuLinks = [];
                     currentTrip.value.menuLinks.push({ ...newMenuLink.value });
-                    updateTripData(); newMenuLink.value = { title: '', url: '' };
+                    updateSharedTripData(); newMenuLink.value = { title: '', url: '' };
                 };
                 const deleteMenuLink = (idx) => {
                     if (!confirm('確定要刪除此參考連結嗎？')) return;
-                    currentTrip.value.menuLinks.splice(idx, 1); updateTripData();
+                    currentTrip.value.menuLinks.splice(idx, 1); updateSharedTripData();
                 };
 
                 // 原地編輯：待辦清單
@@ -1125,16 +1410,17 @@
                 const saveTodoEdit = (id) => {
                     const todo = currentTrip.value.todos.find(t => t.id === id);
                     if (todo) todo.text = editTodoTextData.value;
-                    updateTripData(); editingTodoId.value = null;
+                    updatePrivateTripData(); editingTodoId.value = null;
                 };
                 const addTodo = () => {
                     if (!newTodoText.value.trim()) return;
+                    if (!currentTrip.value.todos) currentTrip.value.todos = [];
                     currentTrip.value.todos.push({ id: Date.now(), text: newTodoText.value, done: false });
-                    updateTripData(); newTodoText.value = '';
+                    updatePrivateTripData(); newTodoText.value = '';
                 };
                 const deleteTodo = (id) => {
                     if (!confirm('確定要自清單中移除此事項嗎？')) return;
-                    currentTrip.value.todos = currentTrip.value.todos.filter(t => t.id !== id); updateTripData();
+                    currentTrip.value.todos = currentTrip.value.todos.filter(t => t.id !== id); updatePrivateTripData();
                 };
 
                 // 行李清單（分類）
@@ -1145,17 +1431,17 @@
                 const saveLuggageEdit = (id) => {
                     const item = currentTrip.value.luggage.find(i => i.id === id);
                     if (item) { item.text = editLuggageData.value.text; item.category = editLuggageData.value.category; }
-                    updateTripData(); editingLuggageId.value = null;
+                    updatePrivateTripData(); editingLuggageId.value = null;
                 };
                 const addLuggage = () => {
                     if (!newLuggage.value.text.trim()) return;
                     if (!currentTrip.value.luggage) currentTrip.value.luggage = [];
                     currentTrip.value.luggage.push({ id: Date.now(), text: newLuggage.value.text, category: newLuggage.value.category, done: false });
-                    updateTripData(); newLuggage.value = { text: '', category: newLuggage.value.category };
+                    updatePrivateTripData(); newLuggage.value = { text: '', category: newLuggage.value.category };
                 };
                 const deleteLuggage = (id) => {
                     if (!confirm('確定要移除此行李項目嗎？')) return;
-                    currentTrip.value.luggage = currentTrip.value.luggage.filter(i => i.id !== id); updateTripData();
+                    currentTrip.value.luggage = currentTrip.value.luggage.filter(i => i.id !== id); updatePrivateTripData();
                 };
 
                 // 原地編輯：景點行程
@@ -1165,22 +1451,21 @@
                 };
                 const saveSpotEdit = (index) => {
                     currentTrip.value.itinerary[activeDayTab.value][index] = { ...editSpotData.value };
-                    updateTripData(); editingSpotIndex.value = null;
+                    updateSharedTripData(); editingSpotIndex.value = null;
                 };
                 const addSpot = () => {
                     if (!newSpot.value.name.trim()) return alert('請填寫景點名稱');
                     if (!currentTrip.value.itinerary[activeDayTab.value]) currentTrip.value.itinerary[activeDayTab.value] = [];
                     let finalImg = newSpot.value.imgUrl.trim();
-                    if (!finalImg) finalImg = `https://picsum.photos/seed/${encodeURIComponent(newSpot.value.name)}/400/300`;
                     
                     currentTrip.value.itinerary[activeDayTab.value].push({
                         name: newSpot.value.name, link: newSpot.value.link, imgUrl: finalImg, note: newSpot.value.note
                     });
-                    updateTripData(); newSpot.value = { name: '', link: '', imgUrl: '', note: '' };
+                    updateSharedTripData(); newSpot.value = { name: '', link: '', imgUrl: '', note: '' };
                 };
                 const deleteSpot = (index) => {
                     if (!confirm('確定要自今日時間軸刪除此景點嗎？')) return;
-                    currentTrip.value.itinerary[activeDayTab.value].splice(index, 1); updateTripData();
+                    currentTrip.value.itinerary[activeDayTab.value].splice(index, 1); updateSharedTripData();
                 };
 
                 // 原地編輯：記帳
@@ -1195,18 +1480,18 @@
                 };
                 const saveExpenseEdit = (idx) => {
                     currentTrip.value.expenses[idx] = { ...editExpenseData.value };
-                    updateTripData(); editingExpenseIndex.value = null;
+                    updatePrivateTripData(); editingExpenseIndex.value = null;
                 };
                 const addExpense = () => {
                     if (!newExpense.value.title.trim() || !newExpense.value.amount) return alert('請填寫完整項目與開支金額');
                     if (!currentTrip.value.expenses) currentTrip.value.expenses = [];
                     currentTrip.value.expenses.push({ ...newExpense.value });
-                    updateTripData(); 
+                    updatePrivateTripData(); 
                     newExpense.value = { dayKey: newExpense.value.dayKey, title: '', amount: null, currency: newExpense.value.currency };
                 };
                 const deleteExpense = (idx) => {
                     if (!confirm('確定要刪除這筆開支記帳紀錄嗎？')) return;
-                    currentTrip.value.expenses.splice(idx, 1); updateTripData();
+                    currentTrip.value.expenses.splice(idx, 1); updatePrivateTripData();
                 };
 
                 // 原地編輯：購物戰利品
@@ -1221,14 +1506,13 @@
                         shop.url = editShoppingData.value.url;
                         shop.imgUrl = editShoppingData.value.imgUrl;
                     }
-                    updateTripData(); editingShoppingId.value = null;
+                    updatePrivateTripData(); editingShoppingId.value = null;
                 };
                 const addShopItem = () => {
                     if (!newShopItem.value.text.trim()) return alert('請填寫品項名稱');
                     if (!currentTrip.value.shopping) currentTrip.value.shopping = [];
                     
                     let finalImg = newShopItem.value.imgUrl.trim();
-                    if (!finalImg) finalImg = `https://picsum.photos/seed/${encodeURIComponent(newShopItem.value.text)}/150/150`;
 
                     currentTrip.value.shopping.push({ 
                         id: Date.now(), 
@@ -1237,18 +1521,18 @@
                         imgUrl: finalImg,
                         done: false 
                     });
-                    updateTripData(); 
+                    updatePrivateTripData(); 
                     newShopItem.value = { text: '', url: '', imgUrl: '' };
                 };
                 const deleteShopItem = (id) => {
                     if (!confirm('確定要移除這項戰利品採購目標嗎？')) return;
-                    currentTrip.value.shopping = currentTrip.value.shopping.filter(i => i.id !== id); updateTripData();
+                    currentTrip.value.shopping = currentTrip.value.shopping.filter(i => i.id !== id); updatePrivateTripData();
                 };
 
                 const changeTheme = (color) => { activeThemeColor.value = color; };
 
                 return {
-                    user, authForm, registerForm, authPage, authMessage, trips, currentTrip, activeMainTab, activeDayTab, weather, isKeyMissing, themeStyles, activeThemeColor,
+                    user, authForm, registerForm, authPage, authMessage, trips, currentTrip, activeMainTab, activeDayTab, weather, isKeyMissing, themeStyles, activeThemeColor, shareForm, shareMessage,
                     showTripModal, isEditingTripMode, tripModalForm, openAddTripModal, openEditTripModal, saveTripModalAction,
                     expenseSections, getFilteredExpenses, sumByCurrency, getCurrencySymbol,
                     editingMenuLinkIndex, editMenuLinkData, startMenuLinkEdit, saveMenuLinkEdit,
@@ -1258,7 +1542,7 @@
                     editingExpenseIndex, editExpenseData, startExpenseEdit, saveExpenseEdit,
                     editingShoppingId, editShoppingData, startShoppingEdit, saveShoppingEdit,
                     newSpot, newMenuLink, newTodoText, newLuggage, newExpense, newShopItem, getCalculatedDateStr, hasCustomImage, handleImageUpload,
-                    handleLogin, registerAccount, goToLogin, goToRegister, logout, selectTrip, deleteTrip, updateTripData, addSpot, deleteSpot, addMenuLink, deleteMenuLink, addTodo, deleteTodo, addLuggage, deleteLuggage, addExpense, deleteExpense, addShopItem, deleteShopItem, changeTheme
+                    handleLogin, registerAccount, goToLogin, goToRegister, logout, selectTrip, deleteTrip, updateTripData, updateSharedTripData, updatePrivateTripData, inviteUserToTrip, isTripOwner, getTripRoleText, addSpot, deleteSpot, addMenuLink, deleteMenuLink, addTodo, deleteTodo, addLuggage, deleteLuggage, addExpense, deleteExpense, addShopItem, deleteShopItem, changeTheme
                 };
             }
         }).mount('#app');
