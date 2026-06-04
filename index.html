@@ -40,6 +40,12 @@
                         {{ authPage === 'register' ? '建立帳號後，即可用帳號名稱登入' : '請使用帳號名稱登入，不需要輸入電子郵件' }}
                     </p>
                 </div>
+
+                <div v-if="authMessage.text"
+                     :class="['mb-4 text-xs p-3 rounded-xl border flex items-start gap-2', authMessage.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : authMessage.type === 'info' ? 'bg-blue-50 border-blue-100 text-blue-700' : 'bg-rose-50 border-rose-100 text-rose-700']">
+                    <i :class="authMessage.type === 'success' ? 'fa-solid fa-circle-check mt-0.5' : authMessage.type === 'info' ? 'fa-solid fa-circle-info mt-0.5' : 'fa-solid fa-triangle-exclamation mt-0.5'"></i>
+                    <span>{{ authMessage.text }}</span>
+                </div>
                 
                 <!-- 登入頁 -->
                 <div v-if="authPage === 'login'" class="space-y-4">
@@ -641,6 +647,7 @@
                 const authForm = ref({ username: '', password: '' });
                 const registerForm = ref({ username: '', email: '', password: '', confirmPassword: '' });
                 const authPage = ref(window.location.hash === '#register' ? 'register' : 'login');
+                const authMessage = ref({ type: '', text: '' });
 
                 // 旅程彈窗表單
                 const showTripModal = ref(false);
@@ -792,12 +799,32 @@
                     return err && err.message ? err.message : '發生未知錯誤。';
                 };
 
+                const showAuthMessage = (type, text) => {
+                    authMessage.value = { type, text };
+                };
+
+                const clearAuthMessage = () => {
+                    authMessage.value = { type: '', text: '' };
+                };
+
+                const resetLoginForm = () => {
+                    authForm.value = { username: '', password: '' };
+                };
+
+                const resetRegisterForm = () => {
+                    registerForm.value = { username: '', email: '', password: '', confirmPassword: '' };
+                };
+
                 const goToRegister = () => {
+                    resetRegisterForm();
+                    clearAuthMessage();
                     authPage.value = 'register';
                     window.location.hash = 'register';
                 };
 
                 const goToLogin = () => {
+                    resetLoginForm();
+                    clearAuthMessage();
                     authPage.value = 'login';
                     window.location.hash = 'login';
                 };
@@ -805,13 +832,26 @@
                 const handleLogin = async () => {
                     const username = normalizeUsername(authForm.value.username);
                     const password = authForm.value.password;
-                    if (!username || !password) return alert('請填寫帳號與密碼');
+                    if (!username || !password) {
+                        showAuthMessage('error', '請填寫帳號與密碼。');
+                        return;
+                    }
+
+                    showAuthMessage('info', '登入中，請稍候...');
 
                     if (isKeyMissing) {
                         const saved = localStorage.getItem(`account_${username}`);
-                        if (!saved) return alert('找不到此帳號，請先註冊');
+                        if (!saved) {
+                            showAuthMessage('error', '找不到此帳號，請先註冊。');
+                            return;
+                        }
                         const profile = JSON.parse(saved);
-                        if (profile.password !== password) return alert('帳號或密碼錯誤');
+                        if (profile.password !== password) {
+                            showAuthMessage('error', '帳號或密碼錯誤。');
+                            return;
+                        }
+                        resetLoginForm();
+                        clearAuthMessage();
                         user.value = { email: profile.email, uid: profile.uid, username: profile.username };
                         loadUserData();
                         return;
@@ -819,14 +859,19 @@
 
                     try {
                         const usernameDoc = await db.collection('usernames').doc(username).get();
-                        if (!usernameDoc.exists) return alert('找不到此帳號，請確認帳號是否正確');
+                        if (!usernameDoc.exists) {
+                            showAuthMessage('error', '找不到此帳號，請確認帳號是否正確。');
+                            return;
+                        }
 
                         const accountData = usernameDoc.data();
                         const res = await auth.signInWithEmailAndPassword(accountData.email, password);
+                        resetLoginForm();
+                        clearAuthMessage();
                         user.value = { uid: res.user.uid, email: res.user.email, username: accountData.username || username };
                         loadUserData();
                     } catch (err) {
-                        alert('登入失敗：' + getAuthErrorMessage(err));
+                        showAuthMessage('error', '登入失敗：' + getAuthErrorMessage(err));
                     }
                 };
 
@@ -836,25 +881,47 @@
                     const password = registerForm.value.password;
                     const confirmPassword = registerForm.value.confirmPassword;
 
-                    if (!username || !email || !password || !confirmPassword) return alert('請填寫完整註冊資料');
-                    if (!/^[a-z0-9._-]{3,20}$/.test(username)) return alert('帳號只能使用英文小寫、數字、底線、橫線與小數點，長度需為 3～20 字');
-                    if (password.length < 6) return alert('密碼至少需要 6 碼');
-                    if (password !== confirmPassword) return alert('兩次輸入的密碼不一致');
+                    if (!username || !email || !password || !confirmPassword) {
+                        showAuthMessage('error', '請填寫完整註冊資料。');
+                        return;
+                    }
+                    if (!/^[a-z0-9._-]{3,20}$/.test(username)) {
+                        showAuthMessage('error', '帳號只能使用英文小寫、數字、底線、橫線與小數點，長度需為 3～20 字。');
+                        return;
+                    }
+                    if (password.length < 6) {
+                        showAuthMessage('error', '密碼至少需要 6 碼。');
+                        return;
+                    }
+                    if (password !== confirmPassword) {
+                        showAuthMessage('error', '兩次輸入的密碼不一致。');
+                        return;
+                    }
+
+                    showAuthMessage('info', '註冊中，請稍候...');
 
                     if (isKeyMissing) {
-                        if (localStorage.getItem(`account_${username}`)) return alert('此帳號已被使用，請換一個帳號');
+                        if (localStorage.getItem(`account_${username}`)) {
+                            showAuthMessage('error', '此帳號已被使用，請換一個帳號。');
+                            return;
+                        }
                         const localProfile = { uid: `mock_${username}`, username, email, password };
                         localStorage.setItem(`account_${username}`, JSON.stringify(localProfile));
-                        user.value = { uid: localProfile.uid, email, username };
-                        loadUserData();
-                        alert('註冊成功！已自動登入。');
+                        resetRegisterForm();
+                        resetLoginForm();
+                        authPage.value = 'login';
+                        window.location.hash = 'login';
+                        showAuthMessage('success', '註冊成功，請使用剛建立的帳號登入。');
                         return;
                     }
 
                     try {
                         const usernameRef = db.collection('usernames').doc(username);
                         const existed = await usernameRef.get();
-                        if (existed.exists) return alert('此帳號已被使用，請換一個帳號');
+                        if (existed.exists) {
+                            showAuthMessage('error', '此帳號已被使用，請換一個帳號。');
+                            return;
+                        }
 
                         const res = await auth.createUserWithEmailAndPassword(email, password);
                         const uid = res.user.uid;
@@ -874,11 +941,17 @@
                             createdAt: now
                         });
 
-                        user.value = { uid, email, username };
-                        loadUserData();
-                        alert('註冊成功！已自動登入。');
+                        await auth.signOut();
+                        user.value = null;
+                        trips.value = [];
+                        currentTrip.value = null;
+                        resetRegisterForm();
+                        resetLoginForm();
+                        authPage.value = 'login';
+                        window.location.hash = 'login';
+                        showAuthMessage('success', '註冊成功，請使用剛建立的帳號登入。');
                     } catch (err) {
-                        alert('註冊失敗：' + getAuthErrorMessage(err));
+                        showAuthMessage('error', '註冊失敗：' + getAuthErrorMessage(err));
                     }
                 };
 
@@ -904,7 +977,14 @@
 
                 const logout = () => {
                     if (!isKeyMissing) auth.signOut();
-                    user.value = null; trips.value = []; currentTrip.value = null;
+                    user.value = null;
+                    trips.value = [];
+                    currentTrip.value = null;
+                    resetLoginForm();
+                    resetRegisterForm();
+                    clearAuthMessage();
+                    authPage.value = 'login';
+                    window.location.hash = 'login';
                 };
 
                 const loadUserData = () => {
@@ -928,7 +1008,13 @@
 
                 onMounted(() => {
                     window.addEventListener('hashchange', () => {
-                        authPage.value = window.location.hash === '#register' ? 'register' : 'login';
+                        const nextPage = window.location.hash === '#register' ? 'register' : 'login';
+                        if (nextPage !== authPage.value) {
+                            authPage.value = nextPage;
+                            clearAuthMessage();
+                            if (nextPage === 'register') resetRegisterForm();
+                            else resetLoginForm();
+                        }
                     });
                     if (!isKeyMissing) {
                         auth.onAuthStateChanged(firebaseUser => {
@@ -1162,7 +1248,7 @@
                 const changeTheme = (color) => { activeThemeColor.value = color; };
 
                 return {
-                    user, authForm, registerForm, authPage, trips, currentTrip, activeMainTab, activeDayTab, weather, isKeyMissing, themeStyles, activeThemeColor,
+                    user, authForm, registerForm, authPage, authMessage, trips, currentTrip, activeMainTab, activeDayTab, weather, isKeyMissing, themeStyles, activeThemeColor,
                     showTripModal, isEditingTripMode, tripModalForm, openAddTripModal, openEditTripModal, saveTripModalAction,
                     expenseSections, getFilteredExpenses, sumByCurrency, getCurrencySymbol,
                     editingMenuLinkIndex, editMenuLinkData, startMenuLinkEdit, saveMenuLinkEdit,
