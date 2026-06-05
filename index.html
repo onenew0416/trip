@@ -217,6 +217,22 @@
         .spot-title-row {
             padding-right: 3.25rem;
         }
+        /* 行程文字：手機版避免被 truncate 截斷，改成自動換行顯示完整內容 */
+        .trip-spot-content .itinerary-wrap-text,
+        .trip-spot-content .spot-note-text,
+        .trip-spot-content .spot-link-text,
+        .trip-spot-content .flight-airport-name {
+            white-space: normal !important;
+            overflow: visible !important;
+            text-overflow: clip !important;
+            overflow-wrap: anywhere !important;
+            word-break: break-word !important;
+            line-height: 1.45;
+        }
+        .flight-location-col {
+            flex: 1 1 0;
+            min-width: 0;
+        }
         @media (max-width: 640px) {
             .mobile-user-badge {
                 max-width: 116px;
@@ -236,7 +252,7 @@
                 padding-right: 0.75rem !important;
             }
             .flight-info-card .flight-airport-name {
-                max-width: 5.5rem;
+                max-width: none;
             }
         }
 
@@ -634,28 +650,28 @@
                                         </div>
                                         <div v-else>
                                             <div class="spot-title-row flex flex-wrap items-center gap-2 mb-1">
-                                                <h4 class="font-medium text-sm text-neutral-700 truncate">{{ spot.name }}</h4>
+                                                <h4 class="itinerary-wrap-text font-medium text-sm text-neutral-700">{{ spot.name }}</h4>
                                             </div>
                                             <div v-if="getSpotTypeLabel(spot) === '航班' && parseFlightInfo(getSpotNoteText(spot))" class="flight-info-card bg-white border border-[#e6e4dc] rounded-xl p-3 my-2">
                                                 <div class="flex items-center justify-between gap-3">
-                                                    <div class="min-w-0">
+                                                    <div class="flight-location-col">
                                                         <p class="text-[10px] text-neutral-400">出發</p>
                                                         <p class="text-sm font-bold text-neutral-700">{{ parseFlightInfo(getSpotNoteText(spot)).from.code }}</p>
-                                                        <p class="flight-airport-name text-[11px] text-neutral-500 truncate">{{ parseFlightInfo(getSpotNoteText(spot)).from.name }}</p>
+                                                        <p class="flight-airport-name text-[11px] text-neutral-500">{{ parseFlightInfo(getSpotNoteText(spot)).from.name }}</p>
                                                         <p v-if="getSpotDepartureTime(spot)" class="text-xs font-bold text-neutral-700 mt-1">{{ getSpotDepartureTime(spot) }}</p>
                                                     </div>
                                                     <i class="fa-solid fa-plane text-neutral-300 shrink-0"></i>
-                                                    <div class="min-w-0 text-right">
+                                                    <div class="flight-location-col text-right">
                                                         <p class="text-[10px] text-neutral-400">抵達</p>
                                                         <p class="text-sm font-bold text-neutral-700">{{ parseFlightInfo(getSpotNoteText(spot)).to.code }}</p>
-                                                        <p class="flight-airport-name text-[11px] text-neutral-500 truncate">{{ parseFlightInfo(getSpotNoteText(spot)).to.name }}</p>
+                                                        <p class="flight-airport-name text-[11px] text-neutral-500">{{ parseFlightInfo(getSpotNoteText(spot)).to.name }}</p>
                                                         <p v-if="getSpotArrivalTime(spot)" class="text-xs font-bold text-neutral-700 mt-1">{{ getSpotArrivalTime(spot) }}</p>
                                                     </div>
                                                 </div>
                                             </div>
-                                            <p v-else class="text-xs text-neutral-400 break-words" v-if="getSpotNoteText(spot)">{{ getSpotNoteText(spot) }}</p>
-                                            <a v-if="getSpotLinkUrl(spot)" :href="getSpotLinkUrl(spot)" target="_blank" class="inline-flex items-center text-[11px] text-primary font-medium hover:underline gap-1 mt-1">
-                                                <i class="fa-solid fa-link text-[9px]"></i> {{ getSpotLinkName(spot) }}
+                                            <p v-else class="spot-note-text text-xs text-neutral-400" v-if="getSpotNoteText(spot)">{{ getSpotNoteText(spot) }}</p>
+                                            <a v-if="getSpotLinkUrl(spot)" :href="getSpotLinkUrl(spot)" target="_blank" class="spot-link-text inline-flex max-w-full items-start text-[11px] text-primary font-medium hover:underline gap-1 mt-1">
+                                                <i class="fa-solid fa-link text-[9px] mt-0.5 shrink-0"></i> <span>{{ getSpotLinkName(spot) }}</span>
                                             </a>
                                         </div>
                                     </div>
