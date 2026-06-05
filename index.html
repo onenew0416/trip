@@ -1,11 +1,12 @@
 <!DOCTYPE html>
-<html lang="zh-TW"><head>
+<html lang="zh-TW">
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>旅遊手冊網站</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&amp;display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
 	<link rel="icon" href="./favicon.ico" type="image/x-icon">
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
@@ -257,7 +258,8 @@
                     </p>
                 </div>
 
-                <div v-if="authMessage.text" :class="['mb-4 text-xs p-3 rounded-xl border flex items-start gap-2', authMessage.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : authMessage.type === 'info' ? 'bg-blue-50 border-blue-100 text-blue-700' : 'bg-rose-50 border-rose-100 text-rose-700']">
+                <div v-if="authMessage.text"
+                     :class="['mb-4 text-xs p-3 rounded-xl border flex items-start gap-2', authMessage.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : authMessage.type === 'info' ? 'bg-blue-50 border-blue-100 text-blue-700' : 'bg-rose-50 border-rose-100 text-rose-700']">
                     <i :class="authMessage.type === 'success' ? 'fa-solid fa-circle-check mt-0.5' : authMessage.type === 'info' ? 'fa-solid fa-circle-info mt-0.5' : 'fa-solid fa-triangle-exclamation mt-0.5'"></i>
                     <span>{{ authMessage.text }}</span>
                 </div>
@@ -287,7 +289,7 @@
                 </div>
 
                 <!-- 註冊頁 -->
-                <div v-else="" class="space-y-4">
+                <div v-else class="space-y-4">
                     <div>
                         <label class="text-xs font-medium text-neutral-500 block mb-1">使用者名稱</label>
                         <input v-model="registerForm.username" type="text" placeholder="例如：OneNew0416" autocomplete="username" class="w-full bg-[#fcfbf9] border border-[#e6e4dc] rounded-xl p-3 text-sm focus:outline-none focus:border-neutral-400">
@@ -318,7 +320,7 @@
             </div>
         </div>
 
-        <div v-else="" class="flex-1 flex flex-col">
+        <div v-else class="flex-1 flex flex-col">
             
             <nav class="bg-white border-b border-[#e6e4dc] px-6 py-4 sticky top-0 z-50">
                 <div class="max-w-6xl mx-auto flex justify-between items-center">
@@ -381,7 +383,7 @@
                 </div>
             </div>
 
-            <div v-else="" class="trip-page-safe-bottom flex-1 max-w-6xl w-full mx-auto p-4 md:p-6">
+            <div v-else class="trip-page-safe-bottom flex-1 max-w-6xl w-full mx-auto p-4 md:p-6">
                 <button @click="currentTrip = null" class="text-xs text-neutral-500 hover:text-neutral-800 transition-colors flex items-center gap-1.5 px-2 mb-4">
                     <i class="fa-solid fa-chevron-left"></i> 返回手冊列表
                 </button>
@@ -404,7 +406,7 @@
                                 </p>
                             </div>
                         </div>
-                        <button v-else="" @click="openWeatherModal" type="button" class="bg-[#fcfbf9] hover:bg-neutral-50 border border-[#e6e4dc] rounded-xl p-3 flex items-center gap-3 min-w-[210px] text-left transition-colors">
+                        <button v-else @click="openWeatherModal" type="button" class="bg-[#fcfbf9] hover:bg-neutral-50 border border-[#e6e4dc] rounded-xl p-3 flex items-center gap-3 min-w-[210px] text-left transition-colors">
                             <i :class="weather.icon" class="text-xl"></i>
                             <div>
                                 <p class="text-[10px] text-neutral-400 font-medium">旅遊天氣預報</p>
@@ -417,11 +419,14 @@
                     <div v-if="activeMainTab === 'itinerary'" class="bg-white border border-[#e6e4dc] rounded-2xl p-3 shadow-sm">
                         <p class="text-[10px] font-bold text-neutral-400 tracking-widest px-2 mb-2 uppercase">行程分頁導覽</p>
                         <div class="flex gap-2 overflow-x-auto pb-1">
-                            <button @click="activeDayTab = 'menu'" :class="['shrink-0 min-w-[170px] text-left px-3 py-2.5 text-xs rounded-xl transition-all flex items-center justify-between border', activeDayTab === 'menu' ? 'itinerary-tab-active font-bold' : 'itinerary-tab-idle hover:bg-[#f7f6f3]']">
+                            <button @click="activeDayTab = 'menu'" 
+                                    :class="['shrink-0 min-w-[170px] text-left px-3 py-2.5 text-xs rounded-xl transition-all flex items-center justify-between border', activeDayTab === 'menu' ? 'itinerary-tab-active font-bold' : 'itinerary-tab-idle hover:bg-[#f7f6f3]']">
                                 <span>📂 行程目錄</span>
                             </button>
                             
-                            <button v-for="dayNum in currentTrip.days" :key="dayNum" @click="activeDayTab = dayNum" :class="['shrink-0 min-w-[145px] text-left px-3 py-2.5 text-xs rounded-xl transition-all flex flex-col items-start gap-0.5 border', activeDayTab === dayNum ? 'itinerary-tab-active font-bold' : 'itinerary-tab-idle hover:bg-[#f7f6f3]']">
+                            <button v-for="dayNum in currentTrip.days" :key="dayNum"
+                                    @click="activeDayTab = dayNum" 
+                                    :class="['shrink-0 min-w-[145px] text-left px-3 py-2.5 text-xs rounded-xl transition-all flex flex-col items-start gap-0.5 border', activeDayTab === dayNum ? 'itinerary-tab-active font-bold' : 'itinerary-tab-idle hover:bg-[#f7f6f3]']">
                                 <div class="w-full flex justify-between items-center gap-2">
                                     <span>📍 Day {{ dayNum }}</span>
                                     <span :class="['text-[9px] px-1 rounded border', activeDayTab === dayNum ? 'day-badge' : 'bg-white border-neutral-200 text-neutral-400']">D{{ dayNum }}</span>
@@ -459,7 +464,7 @@
                                                         <button @click="editingMenuLinkIndex = null" class="text-neutral-400 px-1"><i class="fa-solid fa-xmark"></i></button>
                                                     </div>
                                                 </div>
-                                                <div v-else="">
+                                                <div v-else>
                                                     <a :href="link.url" target="_blank" class="text-primary font-medium hover:underline block truncate">
                                                         <i class="fa-solid fa-arrow-up-right-from-square mr-1 text-[10px]"></i> {{ link.title }}
                                                     </a>
@@ -490,7 +495,7 @@
                                                     <button @click="saveTodoEdit(item.id)" class="text-green-600 font-bold px-1"><i class="fa-solid fa-check"></i></button>
                                                     <button @click="editingTodoId = null" class="text-neutral-400 px-1"><i class="fa-solid fa-xmark"></i></button>
                                                 </div>
-                                                <button v-else="" @click="toggleTodoDone(item)" type="button" :class="['text-left truncate cursor-pointer flex-1', {'line-through text-neutral-300': item.done}]">{{ item.text }}</button>
+                                                <button v-else @click="toggleTodoDone(item)" type="button" :class="['text-left truncate cursor-pointer flex-1', {'line-through text-neutral-300': item.done}]">{{ item.text }}</button>
                                             </div>
                                             <div v-if="editingTodoId !== item.id" class="flex gap-2 shrink-0">
                                                 <button @click="startTodoEdit(item)" class="text-neutral-400 hover:text-blue-500"><i class="fa-solid fa-pen text-[11px]"></i></button>
@@ -522,8 +527,9 @@
                                             {{ cat === '隨身包包' ? '🎒' : cat === '手提行李' ? '💼' : '🧳' }} {{ cat }}
                                         </p>
                                         <div class="space-y-1 max-h-64 overflow-y-auto">
-                                            <div v-if="!(currentTrip.luggage || []).filter(i =&gt; i.category === cat).length" class="text-center text-neutral-400 text-xs py-4">尚無項目</div>
-                                            <div v-for="item in (currentTrip.luggage || []).filter(i =&gt; i.category === cat)" :key="item.id" class="flex items-start justify-between text-xs text-neutral-600 p-2 hover:bg-white rounded-xl group">
+                                            <div v-if="!(currentTrip.luggage || []).filter(i => i.category === cat).length" class="text-center text-neutral-400 text-xs py-4">尚無項目</div>
+                                            <div v-for="item in (currentTrip.luggage || []).filter(i => i.category === cat)" :key="item.id"
+                                                 class="flex items-start justify-between text-xs text-neutral-600 p-2 hover:bg-white rounded-xl group">
                                                 <div class="flex-1 flex items-start gap-2 min-w-0 pr-2">
                                                     <input type="checkbox" v-model="item.done" @change="updatePrivateTripData" class="rounded text-neutral-700 focus:ring-0 border-[#e6e4dc] shrink-0 mt-0.5">
                                                     <div v-if="editingLuggageId === item.id" class="flex flex-1 flex-col gap-1">
@@ -538,7 +544,7 @@
                                                             <button @click="editingLuggageId = null" class="text-neutral-400 px-1"><i class="fa-solid fa-xmark"></i></button>
                                                         </div>
                                                     </div>
-                                                    <button v-else="" @click="toggleLuggageDone(item)" type="button" :class="['text-left truncate cursor-pointer flex-1', {'line-through text-neutral-300': item.done}]">{{ item.text }}</button>
+                                                    <button v-else @click="toggleLuggageDone(item)" type="button" :class="['text-left truncate cursor-pointer flex-1', {'line-through text-neutral-300': item.done}]">{{ item.text }}</button>
                                                 </div>
                                                 <div v-if="editingLuggageId !== item.id" class="flex gap-2 shrink-0">
                                                     <button @click="startLuggageEdit(item)" class="text-neutral-400 hover:text-blue-500"><i class="fa-solid fa-pen text-[11px]"></i></button>
@@ -551,7 +557,7 @@
                             </div>
                         </div>
 
-                        <div v-else="" class="bg-white border border-[#e6e4dc] rounded-2xl p-6 space-y-6 shadow-sm">
+                        <div v-else class="bg-white border border-[#e6e4dc] rounded-2xl p-6 space-y-6 shadow-sm">
                             <div class="flex justify-between items-center border-b pb-3">
                                 <div class="flex flex-col">
                                     <h3 class="font-medium text-neutral-700 text-base">✨ 第 {{ activeDayTab }} 天 行程</h3>
@@ -572,12 +578,12 @@
                                     <div class="absolute -left-[21px] top-5 w-2 h-2 rounded-full bg-primary border-2 border-white shadow-sm"></div>
                                     <div class="trip-spot-icon-col w-14 sm:w-20 shrink-0 flex flex-col gap-2 items-center">
                                         <div class="flex flex-col items-center gap-1 shrink-0">
-                                            <div class="w-12 h-12 sm:w-20 sm:h-20 rounded-lg bg-white border border-[#e6e4dc] flex items-center justify-center shrink-0">
+                                            <img v-if="hasCustomImage(spot.imgUrl)" :src="spot.imgUrl" class="w-12 h-12 sm:w-20 sm:h-20 object-cover rounded-lg bg-white border border-[#e6e4dc] shrink-0" alt="行程圖片">
+                                            <div v-else class="w-12 h-12 sm:w-20 sm:h-20 rounded-lg bg-white border border-[#e6e4dc] flex items-center justify-center shrink-0">
                                                 <i :class="getSpotTypeIcon(spot)" class="text-xl text-neutral-500"></i>
                                             </div>
                                             <p v-if="getSpotDisplayTime(spot)" class="text-xs font-bold text-neutral-700 leading-none">{{ getSpotDisplayTime(spot) }}</p>
                                         </div>
-                                        <img v-if="hasCustomImage(spot.imgUrl)" :src="spot.imgUrl" class="w-12 h-12 sm:w-20 sm:h-20 object-cover rounded-lg bg-white border border-[#e6e4dc] shrink-0">
                                     </div>
                                     
                                     <div class="trip-spot-content flex-1 min-w-0 space-y-2">
@@ -602,7 +608,7 @@
                                                     <input v-model="editSpotData.arrivalTime" type="time" class="border text-xs p-1.5 rounded text-neutral-600">
                                                 </label>
                                             </div>
-                                            <label v-else="" class="text-[10px] text-neutral-400 flex flex-col gap-1">時間
+                                            <label v-else class="text-[10px] text-neutral-400 flex flex-col gap-1">時間
                                                 <input v-model="editSpotData.time" type="time" class="border text-xs p-1.5 rounded text-neutral-600">
                                             </label>
                                             <input v-model="editSpotData.placeNote" type="text" class="border text-xs p-1.5 rounded w-full" :placeholder="editSpotData.type === '航班' ? '航班資訊，例：[TPE 台北(桃園) - HSG 佐賀]' : '地點 / 備註'">
@@ -626,11 +632,11 @@
                                                 <button @click="saveSpotEdit(index)" class="text-xs px-2 py-1 bg-neutral-700 text-white rounded">儲存</button>
                                             </div>
                                         </div>
-                                        <div v-else="">
+                                        <div v-else>
                                             <div class="spot-title-row flex flex-wrap items-center gap-2 mb-1">
                                                 <h4 class="font-medium text-sm text-neutral-700 truncate">{{ spot.name }}</h4>
                                             </div>
-                                            <div v-if="getSpotTypeLabel(spot) === '航班' &amp;&amp; parseFlightInfo(getSpotNoteText(spot))" class="flight-info-card bg-white border border-[#e6e4dc] rounded-xl p-3 my-2">
+                                            <div v-if="getSpotTypeLabel(spot) === '航班' && parseFlightInfo(getSpotNoteText(spot))" class="flight-info-card bg-white border border-[#e6e4dc] rounded-xl p-3 my-2">
                                                 <div class="flex items-center justify-between gap-3">
                                                     <div class="min-w-0">
                                                         <p class="text-[10px] text-neutral-400">出發</p>
@@ -647,7 +653,7 @@
                                                     </div>
                                                 </div>
                                             </div>
-                                            <p v-else="" class="text-xs text-neutral-400 break-words" v-if="getSpotNoteText(spot)">{{ getSpotNoteText(spot) }}</p>
+                                            <p v-else class="text-xs text-neutral-400 break-words" v-if="getSpotNoteText(spot)">{{ getSpotNoteText(spot) }}</p>
                                             <a v-if="getSpotLinkUrl(spot)" :href="getSpotLinkUrl(spot)" target="_blank" class="inline-flex items-center text-[11px] text-primary font-medium hover:underline gap-1 mt-1">
                                                 <i class="fa-solid fa-link text-[9px]"></i> {{ getSpotLinkName(spot) }}
                                             </a>
@@ -683,7 +689,7 @@
                             <div v-if="!currentTrip.expenses || currentTrip.expenses.length === 0" class="text-center py-6 text-neutral-400 text-xs">尚無任何記帳數據。</div>
                             
                             <div v-for="section in expenseSections" :key="section.key" class="space-y-2">
-                                <div v-if="getFilteredExpenses(section.key).length &gt; 0">
+                                <div v-if="getFilteredExpenses(section.key).length > 0">
                                     <h4 class="text-xs font-bold text-neutral-400 bg-neutral-100 px-3 py-1.5 rounded-lg border border-neutral-200/60 flex justify-between items-center">
                                         <span>{{ section.label }}</span>
                                         <span class="text-[10px] font-normal">共 {{ getFilteredExpenses(section.key).length }} 筆</span>
@@ -713,7 +719,7 @@
                                                         </div>
                                                     </div>
                                                     
-                                                    <span v-else="" class="text-neutral-600 font-medium truncate block">
+                                                    <span v-else class="text-neutral-600 font-medium truncate block">
                                                         {{ exp.title }}
                                                     </span>
                                                 </div>
@@ -784,7 +790,7 @@
                                             </div>
                                         </div>
                                         
-                                        <div v-else="" class="min-w-0 flex-1">
+                                        <div v-else class="min-w-0 flex-1">
                                             <span :class="['font-medium block truncate text-neutral-700', {'line-through text-neutral-300': item.done}]">{{ item.text }}</span>
                                             <div v-if="item.quantity || item.note" class="flex flex-wrap gap-1 mt-1">
                                                 <span v-if="item.quantity" class="text-[10px] bg-white border border-[#e6e4dc] text-neutral-500 px-1.5 py-0.5 rounded-full">數量：{{ item.quantity }}</span>
@@ -861,7 +867,7 @@
                                 <input v-model="newSpot.arrivalTime" type="time" class="border border-[#e6e4dc] text-xs rounded-xl p-2.5 bg-white text-neutral-600 focus:outline-none focus-border-primary">
                             </label>
                         </div>
-                        <label v-else="" class="text-[10px] text-neutral-400 flex flex-col gap-1">時間
+                        <label v-else class="text-[10px] text-neutral-400 flex flex-col gap-1">時間
                             <input v-model="newSpot.time" type="time" class="border border-[#e6e4dc] text-xs rounded-xl p-2.5 bg-white text-neutral-600 focus:outline-none focus-border-primary">
                         </label>
                         <input v-model="newSpot.placeNote" type="text" :placeholder="newSpot.type === '航班' ? '航班資訊，例：[TPE 台北(桃園) - HSG 佐賀]' : '地點 / 備註'" class="border border-[#e6e4dc] text-xs rounded-xl p-2.5 bg-white focus:outline-none focus-border-primary w-full">
@@ -1001,7 +1007,7 @@
                         <i class="fa-solid fa-spinner fa-spin mr-1"></i> 天氣資料讀取中...
                     </div>
 
-                    <div v-else="">
+                    <div v-else>
                         <div v-if="weatherError" class="text-xs p-3 rounded-xl border bg-amber-50 border-amber-100 text-amber-700 mb-3">
                             <i class="fa-solid fa-circle-info mr-1"></i>{{ weatherError }}
                         </div>
@@ -1068,7 +1074,7 @@
                                         共用行程、交通票券與旅程基本資料會開放成員共同編輯；待辦、行李、記帳、購物仍只顯示自己的資料。
                                     </p>
                                 </div>
-                                <span v-if="isEditingTripMode &amp;&amp; currentTrip" class="text-[10px] bg-white border border-[#e6e4dc] text-neutral-500 px-2 py-1 rounded-full shrink-0">
+                                <span v-if="isEditingTripMode && currentTrip" class="text-[10px] bg-white border border-[#e6e4dc] text-neutral-500 px-2 py-1 rounded-full shrink-0">
                                     {{ getTripRoleText(currentTrip) }}
                                 </span>
                             </div>
@@ -2394,41 +2400,9 @@
                                 || memberAuthEmails.includes(userAuthEmail);
                         };
 
-                        const repairOwnerTripShareFields = (trip = {}) => {
-                            if (!trip.id || trip.ownerUid !== user.value.uid) return;
-                            const ownerUsername = trip.ownerUsername || user.value.username || user.value.email || '';
-                            const visibleNames = Array.from(new Set([
-                                ...(Array.isArray(trip.memberUsernames) ? trip.memberUsernames : []),
-                                ownerUsername,
-                                user.value.username || user.value.email
-                            ].filter(Boolean)));
-                            const aliasNames = getMemberUsernameAliases(visibleNames);
-                            const usernameKeys = Array.from(new Set([
-                                ...(Array.isArray(trip.memberUsernameKeys) ? trip.memberUsernameKeys : []),
-                                ...aliasNames.map(getUsernameKey),
-                                user.value.usernameKey || getUsernameKey(ownerUsername)
-                            ].filter(Boolean)));
-                            const authEmails = Array.from(new Set([
-                                ...(Array.isArray(trip.memberAuthEmails) ? trip.memberAuthEmails : []),
-                                ...usernameKeys.map(getUsernameAuthEmail),
-                                user.value.authEmail || getUsernameAuthEmail(ownerUsername)
-                            ].filter(Boolean)));
-                            const hasAllAliases = aliasNames.every(name => (trip.memberUsernames || []).includes(name));
-                            const hasAllKeys = usernameKeys.every(key => (trip.memberUsernameKeys || []).includes(key));
-                            const hasAllEmails = authEmails.every(mail => (trip.memberAuthEmails || []).includes(mail));
-                            if (hasAllAliases && hasAllKeys && hasAllEmails) return;
-                            db.collection('trips').doc(trip.id).update({
-                                memberUsernames: aliasNames,
-                                memberUsernameKeys: usernameKeys,
-                                memberAuthEmails: authEmails,
-                                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                            }).catch(e => console.warn('Auto repair trip share fields skipped:', e));
-                        };
-
                         const addSnapshotDocs = async (snapshot) => {
                             snapshot.docs.forEach(doc => {
                                 const data = { id: doc.id, ...doc.data() };
-                                repairOwnerTripShareFields(data);
                                 if (currentUserCanAccessTrip(data)) sharedTripMap.set(doc.id, data);
                             });
                             await refreshTripList();
@@ -3232,5 +3206,5 @@
             }
         }).mount('#app');
     </script>
-
-</body></html>
+</body>
+</html>
