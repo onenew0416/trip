@@ -168,6 +168,20 @@
         #app.dark-theme .theme-trigger-active { color: #ffffff !important; }
         #app.dark-theme .theme-color-active { border-color: #ffffff !important; }
 
+
+        /* 底部主分頁避開內容：手機瀏覽器工具列與安全區會讓 fixed nav 蓋到最後一筆資料 */
+        .trip-page-safe-bottom {
+            padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 11rem) !important;
+        }
+        .bottom-main-nav {
+            bottom: calc(env(safe-area-inset-bottom, 0px) + 12px) !important;
+        }
+        @media (max-width: 640px) {
+            .trip-page-safe-bottom {
+                padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 14rem) !important;
+            }
+        }
+
         /* 手機版：讓登入使用者名稱在右上角也能顯示，避免被隱藏 */
         .mobile-user-badge {
             max-width: 128px;
@@ -203,6 +217,22 @@
         .spot-title-row {
             padding-right: 3.25rem;
         }
+        /* 行程文字：手機版避免被 truncate 截斷，改成自動換行顯示完整內容 */
+        .trip-spot-content .itinerary-wrap-text,
+        .trip-spot-content .spot-note-text,
+        .trip-spot-content .spot-link-text,
+        .trip-spot-content .flight-airport-name {
+            white-space: normal !important;
+            overflow: visible !important;
+            text-overflow: clip !important;
+            overflow-wrap: anywhere !important;
+            word-break: break-word !important;
+            line-height: 1.45;
+        }
+        .flight-location-col {
+            flex: 1 1 0;
+            min-width: 0;
+        }
         @media (max-width: 640px) {
             .mobile-user-badge {
                 max-width: 116px;
@@ -222,9 +252,54 @@
                 padding-right: 0.75rem !important;
             }
             .flight-info-card .flight-airport-name {
-                max-width: 5.5rem;
+                max-width: none;
             }
         }
+
+
+        /* 分帳記帳頁面 */
+        .split-expense-card {
+            background: #ffffff;
+            border: 1px solid #e6e4dc;
+            border-radius: 1rem;
+            overflow: hidden;
+            transition: box-shadow .16s ease, transform .16s ease;
+        }
+        .split-expense-card:hover {
+            box-shadow: 0 8px 22px rgba(17,24,39,.07);
+            transform: translateY(-1px);
+        }
+        .split-person-avatar {
+            width: 2rem;
+            height: 2rem;
+            border-radius: 9999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #f3f4f6;
+            color: #4b5563;
+            font-size: .7rem;
+            font-weight: 700;
+            border: 1px solid #e5e7eb;
+            flex-shrink: 0;
+        }
+        .split-check {
+            accent-color: #a38545;
+        }
+        .split-settlement-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: .75rem;
+            border-top: 1px solid #eeeae2;
+            padding: .75rem 0;
+            font-size: .75rem;
+        }
+        @media (max-width: 640px) {
+            .split-expense-card { border-radius: .9rem; }
+            .split-person-avatar { width: 1.8rem; height: 1.8rem; }
+        }
+
 
     </style>
 </head>
@@ -351,7 +426,7 @@
                             <h3 class="text-lg font-medium text-neutral-700 group-hover:text-primary transition-colors mt-1">{{ trip.title }}</h3>
                             <div class="flex flex-wrap gap-2 mt-2">
                                 <span class="text-[10px] bg-[#fcfbf9] border border-[#e6e4dc] text-neutral-500 px-2 py-0.5 rounded-full">{{ getTripRoleText(trip) }}</span>
-                                <span class="text-[10px] bg-[#fcfbf9] border border-[#e6e4dc] text-neutral-500 px-2 py-0.5 rounded-full">{{ (trip.memberUsernames || []).length }} 人共編</span>
+                                <span class="text-[10px] bg-[#fcfbf9] border border-[#e6e4dc] text-neutral-500 px-2 py-0.5 rounded-full">{{ getVisibleMemberUsernames(trip.memberUsernames).length }} 人共編</span>
                             </div>
                         </div>
                         <div class="flex justify-between items-center mt-6 border-t border-[#f7f6f3] pt-3">
@@ -369,7 +444,7 @@
                 </div>
             </div>
 
-            <div v-else class="flex-1 max-w-6xl w-full mx-auto p-4 md:p-6 pb-36">
+            <div v-else class="trip-page-safe-bottom flex-1 max-w-6xl w-full mx-auto p-4 md:p-6">
                 <button @click="currentTrip = null" class="text-xs text-neutral-500 hover:text-neutral-800 transition-colors flex items-center gap-1.5 px-2 mb-4">
                     <i class="fa-solid fa-chevron-left"></i> 返回手冊列表
                 </button>
@@ -564,12 +639,12 @@
                                     <div class="absolute -left-[21px] top-5 w-2 h-2 rounded-full bg-primary border-2 border-white shadow-sm"></div>
                                     <div class="trip-spot-icon-col w-14 sm:w-20 shrink-0 flex flex-col gap-2 items-center">
                                         <div class="flex flex-col items-center gap-1 shrink-0">
-                                            <div class="w-12 h-12 sm:w-20 sm:h-20 rounded-lg bg-white border border-[#e6e4dc] flex items-center justify-center shrink-0">
+                                            <img v-if="hasCustomImage(spot.imgUrl)" :src="spot.imgUrl" class="w-12 h-12 sm:w-20 sm:h-20 object-cover rounded-lg bg-white border border-[#e6e4dc] shrink-0" alt="行程圖片">
+                                            <div v-else class="w-12 h-12 sm:w-20 sm:h-20 rounded-lg bg-white border border-[#e6e4dc] flex items-center justify-center shrink-0">
                                                 <i :class="getSpotTypeIcon(spot)" class="text-xl text-neutral-500"></i>
                                             </div>
                                             <p v-if="getSpotDisplayTime(spot)" class="text-xs font-bold text-neutral-700 leading-none">{{ getSpotDisplayTime(spot) }}</p>
                                         </div>
-                                        <img v-if="hasCustomImage(spot.imgUrl)" :src="spot.imgUrl" class="w-12 h-12 sm:w-20 sm:h-20 object-cover rounded-lg bg-white border border-[#e6e4dc] shrink-0">
                                     </div>
                                     
                                     <div class="trip-spot-content flex-1 min-w-0 space-y-2">
@@ -620,28 +695,28 @@
                                         </div>
                                         <div v-else>
                                             <div class="spot-title-row flex flex-wrap items-center gap-2 mb-1">
-                                                <h4 class="font-medium text-sm text-neutral-700 truncate">{{ spot.name }}</h4>
+                                                <h4 class="itinerary-wrap-text font-medium text-sm text-neutral-700">{{ spot.name }}</h4>
                                             </div>
                                             <div v-if="getSpotTypeLabel(spot) === '航班' && parseFlightInfo(getSpotNoteText(spot))" class="flight-info-card bg-white border border-[#e6e4dc] rounded-xl p-3 my-2">
                                                 <div class="flex items-center justify-between gap-3">
-                                                    <div class="min-w-0">
+                                                    <div class="flight-location-col">
                                                         <p class="text-[10px] text-neutral-400">出發</p>
                                                         <p class="text-sm font-bold text-neutral-700">{{ parseFlightInfo(getSpotNoteText(spot)).from.code }}</p>
-                                                        <p class="flight-airport-name text-[11px] text-neutral-500 truncate">{{ parseFlightInfo(getSpotNoteText(spot)).from.name }}</p>
+                                                        <p class="flight-airport-name text-[11px] text-neutral-500">{{ parseFlightInfo(getSpotNoteText(spot)).from.name }}</p>
                                                         <p v-if="getSpotDepartureTime(spot)" class="text-xs font-bold text-neutral-700 mt-1">{{ getSpotDepartureTime(spot) }}</p>
                                                     </div>
                                                     <i class="fa-solid fa-plane text-neutral-300 shrink-0"></i>
-                                                    <div class="min-w-0 text-right">
+                                                    <div class="flight-location-col text-right">
                                                         <p class="text-[10px] text-neutral-400">抵達</p>
                                                         <p class="text-sm font-bold text-neutral-700">{{ parseFlightInfo(getSpotNoteText(spot)).to.code }}</p>
-                                                        <p class="flight-airport-name text-[11px] text-neutral-500 truncate">{{ parseFlightInfo(getSpotNoteText(spot)).to.name }}</p>
+                                                        <p class="flight-airport-name text-[11px] text-neutral-500">{{ parseFlightInfo(getSpotNoteText(spot)).to.name }}</p>
                                                         <p v-if="getSpotArrivalTime(spot)" class="text-xs font-bold text-neutral-700 mt-1">{{ getSpotArrivalTime(spot) }}</p>
                                                     </div>
                                                 </div>
                                             </div>
-                                            <p v-else class="text-xs text-neutral-400 break-words" v-if="getSpotNoteText(spot)">{{ getSpotNoteText(spot) }}</p>
-                                            <a v-if="getSpotLinkUrl(spot)" :href="getSpotLinkUrl(spot)" target="_blank" class="inline-flex items-center text-[11px] text-primary font-medium hover:underline gap-1 mt-1">
-                                                <i class="fa-solid fa-link text-[9px]"></i> {{ getSpotLinkName(spot) }}
+                                            <p v-else class="spot-note-text text-xs text-neutral-400" v-if="getSpotNoteText(spot)">{{ getSpotNoteText(spot) }}</p>
+                                            <a v-if="getSpotLinkUrl(spot)" :href="getSpotLinkUrl(spot)" target="_blank" class="spot-link-text inline-flex max-w-full items-start text-[11px] text-primary font-medium hover:underline gap-1 mt-1">
+                                                <i class="fa-solid fa-link text-[9px] mt-0.5 shrink-0"></i> <span>{{ getSpotLinkName(spot) }}</span>
                                             </a>
                                         </div>
                                     </div>
@@ -657,68 +732,99 @@
 
                     <div v-if="activeMainTab === 'accounting'" class="bg-white border border-[#e6e4dc] rounded-2xl p-6 space-y-6 shadow-sm">
                         <div class="flex justify-between items-center border-b pb-3 gap-3">
-                            <h3 class="font-medium text-neutral-700 text-base whitespace-nowrap"><i class="fa-solid fa-coins text-neutral-400 mr-1.5"></i> 費用記帳</h3>
+                            <div>
+                                <h3 class="font-medium text-neutral-700 text-base whitespace-nowrap"><i class="fa-solid fa-scale-balanced text-neutral-400 mr-1.5"></i> 分帳記帳</h3>
+                                <p class="text-[11px] text-neutral-400 mt-1">共編成員都能看到與共同編輯的消費分帳。</p>
+                            </div>
                             <div class="flex items-center gap-3 shrink-0">
-                                <div class="text-right">
-                                    <span class="text-xs text-neutral-400 block whitespace-nowrap">折合新台幣總計：</span>
-                                    <span class="text-xs font-medium text-neutral-600 block whitespace-nowrap">
-                                        <strong class="text-neutral-800 font-bold text-sm">NT$ {{ formatTwdAmount(sumExpensesInTwd()) }}</strong>
-                                    </span>
+                                <div class="text-right hidden sm:block">
+                                    <span class="text-xs text-neutral-400 block whitespace-nowrap">總花費：</span>
+                                    <strong class="text-neutral-800 font-bold text-sm block whitespace-nowrap">{{ formatSplitTotalSummary() }}</strong>
                                 </div>
                                 <button @click="openAddExpenseModal" type="button" class="bg-neutral-700 hover:bg-neutral-800 text-white text-xs px-3 py-2 rounded-xl font-medium shadow-sm transition-colors flex items-center gap-1.5 whitespace-nowrap">
-                                    <i class="fa-solid fa-plus"></i> 新增記帳
+                                    <i class="fa-solid fa-plus"></i> 新增消費
                                 </button>
                             </div>
                         </div>
-                        
-                        <div class="space-y-6 max-h-[500px] overflow-y-auto pr-1">
-                            <div v-if="!currentTrip.expenses || currentTrip.expenses.length === 0" class="text-center py-6 text-neutral-400 text-xs">尚無任何記帳數據。</div>
-                            
-                            <div v-for="section in expenseSections" :key="section.key" class="space-y-2">
-                                <div v-if="getFilteredExpenses(section.key).length > 0">
-                                    <h4 class="text-xs font-bold text-neutral-400 bg-neutral-100 px-3 py-1.5 rounded-lg border border-neutral-200/60 flex justify-between items-center">
-                                        <span>{{ section.label }}</span>
-                                        <span class="text-[10px] font-normal">共 {{ getFilteredExpenses(section.key).length }} 筆</span>
-                                    </h4>
-                                    
-                                    <div class="space-y-1 mt-1.5">
-                                        <div v-for="(exp, idx) in currentTrip.expenses" :key="idx">
-                                            <div v-if="(exp.dayKey || 'pre') === section.key" class="flex justify-between items-center text-xs bg-[#fcfbf9] border border-[#e6e4dc] p-3 rounded-xl group">
-                                                <div class="flex-1 min-w-0 pr-2">
-                                                    <div v-if="editingExpenseIndex === idx" class="grid grid-cols-4 gap-1 items-center">
-                                                        <select v-model="editExpenseData.dayKey" class="border text-[11px] p-1 rounded">
-                                                            <option value="pre">行前</option>
-                                                            <option v-for="d in currentTrip.days" :key="d" :value="'day' + d">Day {{ d }}</option>
-                                                        </select>
-                                                        <input v-model="editExpenseData.title" type="text" class="border text-[11px] p-1 rounded col-span-2">
-                                                        <div class="flex gap-0.5">
-                                                            <input v-model.number="editExpenseData.amount" type="number" class="border text-[11px] p-1 rounded w-full">
-                                                            <select v-model="editExpenseData.currency" class="border text-[10px] p-0.5 rounded">
-                                                                <option value="TWD">NT$</option>
-                                                                <option value="JPY">¥</option>
-                                                                <option value="KRW">₩</option>
-                                                            </select>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5">
+                            <div class="space-y-5">
+                                <div v-if="!getSplitExpenses().length" class="text-center py-10 text-neutral-400 text-xs border border-dashed border-[#e6e4dc] rounded-2xl bg-[#fcfbf9]">
+                                    尚無分帳消費，點右上角新增第一筆費用。
+                                </div>
+
+                                <div v-for="section in expenseSections" :key="section.key" class="space-y-2">
+                                    <div v-if="getFilteredSplitExpenses(section.key).length > 0">
+                                        <h4 class="text-xs font-bold text-neutral-500 bg-neutral-100 px-3 py-1.5 rounded-lg border border-neutral-200/60 flex justify-between items-center">
+                                            <span>{{ section.label }}</span>
+                                            <span class="text-[10px] font-normal">共 {{ getFilteredSplitExpenses(section.key).length }} 筆</span>
+                                        </h4>
+
+                                        <div class="space-y-2 mt-2">
+                                            <div v-for="exp in getFilteredSplitExpenses(section.key)" :key="exp.id" class="split-expense-card">
+                                                <button @click="toggleSplitExpense(exp)" type="button" class="w-full text-left p-4 flex items-start justify-between gap-3">
+                                                    <div class="min-w-0 flex-1">
+                                                        <h5 class="text-sm font-bold text-neutral-800 break-words">{{ exp.title }}</h5>
+                                                        <p class="text-[11px] text-amber-700 mt-1 break-words">
+                                                            <i class="fa-regular fa-circle-user mr-1"></i>{{ getSplitPayerSummary(exp) }}
+                                                        </p>
+                                                    </div>
+                                                    <div class="text-right shrink-0">
+                                                        <p class="text-sm font-bold text-neutral-900 whitespace-nowrap">{{ formatCurrencyAmount(getSplitExpenseTotal(exp), exp.currency) }}</p>
+                                                        <p class="text-[11px] text-neutral-400 mt-1 whitespace-nowrap">{{ getSplitShareCount(exp) }}人分</p>
+                                                    </div>
+                                                </button>
+
+                                                <div v-if="exp.expanded" class="px-4 pb-4 border-t border-neutral-100 bg-[#fcfbf9]">
+                                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3">
+                                                        <div>
+                                                            <p class="text-[11px] font-bold text-neutral-400 mb-2">付款</p>
+                                                            <div class="space-y-1">
+                                                                <div v-for="payer in getSplitPayers(exp)" :key="payer.key" class="flex justify-between gap-3 text-xs">
+                                                                    <span class="font-medium text-neutral-700 break-words">{{ payer.name }}</span>
+                                                                    <span class="font-bold text-emerald-700 whitespace-nowrap">{{ formatCurrencyAmount(payer.amount, exp.currency) }}</span>
+                                                                </div>
+                                                            </div>
                                                         </div>
-                                                        <div class="col-span-4 flex justify-end gap-1 mt-1">
-                                                            <button @click="saveExpenseEdit(idx)" class="text-green-600 font-bold px-1 text-xs"><i class="fa-solid fa-check"></i> 儲存</button>
-                                                            <button @click="editingExpenseIndex = null" class="text-neutral-400 px-1 text-xs"><i class="fa-solid fa-xmark"></i> 取消</button>
+                                                        <div>
+                                                            <p class="text-[11px] font-bold text-neutral-400 mb-2">分款</p>
+                                                            <div class="space-y-1">
+                                                                <div v-for="share in getSplitShares(exp)" :key="share.key" class="flex justify-between gap-3 text-xs">
+                                                                    <span class="font-medium text-neutral-700 break-words">{{ share.name }}</span>
+                                                                    <span class="font-bold text-neutral-800 whitespace-nowrap">{{ formatCurrencyAmount(share.amount, exp.currency) }}</span>
+                                                                </div>
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                    
-                                                    <span v-else class="text-neutral-600 font-medium truncate block">
-                                                        {{ exp.title }}
-                                                    </span>
-                                                </div>
-                                                <div class="flex items-center gap-3 shrink-0">
-                                                    <span v-if="editingExpenseIndex !== idx" class="font-bold text-neutral-700">
-                                                        {{ getCurrencySymbol(exp.currency) }}{{ exp.amount }}
-                                                    </span>
-                                                    <div v-if="editingExpenseIndex !== idx" class="flex gap-2">
-                                                        <button @click="startExpenseEdit(idx, exp)" class="text-neutral-400 hover:text-blue-500"><i class="fa-solid fa-pen text-[11px]"></i></button>
-                                                        <button @click="deleteExpense(idx)" class="text-neutral-300 hover:text-rose-500"><i class="fa-solid fa-trash-can"></i></button>
+                                                    <div class="flex justify-end gap-3 mt-4 pt-3 border-t border-neutral-200/70 text-xs">
+                                                        <button @click.stop="openEditSplitExpense(exp)" class="text-amber-700 hover:underline font-medium">編輯</button>
+                                                        <button @click.stop="deleteExpense(exp.id)" class="text-rose-500 hover:underline font-medium">刪除</button>
                                                     </div>
                                                 </div>
                                             </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="space-y-4">
+                                <div class="bg-[#fcfbf9] border border-[#e6e4dc] rounded-2xl p-4">
+                                    <div class="flex justify-between items-center border-b border-neutral-200/70 pb-2 mb-3">
+                                        <h4 class="text-sm font-bold text-neutral-700">結算總覽</h4>
+                                        <span class="text-[11px] text-neutral-400">總花費</span>
+                                    </div>
+                                    <p class="text-right text-base font-bold text-neutral-900 mb-2">{{ formatSplitTotalSummary() }}</p>
+
+                                    <div v-if="!splitSettlements.length" class="text-center text-xs text-neutral-400 py-5">
+                                        目前沒有需要互相付款的款項。
+                                    </div>
+                                    <div v-else class="space-y-0">
+                                        <div v-for="settle in splitSettlements" :key="settle.currency + '-' + settle.fromKey + '-' + settle.toKey" class="split-settlement-row">
+                                            <div class="min-w-0">
+                                                <p class="font-bold text-neutral-700 break-words">{{ settle.from }} <i class="fa-solid fa-arrow-right text-neutral-300 mx-1"></i> {{ settle.to }}</p>
+                                                <p class="text-[10px] text-neutral-400 mt-0.5">應付</p>
+                                            </div>
+                                            <span class="font-bold text-amber-700 whitespace-nowrap">{{ formatCurrencyAmount(settle.amount, settle.currency) }}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -801,7 +907,7 @@
             </div>
 
 
-            <div v-if="currentTrip" class="fixed left-3 right-3 md:left-0 md:right-0 z-50 bg-white/95 backdrop-blur border border-[#e6e4dc] md:border-x-0 md:border-b-0 rounded-2xl md:rounded-none shadow-[0_-8px_24px_rgba(0,0,0,0.08)]" style="bottom: calc(env(safe-area-inset-bottom) + 12px);">
+            <div v-if="currentTrip" class="bottom-main-nav fixed left-3 right-3 md:left-0 md:right-0 z-50 bg-white/95 backdrop-blur border border-[#e6e4dc] md:border-x-0 md:border-b-0 rounded-2xl md:rounded-none shadow-[0_-8px_24px_rgba(0,0,0,0.08)]">
                 <div class="max-w-6xl mx-auto grid grid-cols-3 h-16">
                     <button @click="switchMainTab('itinerary')" type="button" :class="['flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-all rounded-2xl mx-1 my-2', activeMainTab === 'itinerary' ? 'main-tab-active' : 'main-tab-idle']">
                         <i class="fa-solid fa-map text-lg"></i>
@@ -882,36 +988,67 @@
             </div>
 
             <div v-if="showExpenseModal" @mousedown.self="closeExpenseModal" class="fixed inset-0 bg-black/20 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-                <div class="bg-white border border-[#e6e4dc] rounded-2xl p-6 w-full max-w-lg shadow-lg space-y-4 max-h-[90vh] overflow-y-auto">
+                <div class="bg-white border border-[#e6e4dc] rounded-2xl p-6 w-full max-w-2xl shadow-lg space-y-4 max-h-[90vh] overflow-y-auto">
                     <div class="flex items-start justify-between gap-4 border-b border-neutral-100 pb-3">
                         <div>
                             <h3 class="text-base font-medium text-neutral-700">
-                                <i class="fa-solid fa-plus text-neutral-400 mr-1.5"></i> 新增記帳
+                                <i class="fa-solid fa-plus text-neutral-400 mr-1.5"></i> {{ editingSplitExpenseId ? '編輯消費' : '新增消費' }}
                             </h3>
-                            <p class="text-[11px] text-neutral-400 mt-1">填寫消費日期分類、項目名稱、金額與幣別。</p>
+                            <p class="text-[11px] text-neutral-400 mt-1">選擇付款者與分款者，系統會自動計算誰該付給誰。</p>
                         </div>
                         <button @click="closeExpenseModal" class="text-neutral-300 hover:text-neutral-600 text-sm">
                             <i class="fa-solid fa-xmark"></i>
                         </button>
                     </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <select v-model="newExpense.dayKey" class="border border-[#e6e4dc] text-xs rounded-xl p-2.5 bg-white focus:outline-none focus-border-primary sm:col-span-1">
-                            <option value="pre">行前準備</option>
-                            <option v-for="d in currentTrip.days" :key="d" :value="'day' + d">Day {{ d }}</option>
-                        </select>
-                        <select v-model="newExpense.currency" class="border border-[#e6e4dc] text-xs rounded-xl p-2.5 bg-white focus:outline-none focus-border-primary sm:col-span-1">
-                            <option value="TWD">新台幣 (NT$)</option>
-                            <option value="JPY">日圓 (¥)</option>
-                            <option value="KRW">韓幣 (₩)</option>
-                        </select>
-                        <input v-model="newExpense.title" type="text" placeholder="項目支出 (例: 居酒屋)" class="border border-[#e6e4dc] text-xs rounded-xl p-2.5 bg-white focus:outline-none focus-border-primary sm:col-span-2">
-                        <input v-model.number="newExpense.amount" type="number" placeholder="金額" class="border border-[#e6e4dc] text-xs rounded-xl p-2.5 bg-white focus:outline-none focus-border-primary sm:col-span-2">
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <select v-model="newSplitExpense.dayKey" class="border border-[#e6e4dc] text-xs rounded-xl p-2.5 bg-white focus:outline-none focus-border-primary">
+                                <option v-for="section in expenseSections" :key="section.key" :value="section.key">{{ section.label }}</option>
+                            </select>
+                            <select v-model="newSplitExpense.currency" class="border border-[#e6e4dc] text-xs rounded-xl p-2.5 bg-white focus:outline-none focus-border-primary">
+                                <option value="TWD">新台幣 ($)</option>
+                                <option value="JPY">日圓 (¥)</option>
+                                <option value="KRW">韓幣 (₩)</option>
+                            </select>
+                            <input v-model="newSplitExpense.title" type="text" placeholder="款項，例如：蛋糕" class="border border-[#e6e4dc] text-xs rounded-xl p-2.5 bg-white focus:outline-none focus-border-primary sm:col-span-1">
+                        </div>
+
+                        <div class="bg-[#fcfbf9] border border-[#e6e4dc] rounded-2xl p-4 space-y-3">
+                            <div class="flex justify-between items-center">
+                                <h4 class="text-sm font-bold text-neutral-700">付款者</h4>
+                                <span class="text-xs font-bold text-emerald-700">小計：{{ formatCurrencyAmount(selectedPayerTotal(), newSplitExpense.currency) }}</span>
+                            </div>
+                            <div class="space-y-2">
+                                <label v-for="payer in newSplitExpense.payers" :key="payer.key" class="flex items-center gap-3 bg-white border border-neutral-100 rounded-xl p-2.5">
+                                    <input type="checkbox" v-model="payer.selected" @change="handleSplitPayerChange" class="split-check rounded border-neutral-300">
+                                    <span class="split-person-avatar">{{ getMemberInitial(payer.name) }}</span>
+                                    <span class="flex-1 text-sm font-medium text-neutral-700 break-words">{{ payer.name }}</span>
+                                    <input v-if="payer.selected" v-model.number="payer.amount" @input="handleSplitPayerAmountInput" type="number" min="0" step="0.01" placeholder="付款金額" class="w-28 border-0 border-b border-neutral-200 text-right text-xs focus:outline-none bg-transparent">
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="bg-[#fcfbf9] border border-[#e6e4dc] rounded-2xl p-4 space-y-3">
+                            <div class="flex justify-between items-center">
+                                <h4 class="text-sm font-bold text-neutral-700">分款者</h4>
+                                <span class="text-xs font-bold text-neutral-700">小計：{{ formatCurrencyAmount(selectedShareTotal(), newSplitExpense.currency) }}</span>
+                            </div>
+                            <div class="space-y-2">
+                                <label v-for="share in newSplitExpense.splitters" :key="share.key" class="flex items-center gap-3 bg-white border border-neutral-100 rounded-xl p-2.5">
+                                    <input type="checkbox" v-model="share.selected" @change="handleSplitterChange" class="split-check rounded border-neutral-300">
+                                    <span class="split-person-avatar">{{ getMemberInitial(share.name) }}</span>
+                                    <span class="flex-1 text-sm font-medium text-neutral-700 break-words">{{ share.name }}</span>
+                                    <input v-if="share.selected" v-model.number="share.amount" @input="handleSplitterAmountInput" type="number" min="0" step="0.01" placeholder="應分金額" class="w-28 border-0 border-b border-neutral-200 text-right text-xs focus:outline-none bg-transparent">
+                                </label>
+                            </div>
+                            <p class="text-[11px] text-neutral-400 leading-relaxed">勾選分款者時會自動平分付款小計；也可以手動修改每個人的應分金額。</p>
+                        </div>
                     </div>
 
                     <div class="flex justify-end gap-2 pt-2 border-t border-neutral-100">
                         <button @click="closeExpenseModal" type="button" class="px-4 py-2 text-xs border border-neutral-300 rounded-xl text-neutral-500 hover:bg-neutral-50">取消</button>
-                        <button @click="addExpense" type="button" class="px-4 py-2 text-xs bg-neutral-700 text-white rounded-xl hover:bg-neutral-800 shadow-sm">儲存並加入記帳</button>
+                        <button @click="addExpense" type="button" class="px-4 py-2 text-xs bg-neutral-700 text-white rounded-xl hover:bg-neutral-800 shadow-sm">儲存分帳</button>
                     </div>
                 </div>
             </div>
@@ -1079,7 +1216,7 @@
                             <div>
                                 <p class="text-[10px] font-bold text-neutral-400 mb-2 tracking-widest">共編成員</p>
                                 <div class="flex flex-wrap gap-2">
-                                    <span v-for="name in (tripModalForm.memberUsernames || [])" :key="name" class="text-[10px] px-2 py-1 rounded-full bg-white border border-[#e6e4dc] text-neutral-500 inline-flex items-center gap-1">
+                                    <span v-for="name in getVisibleMemberUsernames(tripModalForm.memberUsernames)" :key="name" class="text-[10px] px-2 py-1 rounded-full bg-white border border-[#e6e4dc] text-neutral-500 inline-flex items-center gap-1">
                                         <i class="fa-regular fa-user"></i>{{ name }}
                                         <button v-if="name !== tripModalForm.ownerUsername" @click="removeTripModalMember(name)" type="button" class="text-neutral-300 hover:text-rose-500 ml-1">
                                             <i class="fa-solid fa-xmark"></i>
@@ -1263,6 +1400,7 @@
 
                 const editingExpenseIndex = ref(null);
                 const editExpenseData = ref({ dayKey: 'pre', title: '', amount: 0, currency: 'TWD' });
+                const editingSplitExpenseId = ref(null);
 
                 const editingShoppingId = ref(null);
                 const editShoppingData = ref({ text: '', quantity: '', note: '', url: '', imgUrl: '' });
@@ -1273,6 +1411,8 @@
                 const newTodoText = ref('');
                 const newLuggage = ref({ text: '', category: '隨身包包' });
                 const newExpense = ref({ dayKey: 'pre', title: '', amount: null, currency: 'TWD' });
+                const emptySplitExpenseForm = () => ({ dayKey: 'pre', title: '', currency: 'TWD', payers: [], splitters: [] });
+                const newSplitExpense = ref(emptySplitExpenseForm());
                 const newShopItem = ref({ text: '', quantity: 1, note: '', url: '', imgUrl: '' });
                 const shareForm = ref({ username: '' });
                 const shareMessage = ref({ type: '', text: '' });
@@ -1285,14 +1425,14 @@
                     colorScheme: themeMode.value === 'dark' ? 'dark' : 'light'
                 }));
 
-                // 智慧動態載入記帳區塊分組
+                // 分帳區塊分組：行前 + Day X-YYYY/MM/DD (週)
                 const expenseSections = computed(() => {
-                    const sections = [{ key: 'pre', label: '🛫 行前準備' }];
+                    const sections = [{ key: 'pre', label: '行前' }];
                     if (currentTrip.value) {
                         for (let i = 1; i <= currentTrip.value.days; i++) {
                             const dayDate = getTripDateStrByDay(currentTrip.value, i);
-                            const dayDateText = dayDate ? formatDateWithWeek(dayDate) : '未設定日期';
-                            sections.push({ key: 'day' + i, label: `📍 Day ${i} ${dayDateText}` });
+                            const dayDateText = dayDate ? formatDateWithWeek(dayDate).replace(/\(([^)]+)\)$/, ' ($1)') : '未設定日期';
+                            sections.push({ key: 'day' + i, label: `Day ${i}-${dayDateText}` });
                         }
                     }
                     return sections;
@@ -2140,6 +2280,7 @@
                         memberUsernames: Array.isArray(sharedData.memberUsernames) ? sharedData.memberUsernames : [],
                         memberUsernameKeys: Array.isArray(sharedData.memberUsernameKeys) ? sharedData.memberUsernameKeys : (Array.isArray(sharedData.memberUsernames) ? sharedData.memberUsernames.map(getUsernameKey).filter(Boolean) : []),
                         memberAuthEmails: Array.isArray(sharedData.memberAuthEmails) ? sharedData.memberAuthEmails : [],
+                        splitExpenses: Array.isArray(sharedData.splitExpenses) ? sharedData.splitExpenses : [],
                         menuLinks: Array.isArray(sharedData.menuLinks) ? sharedData.menuLinks : [],
                         itinerary: ensureItineraryDayKeys(sharedData.itinerary || {}, normalizedDates.days),
                         ...privatePart
@@ -2173,6 +2314,7 @@
                         memberUsernames,
                         memberUsernameKeys,
                         memberAuthEmails,
+                        splitExpenses: Array.isArray(trip.splitExpenses) ? trip.splitExpenses : [],
                         menuLinks: Array.isArray(trip.menuLinks) ? trip.menuLinks : [],
                         itinerary: ensureItineraryDayKeys(trip.itinerary || {}, normalizedDates.days)
                     };
@@ -2192,6 +2334,28 @@
 
                 const isTripOwner = (trip) => !!(trip && user.value && trip.ownerUid === user.value.uid);
                 const getTripRoleText = (trip) => isTripOwner(trip) ? '旅程擁有者' : '共同編輯者';
+                const getVisibleMemberUsernames = (names = []) => {
+                    const seen = new Set();
+                    return (Array.isArray(names) ? names : [])
+                        .filter(Boolean)
+                        .filter(name => {
+                            const key = getUsernameKey(name);
+                            if (!key || seen.has(key)) return false;
+                            seen.add(key);
+                            return true;
+                        });
+                };
+                const getMemberUsernameAliases = (names = []) => {
+                    const visibleNames = getVisibleMemberUsernames(names);
+                    const aliases = [];
+                    visibleNames.forEach(name => {
+                        const rawName = normalizeUsername(name);
+                        const key = getUsernameKey(rawName);
+                        if (rawName) aliases.push(rawName);
+                        if (key && key !== rawName) aliases.push(key);
+                    });
+                    return Array.from(new Set(aliases.filter(Boolean)));
+                };
 
                 const showShareMessage = (type, text) => {
                     shareMessage.value = { type, text };
@@ -2347,34 +2511,64 @@
                             }
                         };
 
+                        const currentUserCanAccessTrip = (trip = {}) => {
+                            const username = user.value.username || user.value.email || '';
+                            const userKey = user.value.usernameKey || getUsernameKey(username);
+                            const userAuthEmail = user.value.authEmail || getUsernameAuthEmail(username);
+                            const usernameAliases = Array.from(new Set([username, userKey].filter(Boolean)));
+                            const memberUsernames = Array.isArray(trip.memberUsernames) ? trip.memberUsernames : [];
+                            const memberUsernameKeys = Array.isArray(trip.memberUsernameKeys) ? trip.memberUsernameKeys : [];
+                            const memberAuthEmails = Array.isArray(trip.memberAuthEmails) ? trip.memberAuthEmails : [];
+                            const memberUids = Array.isArray(trip.memberUids) ? trip.memberUids : [];
+                            return trip.ownerUid === user.value.uid
+                                || memberUids.includes(user.value.uid)
+                                || usernameAliases.some(alias => memberUsernames.includes(alias))
+                                || memberUsernames.map(getUsernameKey).includes(userKey)
+                                || memberUsernameKeys.includes(userKey)
+                                || memberAuthEmails.includes(userAuthEmail);
+                        };
+
+                        const addSnapshotDocs = async (snapshot) => {
+                            snapshot.docs.forEach(doc => {
+                                const data = { id: doc.id, ...doc.data() };
+                                if (currentUserCanAccessTrip(data)) sharedTripMap.set(doc.id, data);
+                            });
+                            await refreshTripList();
+                        };
+
                         const unsubscribers = [];
                         const queryConfigs = [
-                            ['memberUids', user.value.uid],
-                            ['memberUsernameKeys', user.value.usernameKey || getUsernameKey(user.value.username || user.value.email)],
-                            ['memberAuthEmails', user.value.authEmail || getUsernameAuthEmail(user.value.username || user.value.email)]
+                            ['ownerUid', user.value.uid, '=='],
+                            ['memberUids', user.value.uid, 'array-contains'],
+                            ['memberUsernames', user.value.username || user.value.email, 'array-contains'],
+                            ['memberUsernames', getUsernameKey(user.value.username || user.value.email), 'array-contains'],
+                            ['memberUsernameKeys', user.value.usernameKey || getUsernameKey(user.value.username || user.value.email), 'array-contains'],
+                            ['memberAuthEmails', user.value.authEmail || getUsernameAuthEmail(user.value.username || user.value.email), 'array-contains']
                         ].filter(([, value]) => !!value);
 
-                        queryConfigs.forEach(([field, value]) => {
+                        queryConfigs.forEach(([field, value, op]) => {
                             try {
                                 const unsubscribe = db.collection('trips')
-                                    .where(field, 'array-contains', value)
-                                    .onSnapshot(async (snapshot) => {
-                                        snapshot.docs.forEach(doc => {
-                                            sharedTripMap.set(doc.id, { id: doc.id, ...doc.data() });
-                                        });
-                                        await refreshTripList();
-                                    }, err => console.warn(`Trips listener by ${field} skipped:`, err));
+                                    .where(field, op, value)
+                                    .onSnapshot(addSnapshotDocs, err => console.warn(`Trips listener by ${field} skipped:`, err));
                                 unsubscribers.push(unsubscribe);
                             } catch (e) {
                                 console.warn(`Create trips listener by ${field} skipped:`, e);
                             }
                         });
+
+                        // 保險 fallback：有些 Firestore rules / indexes 不允許 array-contains 查詢，
+                        // 但允許讀取自己可見的 trips。此時直接讀取後前端比對共編欄位，避免共編成員看不到旅程。
+                        db.collection('trips').get().then(addSnapshotDocs).catch(e => console.warn('Trips collection fallback scan skipped:', e));
+
                         tripsUnsubscribe = () => unsubscribers.forEach(unsub => { try { unsub(); } catch (e) {} });
                     } else {
                         const userKey = user.value.usernameKey || getUsernameKey(user.value.username || user.value.email);
                         const userAuthEmail = user.value.authEmail || getUsernameAuthEmail(user.value.username || user.value.email);
                         const localShared = getLocalSharedTrips().filter(t =>
                             (t.memberUids || []).includes(user.value.uid)
+                            || (t.memberUsernames || []).includes(user.value.username || user.value.email)
+                            || (t.memberUsernames || []).map(getUsernameKey).includes(userKey)
                             || (t.memberUsernameKeys || []).includes(userKey)
                             || (t.memberAuthEmails || []).includes(userAuthEmail)
                         );
@@ -2522,10 +2716,15 @@
                     // Firestore rules 常會限制不能替其他使用者寫入 memberUids。
                     // memberUids 僅保留旅程擁有者與目前登入者；其他共編成員改用 usernameKey/authEmail 陣列辨識。
                     const memberUids = Array.from(new Set([
+                        ...(Array.isArray(tripModalForm.value.memberUids) ? tripModalForm.value.memberUids : []),
                         tripModalForm.value.ownerUid || user.value.uid,
                         user.value.uid
                     ].filter(Boolean)));
-                    const memberUsernames = Array.from(new Set([...(tripModalForm.value.memberUsernames || []), ownerUsername].filter(Boolean)));
+                    // memberUsernameKeys / memberAuthEmails 可能會被 Firestore rules 擋住，
+                    // 因此在既有 memberUsernames 欄位中同時保存「原大小寫顯示名」與「小寫查找 key」。
+                    // 對方登入時不論使用原大小寫或全小寫，都能用 memberUsernames array-contains 查到旅程。
+                    const visibleMemberUsernames = Array.from(new Set([...(tripModalForm.value.memberUsernames || []), ownerUsername].filter(Boolean)));
+                    const memberUsernames = getMemberUsernameAliases(visibleMemberUsernames);
                     const memberUsernameKeys = Array.from(new Set([...(tripModalForm.value.memberUsernameKeys || []), ...memberUsernames.map(getUsernameKey), ownerUsernameKey].filter(Boolean)));
                     const memberAuthEmails = Array.from(new Set([...(tripModalForm.value.memberAuthEmails || []), ...memberUsernameKeys.map(getUsernameAuthEmail), ownerAuthEmail].filter(Boolean)));
 
@@ -2556,17 +2755,37 @@
                             }
                         }
                         if (!isKeyMissing) {
-                            await db.collection('trips').doc(editingTripId.value).set({
-                                title,
-                                days,
-                                startDate,
-                                itinerary: nextItinerary,
-                                memberUids,
-                                memberUsernames,
-                                memberUsernameKeys,
-                                memberAuthEmails,
-                                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                            }, { merge: true });
+                            const tripRef = db.collection('trips').doc(editingTripId.value);
+                            // 避免 Firestore rules 因 memberUids 或新版欄位白名單而擋下整筆儲存。
+                            // 主要共編資料先用既有 memberUsernames 儲存；新版查找欄位採非阻斷補寫。
+                            // v25：共編成員看不到旅程的主因通常是 Firestore 讀取規則只認 memberUids 或 memberAuthEmails。
+                            // 因此這些欄位必須跟旅程一起成功儲存，不能再只當 optional update。
+                            try {
+                                await tripRef.update({
+                                    title,
+                                    days,
+                                    startDate,
+                                    itinerary: nextItinerary,
+                                    memberUids,
+                                    memberUsernames,
+                                    memberUsernameKeys,
+                                    memberAuthEmails,
+                                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                                });
+                            } catch (primaryShareErr) {
+                                console.warn('Full share fields update failed, retry without memberUids:', primaryShareErr);
+                                // 有些 rules 不允許寫入其他人的 uid，改用 authEmail / usernameKey 仍可支援共編讀取。
+                                await tripRef.update({
+                                    title,
+                                    days,
+                                    startDate,
+                                    itinerary: nextItinerary,
+                                    memberUsernames,
+                                    memberUsernameKeys,
+                                    memberAuthEmails,
+                                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                                });
+                            }
                         } else {
                             const list = getLocalSharedTrips();
                             const target = list.find(t => t.id === editingTripId.value);
@@ -2599,17 +2818,52 @@
                             memberUsernameKeys,
                             memberAuthEmails,
                             menuLinks: [],
+                            splitExpenses: [],
                             itinerary
                         };
                         const combinedTrip = combineTripData(sharedTripData, privateTripDefaults());
                         const { endDate: _unusedEndDateForFirebase, ...firebaseSharedTripData } = sharedTripData;
 
                         if (!isKeyMissing) {
-                            await db.collection('trips').doc(id).set({
-                                ...firebaseSharedTripData,
-                                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                            });
+                            const tripRef = db.collection('trips').doc(id);
+                            // 建立旅程先使用舊規則較可能允許的欄位，避免新版共編輔助欄位造成權限錯誤。
+                            try {
+                                await tripRef.set({
+                                    id,
+                                    title,
+                                    days,
+                                    startDate,
+                                    ownerUid: tripModalForm.value.ownerUid || user.value.uid,
+                                    ownerUsername,
+                                    memberUids,
+                                    memberUsernames,
+                                    memberUsernameKeys,
+                                    memberAuthEmails,
+                                    splitExpenses: [],
+                                    menuLinks: [],
+                                    itinerary,
+                                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                                });
+                            } catch (primaryCreateErr) {
+                                console.warn('Full share fields create failed, retry without memberUids:', primaryCreateErr);
+                                await tripRef.set({
+                                    id,
+                                    title,
+                                    days,
+                                    startDate,
+                                    ownerUid: tripModalForm.value.ownerUid || user.value.uid,
+                                    ownerUsername,
+                                    memberUsernames,
+                                    memberUsernameKeys,
+                                    memberAuthEmails,
+                                    splitExpenses: [],
+                                    menuLinks: [],
+                                    itinerary,
+                                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                                });
+                            }
                             await db.collection('users').doc(user.value.uid).collection('tripPrivate').doc(id).set({
                                 ...privateTripDefaults(),
                                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -2631,7 +2885,7 @@
                         console.error('Save trip failed:', err);
                         const errMsg = err?.message || '請稍後再試。';
                         showShareMessage('error', errMsg.includes('Missing or insufficient permissions')
-                            ? '旅程儲存失敗：Firestore 權限不足。已改用使用者名稱共編欄位儲存，請重新加入共編成員後再試一次；若仍失敗，請確認你是此旅程擁有者。'
+                            ? '旅程儲存失敗：Firestore 權限不足。共編要讓對方看得到，trips 文件必須能寫入 memberAuthEmails 或 memberUids；請確認你是旅程擁有者，並調整 Firestore rules 允許 owner 更新 memberUsernames/memberUsernameKeys/memberAuthEmails/memberUids。'
                             : '旅程儲存失敗：' + errMsg);
                     }
                 };
@@ -2749,14 +3003,14 @@
                         const nextUsername = invitee?.username || username;
                         const nextUsernameKey = invitee?.usernameKey || usernameKey;
                         const nextAuthEmail = invitee?.authEmail || authEmail;
+                        const nextUid = invitee?.uid || '';
 
-                        // 注意：不要把被邀請者 uid 直接寫入 memberUids。
-                        // 多數 Firestore rules 會限制 memberUids 只能由本人或擁有者維護，
-                        // 直接加入其他人的 uid 容易在儲存旅程時觸發 Missing or insufficient permissions。
-                        // 共編讀取改以 memberUsernameKeys / memberAuthEmails 判斷，顯示仍保留原大小寫名稱。
+                        // 同時保留三種辨識方式：顯示名稱、小寫查找 key、Auth Email。
+                        // 如果能查到 uid，也會放入 memberUids；若 Firestore rules 不允許更新 memberUids，儲存時會自動降級，不讓整筆儲存失敗。
                         tripModalForm.value.memberUsernames = Array.from(new Set([...(tripModalForm.value.memberUsernames || []), nextUsername]));
                         tripModalForm.value.memberUsernameKeys = Array.from(new Set([...(tripModalForm.value.memberUsernameKeys || []), nextUsernameKey]));
                         tripModalForm.value.memberAuthEmails = Array.from(new Set([...(tripModalForm.value.memberAuthEmails || []), nextAuthEmail]));
+                        if (nextUid) tripModalForm.value.memberUids = Array.from(new Set([...(tripModalForm.value.memberUids || []), nextUid]));
                         showShareMessage('success', '已加入共編清單，按「確認儲存」後生效。');
                         shareForm.value = { username: '' };
                     } catch (err) {
@@ -2774,7 +3028,7 @@
                     const names = tripModalForm.value.memberUsernames || [];
                     const index = names.findIndex(name => getUsernameKey(name) === removeKey);
                     if (index < 0) return;
-                    tripModalForm.value.memberUsernames = names.filter((_, i) => i !== index);
+                    tripModalForm.value.memberUsernames = names.filter(name => getUsernameKey(name) !== removeKey);
                     // memberUids 不再依照共編清單位置刪除，避免誤刪擁有者/目前登入者 uid。
                     tripModalForm.value.memberUids = Array.from(new Set([
                         tripModalForm.value.ownerUid || user.value.uid,
@@ -2866,14 +3120,14 @@
                     showSpotModal.value = false;
                 };
                 const openAddExpenseModal = () => {
-                    const keepCurrency = newExpense.value.currency || 'TWD';
-                    const keepDayKey = newExpense.value.dayKey || (isTripDayTabActive() ? 'day' + activeDayTab.value : 'pre');
-                    newExpense.value = { dayKey: keepDayKey, title: '', amount: null, currency: keepCurrency };
+                    editingSplitExpenseId.value = null;
+                    prepareSplitExpenseForm();
                     showExpenseModal.value = true;
                 };
                 const closeExpenseModal = () => {
                     blurActiveInput();
                     showExpenseModal.value = false;
+                    editingSplitExpenseId.value = null;
                 };
                 const openAddShopModal = () => {
                     newShopItem.value = { text: '', quantity: 1, note: '', url: '', imgUrl: '' };
@@ -2971,34 +3225,236 @@
                     currentTrip.value.itinerary[activeDayTab.value].splice(index, 1); updateSharedTripData();
                 };
 
-                // 原地編輯：記帳
-                const startExpenseEdit = (idx, exp) => {
-                    editingExpenseIndex.value = idx; 
-                    editExpenseData.value = { 
-                        dayKey: exp.dayKey || 'pre', 
-                        title: exp.title, 
-                        amount: exp.amount, 
-                        currency: exp.currency || 'TWD' 
+                // 分帳記帳：共用成員、金額與結算
+                const roundMoney = (value) => Math.round((Number(value) || 0) * 100) / 100;
+
+                const getMemberInitial = (name = '') => {
+                    const text = String(name || '').trim();
+                    return text ? text.slice(0, 1).toUpperCase() : '?';
+                };
+
+                const getAccountingMembers = () => {
+                    if (!currentTrip.value) return [];
+                    const names = [
+                        currentTrip.value.ownerUsername,
+                        ...(Array.isArray(currentTrip.value.memberUsernames) ? currentTrip.value.memberUsernames : []),
+                        user.value?.username || user.value?.email
+                    ].filter(Boolean);
+                    return getVisibleMemberUsernames(names).map(name => ({
+                        name,
+                        key: getUsernameKey(name) || String(name).toLowerCase()
+                    }));
+                };
+
+                const buildSplitRows = (existingRows = []) => {
+                    const existingMap = new Map((Array.isArray(existingRows) ? existingRows : []).map(row => [row.key || getUsernameKey(row.name), row]));
+                    return getAccountingMembers().map(member => {
+                        const existing = existingMap.get(member.key) || {};
+                        return {
+                            name: existing.name || member.name,
+                            key: member.key,
+                            selected: !!existing.selected || Number(existing.amount || 0) > 0,
+                            amount: existing.amount === 0 ? 0 : (existing.amount || '')
+                        };
+                    });
+                };
+
+                const prepareSplitExpenseForm = (expense = null) => {
+                    const defaultDayKey = isTripDayTabActive() ? 'day' + activeDayTab.value : 'pre';
+                    const form = expense ? {
+                        dayKey: expense.dayKey || 'pre',
+                        title: expense.title || '',
+                        currency: expense.currency || 'TWD',
+                        payers: buildSplitRows((expense.payers || []).map(p => ({ ...p, selected: true }))),
+                        splitters: buildSplitRows((expense.splitters || expense.shares || []).map(p => ({ ...p, selected: true })))
+                    } : {
+                        dayKey: defaultDayKey,
+                        title: '',
+                        currency: 'TWD',
+                        payers: buildSplitRows(),
+                        splitters: buildSplitRows()
                     };
+                    newSplitExpense.value = form;
                 };
-                const saveExpenseEdit = (idx) => {
-                    currentTrip.value.expenses[idx] = { ...editExpenseData.value };
-                    updatePrivateTripData();
-                    ensureExpenseExchangeRates(currentTrip.value);
-                    editingExpenseIndex.value = null;
+
+                const selectedPayerRows = () => (newSplitExpense.value.payers || []).filter(p => p.selected);
+                const selectedShareRows = () => (newSplitExpense.value.splitters || []).filter(p => p.selected);
+                const selectedPayerTotal = () => roundMoney(selectedPayerRows().reduce((sum, p) => sum + Number(p.amount || 0), 0));
+                const selectedShareTotal = () => roundMoney(selectedShareRows().reduce((sum, p) => sum + Number(p.amount || 0), 0));
+
+                const splitEvenAmounts = (total, count) => {
+                    if (!count) return [];
+                    const cents = Math.round((Number(total) || 0) * 100);
+                    const base = Math.floor(cents / count);
+                    let remain = cents - base * count;
+                    return Array.from({ length: count }, () => {
+                        const value = base + (remain > 0 ? 1 : 0);
+                        remain -= remain > 0 ? 1 : 0;
+                        return value / 100;
+                    });
                 };
-                const addExpense = () => {
-                    if (!newExpense.value.title.trim() || !newExpense.value.amount) return alert('請填寫完整項目與開支金額');
-                    if (!currentTrip.value.expenses) currentTrip.value.expenses = [];
-                    currentTrip.value.expenses.push({ ...newExpense.value });
-                    updatePrivateTripData();
-                    ensureExpenseExchangeRates(currentTrip.value);
-                    newExpense.value = { dayKey: newExpense.value.dayKey, title: '', amount: null, currency: newExpense.value.currency };
-                    closeExpenseModal();
+
+                const recalcSplitShares = () => {
+                    const rows = selectedShareRows();
+                    const amounts = splitEvenAmounts(selectedPayerTotal(), rows.length);
+                    rows.forEach((row, idx) => { row.amount = amounts[idx] || 0; });
                 };
-                const deleteExpense = (idx) => {
-                    if (!confirm('確定要刪除這筆開支記帳紀錄嗎？')) return;
-                    currentTrip.value.expenses.splice(idx, 1); updatePrivateTripData(); ensureExpenseExchangeRates(currentTrip.value);
+
+                const handleSplitPayerChange = () => recalcSplitShares();
+                const handleSplitPayerAmountInput = () => recalcSplitShares();
+                const handleSplitterChange = () => recalcSplitShares();
+                const handleSplitterAmountInput = () => {};
+
+                const getSplitExpenses = () => Array.isArray(currentTrip.value?.splitExpenses) ? currentTrip.value.splitExpenses : [];
+                const getFilteredSplitExpenses = (dayKey) => getSplitExpenses().filter(exp => (exp.dayKey || 'pre') === dayKey);
+                const getSplitPayers = (exp) => (Array.isArray(exp?.payers) ? exp.payers : []).filter(p => Number(p.amount || 0) > 0);
+                const getSplitShares = (exp) => (Array.isArray(exp?.splitters) ? exp.splitters : Array.isArray(exp?.shares) ? exp.shares : []).filter(p => Number(p.amount || 0) > 0);
+                const getSplitExpenseTotal = (exp) => roundMoney(getSplitPayers(exp).reduce((sum, p) => sum + Number(p.amount || 0), 0));
+                const getSplitShareCount = (exp) => getSplitShares(exp).length;
+                const getSplitPayerSummary = (exp) => {
+                    const payers = getSplitPayers(exp);
+                    if (!payers.length) return '未設定付款者';
+                    if (payers.length === 1) return `${payers[0].name} 付款`;
+                    return `${payers.map(p => p.name).join('、')} 付款`;
+                };
+
+                const formatCurrencyAmount = (amount, currency = 'TWD') => `${getCurrencySymbol(currency)} ${formatTwdAmount(roundMoney(amount))}`;
+
+                const getSplitTotalGroups = () => {
+                    const groups = {};
+                    getSplitExpenses().forEach(exp => {
+                        const currency = exp.currency || 'TWD';
+                        groups[currency] = roundMoney((groups[currency] || 0) + getSplitExpenseTotal(exp));
+                    });
+                    return groups;
+                };
+
+                const formatSplitTotalSummary = () => {
+                    const groups = getSplitTotalGroups();
+                    const entries = Object.entries(groups).filter(([, amount]) => Number(amount) > 0);
+                    if (!entries.length) return '$ 0';
+                    return entries.map(([currency, amount]) => formatCurrencyAmount(amount, currency)).join(' / ');
+                };
+
+                const calculateSplitSettlements = () => {
+                    const balances = {};
+                    const memberNames = {};
+                    getAccountingMembers().forEach(m => { memberNames[m.key] = m.name; });
+
+                    getSplitExpenses().forEach(exp => {
+                        const currency = exp.currency || 'TWD';
+                        if (!balances[currency]) balances[currency] = {};
+                        getSplitPayers(exp).forEach(p => {
+                            const key = p.key || getUsernameKey(p.name);
+                            if (!key) return;
+                            memberNames[key] = p.name || memberNames[key] || key;
+                            balances[currency][key] = roundMoney((balances[currency][key] || 0) + Number(p.amount || 0));
+                        });
+                        getSplitShares(exp).forEach(p => {
+                            const key = p.key || getUsernameKey(p.name);
+                            if (!key) return;
+                            memberNames[key] = p.name || memberNames[key] || key;
+                            balances[currency][key] = roundMoney((balances[currency][key] || 0) - Number(p.amount || 0));
+                        });
+                    });
+
+                    const settlements = [];
+                    Object.entries(balances).forEach(([currency, map]) => {
+                        const creditors = [];
+                        const debtors = [];
+                        Object.entries(map).forEach(([key, amount]) => {
+                            const rounded = roundMoney(amount);
+                            if (rounded > 0.009) creditors.push({ key, amount: rounded });
+                            if (rounded < -0.009) debtors.push({ key, amount: roundMoney(-rounded) });
+                        });
+                        creditors.sort((a, b) => b.amount - a.amount);
+                        debtors.sort((a, b) => b.amount - a.amount);
+                        let i = 0, j = 0;
+                        while (i < debtors.length && j < creditors.length) {
+                            const payAmount = roundMoney(Math.min(debtors[i].amount, creditors[j].amount));
+                            if (payAmount > 0.009) {
+                                settlements.push({
+                                    fromKey: debtors[i].key,
+                                    toKey: creditors[j].key,
+                                    from: memberNames[debtors[i].key] || debtors[i].key,
+                                    to: memberNames[creditors[j].key] || creditors[j].key,
+                                    amount: payAmount,
+                                    currency
+                                });
+                            }
+                            debtors[i].amount = roundMoney(debtors[i].amount - payAmount);
+                            creditors[j].amount = roundMoney(creditors[j].amount - payAmount);
+                            if (debtors[i].amount <= 0.009) i++;
+                            if (creditors[j].amount <= 0.009) j++;
+                        }
+                    });
+                    return settlements;
+                };
+                const splitSettlements = computed(() => calculateSplitSettlements());
+
+                const toggleSplitExpense = (exp) => { exp.expanded = !exp.expanded; };
+                const openEditSplitExpense = (exp) => {
+                    editingSplitExpenseId.value = exp.id;
+                    prepareSplitExpenseForm(exp);
+                    showExpenseModal.value = true;
+                };
+
+                // 分帳記帳：新增、編輯與刪除
+                const startExpenseEdit = () => {};
+                const saveExpenseEdit = () => {};
+                const addExpense = async () => {
+                    if (!currentTrip.value) return;
+                    const title = String(newSplitExpense.value.title || '').trim();
+                    const payerRows = selectedPayerRows()
+                        .map(p => ({ name: p.name, key: p.key, amount: roundMoney(p.amount) }))
+                        .filter(p => p.amount > 0);
+                    const shareRows = selectedShareRows()
+                        .map(p => ({ name: p.name, key: p.key, amount: roundMoney(p.amount) }))
+                        .filter(p => p.amount > 0);
+                    const paidTotal = roundMoney(payerRows.reduce((sum, p) => sum + p.amount, 0));
+                    const shareTotal = roundMoney(shareRows.reduce((sum, p) => sum + p.amount, 0));
+
+                    if (!title) return alert('請填寫款項名稱');
+                    if (!payerRows.length || paidTotal <= 0) return alert('請至少選擇一位付款者並輸入付款金額');
+                    if (!shareRows.length || shareTotal <= 0) return alert('請至少選擇一位分款者');
+                    if (Math.abs(paidTotal - shareTotal) > 0.05) return alert('付款小計與分款小計需相同，請確認金額。');
+
+                    const expenseData = {
+                        id: editingSplitExpenseId.value || Date.now(),
+                        dayKey: newSplitExpense.value.dayKey || 'pre',
+                        title,
+                        currency: newSplitExpense.value.currency || 'TWD',
+                        payers: payerRows,
+                        splitters: shareRows,
+                        updatedAt: new Date().toISOString(),
+                        expanded: false
+                    };
+
+                    const backup = JSON.parse(JSON.stringify(currentTrip.value.splitExpenses || []));
+                    try {
+                        if (!Array.isArray(currentTrip.value.splitExpenses)) currentTrip.value.splitExpenses = [];
+                        const idx = currentTrip.value.splitExpenses.findIndex(item => item.id === editingSplitExpenseId.value);
+                        if (idx >= 0) currentTrip.value.splitExpenses[idx] = expenseData;
+                        else currentTrip.value.splitExpenses.unshift(expenseData);
+                        await updateSharedTripData();
+                        closeExpenseModal();
+                    } catch (err) {
+                        currentTrip.value.splitExpenses = backup;
+                        console.error('Save split expense failed:', err);
+                        alert('分帳儲存失敗：' + (err?.message || '請稍後再試。'));
+                    }
+                };
+                const deleteExpense = async (id) => {
+                    if (!confirm('確定要刪除這筆分帳紀錄嗎？')) return;
+                    const backup = JSON.parse(JSON.stringify(currentTrip.value.splitExpenses || []));
+                    try {
+                        currentTrip.value.splitExpenses = (currentTrip.value.splitExpenses || []).filter(item => item.id !== id);
+                        await updateSharedTripData();
+                    } catch (err) {
+                        currentTrip.value.splitExpenses = backup;
+                        console.error('Delete split expense failed:', err);
+                        alert('分帳刪除失敗：' + (err?.message || '請稍後再試。'));
+                    }
                 };
 
                 // 原地編輯：購物戰利品
@@ -3071,6 +3527,7 @@
                     user, authForm, registerForm, authPage, authMessage, trips, currentTrip, activeMainTab, activeDayTab, weather, weatherForecast, weatherLoading, weatherError, weatherCity, showWeatherModal, showSpotModal, showExpenseModal, showShopModal, imagePreviewUrl, isKeyMissing, shareForm, shareMessage,
                     showTripModal, isEditingTripMode, tripModalForm, getMinimumReturnDate, handleTripStartDateChange, handleTripEndDateChange, openAddTripModal, openEditTripModal, closeTripModal, saveTripModalAction,
                     expenseSections, getFilteredExpenses, sumByCurrency, getCurrencySymbol, sumExpensesInTwd, formatTwdAmount, getExchangeRateSummary,
+                    newSplitExpense, editingSplitExpenseId, selectedPayerTotal, selectedShareTotal, handleSplitPayerChange, handleSplitPayerAmountInput, handleSplitterChange, handleSplitterAmountInput, getMemberInitial, getSplitExpenses, getFilteredSplitExpenses, getSplitPayers, getSplitShares, getSplitExpenseTotal, getSplitShareCount, getSplitPayerSummary, formatCurrencyAmount, formatSplitTotalSummary, splitSettlements, toggleSplitExpense, openEditSplitExpense,
                     editingMenuLinkIndex, editMenuLinkData, startMenuLinkEdit, saveMenuLinkEdit,
                     editingTodoId, editTodoTextData, startTodoEdit, saveTodoEdit, toggleTodoDone,
                     editingLuggageId, editLuggageData, startLuggageEdit, saveLuggageEdit, toggleLuggageDone,
@@ -3078,7 +3535,7 @@
                     editingExpenseIndex, editExpenseData, startExpenseEdit, saveExpenseEdit,
                     editingShoppingId, editShoppingData, startShoppingEdit, saveShoppingEdit,
                     newSpot, newMenuLink, newTodoText, newLuggage, newExpense, newShopItem, getCalculatedDateStr, getTripDateRangeText, hasCustomImage, handleImageUpload, getSpotTypeIcon, getSpotTypeLabel, getSpotNoteText, getSpotLinkUrl, getSpotLinkName, getSpotDisplayTime, getSpotDepartureTime, getSpotArrivalTime, parseFlightInfo, isTripDayTabActive, getDayWeather, getTravelWeatherDays, getWeatherButtonSummary, openWeatherModal, closeWeatherModal, fetchWeather, openAddSpotModal, closeSpotModal, openAddExpenseModal, closeExpenseModal, openAddShopModal, closeShopModal, openImagePreview, closeImagePreview, switchMainTab, increaseNewShopQuantity, decreaseNewShopQuantity, increaseEditShopQuantity, decreaseEditShopQuantity,
-                    handleLogin, registerAccount, goToLogin, goToRegister, logout, selectTrip, deleteTrip, updateTripData, updateSharedTripData, updatePrivateTripData, inviteUserToTrip, removeTripModalMember, isTripOwner, getTripRoleText, addSpot, deleteSpot, addMenuLink, deleteMenuLink, addTodo, deleteTodo, addLuggage, deleteLuggage, addExpense, deleteExpense, addShopItem, deleteShopItem
+                    handleLogin, registerAccount, goToLogin, goToRegister, logout, selectTrip, deleteTrip, updateTripData, updateSharedTripData, updatePrivateTripData, inviteUserToTrip, removeTripModalMember, isTripOwner, getTripRoleText, getVisibleMemberUsernames, addSpot, deleteSpot, addMenuLink, deleteMenuLink, addTodo, deleteTodo, addLuggage, deleteLuggage, addExpense, deleteExpense, addShopItem, deleteShopItem
                 };
             }
         }).mount('#app');
