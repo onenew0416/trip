@@ -480,13 +480,13 @@
                     <div v-if="activeMainTab === 'itinerary'" class="bg-white border border-[#e6e4dc] rounded-2xl p-3 shadow-sm">
                         <p class="text-[10px] font-bold text-neutral-400 tracking-widest px-2 mb-2 uppercase">行程分頁導覽</p>
                         <div class="flex gap-2 overflow-x-auto pb-1">
-                            <button @click="activeDayTab = 'menu'" 
+                            <button @click="switchDayTab('menu')" 
                                     :class="['shrink-0 min-w-[170px] text-left px-3 py-2.5 text-xs rounded-xl transition-all flex items-center justify-between border', activeDayTab === 'menu' ? 'itinerary-tab-active font-bold' : 'itinerary-tab-idle hover:bg-[#f7f6f3]']">
                                 <span>📂 行程目錄</span>
                             </button>
                             
                             <button v-for="dayNum in currentTrip.days" :key="dayNum"
-                                    @click="activeDayTab = dayNum" 
+                                    @click="switchDayTab(dayNum)" 
                                     :class="['shrink-0 min-w-[145px] text-left px-3 py-2.5 text-xs rounded-xl transition-all flex flex-col items-start gap-0.5 border', activeDayTab === dayNum ? 'itinerary-tab-active font-bold' : 'itinerary-tab-idle hover:bg-[#f7f6f3]']">
                                 <div class="w-full flex justify-between items-center gap-2">
                                     <span>📍 Day {{ dayNum }}</span>
@@ -747,84 +747,160 @@
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5">
-                            <div class="space-y-5">
-                                <div v-if="!getSplitExpenses().length" class="text-center py-10 text-neutral-400 text-xs border border-dashed border-[#e6e4dc] rounded-2xl bg-[#fcfbf9]">
-                                    尚無分帳消費，點右上角新增第一筆費用。
-                                </div>
+                        <div class="bg-[#fcfbf9] border border-[#e6e4dc] rounded-2xl p-1 flex gap-1 max-w-md">
+                            <button @click="switchAccountingTab('expenses')" type="button" :class="['flex-1 text-xs px-3 py-2 rounded-xl font-bold transition-colors', activeAccountingTab === 'expenses' ? 'bg-neutral-900 text-white shadow-sm' : 'text-neutral-500 hover:bg-white']">
+                                分帳記帳
+                            </button>
+                            <button @click="switchAccountingTab('summary')" type="button" :class="['flex-1 text-xs px-3 py-2 rounded-xl font-bold transition-colors', activeAccountingTab === 'summary' ? 'bg-neutral-900 text-white shadow-sm' : 'text-neutral-500 hover:bg-white']">
+                                結算總覽
+                            </button>
+                        </div>
 
-                                <div v-for="section in expenseSections" :key="section.key" class="space-y-2">
-                                    <div v-if="getFilteredSplitExpenses(section.key).length > 0">
-                                        <h4 class="text-xs font-bold text-neutral-500 bg-neutral-100 px-3 py-1.5 rounded-lg border border-neutral-200/60 flex justify-between items-center">
-                                            <span>{{ section.label }}</span>
-                                            <span class="text-[10px] font-normal">共 {{ getFilteredSplitExpenses(section.key).length }} 筆</span>
-                                        </h4>
+                        <div v-if="activeAccountingTab === 'expenses'" class="space-y-5">
+                            <div v-if="!getSplitExpenses().length" class="text-center py-10 text-neutral-400 text-xs border border-dashed border-[#e6e4dc] rounded-2xl bg-[#fcfbf9]">
+                                尚無分帳消費，點右上角新增第一筆費用。
+                            </div>
 
-                                        <div class="space-y-2 mt-2">
-                                            <div v-for="exp in getFilteredSplitExpenses(section.key)" :key="exp.id" class="split-expense-card">
-                                                <button @click="toggleSplitExpense(exp)" type="button" class="w-full text-left p-4 flex items-start justify-between gap-3">
-                                                    <div class="min-w-0 flex-1">
-                                                        <h5 class="text-sm font-bold text-neutral-800 break-words">{{ exp.title }}</h5>
-                                                        <p class="text-[11px] text-amber-700 mt-1 break-words">
-                                                            <i class="fa-regular fa-circle-user mr-1"></i>{{ getSplitPayerSummary(exp) }}
-                                                        </p>
-                                                    </div>
-                                                    <div class="text-right shrink-0">
-                                                        <p class="text-sm font-bold text-neutral-900 whitespace-nowrap">{{ formatCurrencyAmount(getSplitExpenseTotal(exp), exp.currency) }}</p>
-                                                        <p class="text-[11px] text-neutral-400 mt-1 whitespace-nowrap">{{ getSplitShareCount(exp) }}人分</p>
-                                                    </div>
-                                                </button>
+                            <div v-for="section in expenseSections" :key="section.key" class="space-y-2">
+                                <div v-if="getFilteredSplitExpenses(section.key).length > 0">
+                                    <h4 class="text-xs font-bold text-neutral-500 bg-neutral-100 px-3 py-1.5 rounded-lg border border-neutral-200/60 flex justify-between items-center">
+                                        <span>{{ section.label }}</span>
+                                        <span class="text-[10px] font-normal">共 {{ getFilteredSplitExpenses(section.key).length }} 筆</span>
+                                    </h4>
 
-                                                <div v-if="exp.expanded" class="px-4 pb-4 border-t border-neutral-100 bg-[#fcfbf9]">
-                                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3">
-                                                        <div>
-                                                            <p class="text-[11px] font-bold text-neutral-400 mb-2">付款</p>
-                                                            <div class="space-y-1">
-                                                                <div v-for="payer in getSplitPayers(exp)" :key="payer.key" class="flex justify-between gap-3 text-xs">
-                                                                    <span class="font-medium text-neutral-700 break-words">{{ payer.name }}</span>
-                                                                    <span class="font-bold text-emerald-700 whitespace-nowrap">{{ formatCurrencyAmount(payer.amount, exp.currency) }}</span>
-                                                                </div>
+                                    <div class="space-y-2 mt-2">
+                                        <div v-for="exp in getFilteredSplitExpenses(section.key)" :key="exp.id" class="split-expense-card">
+                                            <button @click="toggleSplitExpense(exp)" type="button" class="w-full text-left p-4 flex items-start justify-between gap-3">
+                                                <div class="min-w-0 flex-1">
+                                                    <h5 class="text-sm font-bold text-neutral-800 break-words">{{ exp.title }}</h5>
+                                                    <p class="text-[11px] text-amber-700 mt-1 break-words">
+                                                        <i class="fa-regular fa-circle-user mr-1"></i>{{ getSplitPayerSummary(exp) }}
+                                                    </p>
+                                                </div>
+                                                <div class="text-right shrink-0">
+                                                    <p class="text-sm font-bold text-neutral-900 whitespace-nowrap">{{ formatSplitCardTotal(exp) }}</p>
+                                                    <p class="text-[11px] text-neutral-400 mt-1 whitespace-nowrap">{{ getSplitShareCount(exp) }}人分</p>
+                                                </div>
+                                            </button>
+
+                                            <div v-if="exp.expanded" class="px-4 pb-4 border-t border-neutral-100 bg-[#fcfbf9]">
+                                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3">
+                                                    <div>
+                                                        <p class="text-[11px] font-bold text-neutral-400 mb-2">付款</p>
+                                                        <div class="space-y-1">
+                                                            <div v-for="payer in getSplitPayers(exp)" :key="payer.key" class="flex justify-between gap-3 text-xs">
+                                                                <span class="font-medium text-neutral-700 break-words">{{ payer.name }}</span>
+                                                                <span class="font-bold text-emerald-700 whitespace-nowrap">{{ formatSplitAmountWithTwd(payer.amount, exp) }}</span>
                                                             </div>
                                                         </div>
-                                                        <div>
-                                                            <p class="text-[11px] font-bold text-neutral-400 mb-2">分款</p>
-                                                            <div class="space-y-1">
-                                                                <div v-for="share in getSplitShares(exp)" :key="share.key" class="flex justify-between gap-3 text-xs">
-                                                                    <span class="font-medium text-neutral-700 break-words">{{ share.name }}</span>
-                                                                    <span class="font-bold text-neutral-800 whitespace-nowrap">{{ formatCurrencyAmount(share.amount, exp.currency) }}</span>
-                                                                </div>
+                                                    </div>
+                                                    <div>
+                                                        <p class="text-[11px] font-bold text-neutral-400 mb-2">分款</p>
+                                                        <div class="space-y-1">
+                                                            <div v-for="share in getSplitShares(exp)" :key="share.key" class="flex justify-between gap-3 text-xs">
+                                                                <span class="font-medium text-neutral-700 break-words">{{ share.name }}</span>
+                                                                <span class="font-bold text-neutral-800 whitespace-nowrap">{{ formatSplitAmountWithTwd(share.amount, exp) }}</span>
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    <div class="flex justify-end gap-3 mt-4 pt-3 border-t border-neutral-200/70 text-xs">
-                                                        <button @click.stop="openEditSplitExpense(exp)" class="text-amber-700 hover:underline font-medium">編輯</button>
-                                                        <button @click.stop="deleteExpense(exp.id)" class="text-rose-500 hover:underline font-medium">刪除</button>
+                                                </div>
+
+                                                <div class="mt-4 pt-3 border-t border-neutral-200/70">
+                                                    <p class="text-[11px] font-bold text-neutral-400 mb-2">細項還款</p>
+                                                    <div v-if="!getExpenseRepaymentItems(exp).length" class="text-xs text-neutral-400 bg-white border border-neutral-100 rounded-xl p-3">
+                                                        這筆費用目前沒有需要還款的細項。
                                                     </div>
+                                                    <div v-else class="space-y-2">
+                                                        <label v-for="item in getExpenseRepaymentItems(exp)" :key="item.key" class="flex items-start justify-between gap-3 bg-white border border-neutral-100 rounded-xl p-3 cursor-pointer">
+                                                            <div class="flex items-start gap-2 min-w-0">
+                                                                <input type="checkbox" :checked="isExpenseRepaymentPaid(item)" @change="toggleExpenseRepaymentStatus(item, $event.target.checked)" class="split-check rounded border-neutral-300 mt-0.5 shrink-0">
+                                                                <div class="min-w-0">
+                                                                    <p :class="['text-xs font-bold break-words', isExpenseRepaymentPaid(item) ? 'text-neutral-400 line-through' : 'text-neutral-700']">
+                                                                        {{ item.from }} <i class="fa-solid fa-arrow-right text-neutral-300 mx-1"></i> {{ item.to }}
+                                                                    </p>
+                                                                    <p class="text-[10px] text-neutral-400 mt-0.5">{{ isExpenseRepaymentPaid(item) ? '已還款' : '待還款' }}</p>
+                                                                </div>
+                                                            </div>
+                                                            <span :class="['text-xs font-bold whitespace-nowrap', isExpenseRepaymentPaid(item) ? 'text-neutral-400 line-through' : 'text-amber-700']">{{ formatTwdCurrency(item.amountTwd) }}</span>
+                                                        </label>
+                                                    </div>
+                                                </div>
+
+                                                <div class="flex justify-end gap-3 mt-4 pt-3 border-t border-neutral-200/70 text-xs">
+                                                    <button @click.stop="openEditSplitExpense(exp)" class="text-amber-700 hover:underline font-medium">編輯</button>
+                                                    <button @click.stop="deleteExpense(exp.id)" class="text-rose-500 hover:underline font-medium">刪除</button>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
+                        </div>
 
-                            <div class="space-y-4">
+                        <div v-else class="space-y-5">
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                 <div class="bg-[#fcfbf9] border border-[#e6e4dc] rounded-2xl p-4">
-                                    <div class="flex justify-between items-center border-b border-neutral-200/70 pb-2 mb-3">
-                                        <h4 class="text-sm font-bold text-neutral-700">結算總覽</h4>
-                                        <span class="text-[11px] text-neutral-400">總花費</span>
-                                    </div>
-                                    <p class="text-right text-base font-bold text-neutral-900 mb-2">{{ formatSplitTotalSummary() }}</p>
+                                    <p class="text-[11px] text-neutral-400 font-bold">總花費</p>
+                                    <p class="text-lg font-bold text-neutral-900 mt-1">{{ formatSplitTotalSummary() }}</p>
+                                </div>
+                                <div class="bg-[#fcfbf9] border border-[#e6e4dc] rounded-2xl p-4">
+                                    <p class="text-[11px] text-neutral-400 font-bold">分帳金額</p>
+                                    <p class="text-lg font-bold text-amber-700 mt-1">{{ formatTwdCurrency(splitRepaymentSummary.totalTwd) }}</p>
+                                </div>
+                                <div class="bg-[#fcfbf9] border border-[#e6e4dc] rounded-2xl p-4">
+                                    <p class="text-[11px] text-neutral-400 font-bold">目前待還款</p>
+                                    <p class="text-lg font-bold text-amber-700 mt-1">{{ formatTwdCurrency(splitRepaymentSummary.unpaidTwd) }}</p>
+                                    <p class="text-[10px] text-neutral-400 mt-0.5">已勾選還款的細項不列入</p>
+                                </div>
+                            </div>
 
-                                    <div v-if="!splitSettlements.length" class="text-center text-xs text-neutral-400 py-5">
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                                <div class="bg-[#fcfbf9] border border-[#e6e4dc] rounded-2xl p-4">
+                                    <div class="border-b border-neutral-200/70 pb-2 mb-3">
+                                        <h4 class="text-sm font-bold text-neutral-700">還款總覽</h4>
+                                        <p class="text-[10px] text-neutral-400 mt-0.5">依應收成員分類，只顯示目前還需要還款的金額。</p>
+                                    </div>
+                                    <div v-if="!splitSettlementReceivableGroups.length" class="text-center text-xs text-neutral-400 py-5">
                                         目前沒有需要互相付款的款項。
                                     </div>
-                                    <div v-else class="space-y-0">
-                                        <div v-for="settle in splitSettlements" :key="settle.currency + '-' + settle.fromKey + '-' + settle.toKey" class="split-settlement-row">
-                                            <div class="min-w-0">
-                                                <p class="font-bold text-neutral-700 break-words">{{ settle.from }} <i class="fa-solid fa-arrow-right text-neutral-300 mx-1"></i> {{ settle.to }}</p>
-                                                <p class="text-[10px] text-neutral-400 mt-0.5">應付</p>
+                                    <div v-else class="space-y-3">
+                                        <div v-for="group in splitSettlementReceivableGroups" :key="group.key" class="bg-white border border-neutral-100 rounded-xl p-3">
+                                            <div class="flex justify-between items-start gap-3 border-b border-neutral-100 pb-2 mb-2">
+                                                <div class="min-w-0">
+                                                    <p class="font-bold text-neutral-700 break-words">{{ group.to }} 應收</p>
+                                                </div>
+                                                <p class="font-bold text-emerald-700 whitespace-nowrap">{{ formatTwdCurrency(group.totalReceivableTwd) }}</p>
                                             </div>
-                                            <span class="font-bold text-amber-700 whitespace-nowrap">{{ formatCurrencyAmount(settle.amount, settle.currency) }}</span>
+                                            <div class="space-y-1.5">
+                                                <div v-for="debtor in group.debtors" :key="debtor.key" class="flex justify-between items-start gap-3 text-xs">
+                                                    <p class="font-medium text-neutral-600 break-words min-w-0">
+                                                        {{ debtor.from }}
+                                                    </p>
+                                                    <p class="font-bold text-amber-700 whitespace-nowrap">{{ formatTwdCurrency(debtor.amountTwd) }}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="bg-[#fcfbf9] border border-[#e6e4dc] rounded-2xl p-4">
+                                    <div class="border-b border-neutral-200/70 pb-2 mb-3">
+                                        <h4 class="text-sm font-bold text-neutral-700">個人花費</h4>
+                                        <p class="text-[10px] text-neutral-400 mt-0.5">每位成員實付與分攤金額。</p>
+                                    </div>
+                                    <div v-if="!memberSpendSummary.length" class="text-center text-xs text-neutral-400 py-5">
+                                        尚無成員花費資料。
+                                    </div>
+                                    <div v-else class="space-y-0">
+                                        <div v-for="member in memberSpendSummary" :key="member.key" class="split-settlement-row">
+                                            <div class="min-w-0">
+                                                <p class="font-bold text-neutral-700 break-words">{{ member.name }}</p>
+                                                <p class="text-[10px] text-neutral-400 mt-0.5">實付 {{ formatTwdCurrency(member.paidTwd) }}</p>
+                                            </div>
+                                            <div class="text-right shrink-0">
+                                                <p class="font-bold text-neutral-900 whitespace-nowrap">{{ formatTwdCurrency(member.shareTwd) }}</p>
+                                                <p class="text-[10px] text-neutral-400 mt-0.5">分攤花費</p>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -1401,6 +1477,8 @@
                 const editingExpenseIndex = ref(null);
                 const editExpenseData = ref({ dayKey: 'pre', title: '', amount: 0, currency: 'TWD' });
                 const editingSplitExpenseId = ref(null);
+                const activeSettlementTab = ref('settlement');
+                const activeAccountingTab = ref('expenses');
 
                 const editingShoppingId = ref(null);
                 const editShoppingData = ref({ text: '', quantity: '', note: '', url: '', imgUrl: '' });
@@ -1776,9 +1854,13 @@
                 };
 
                 const ensureExpenseExchangeRates = async (trip = currentTrip.value) => {
-                    if (!trip || !Array.isArray(trip.expenses)) return;
+                    if (!trip) return;
                     const targets = [];
-                    trip.expenses.forEach(exp => {
+                    const sourceExpenses = [
+                        ...(Array.isArray(trip.expenses) ? trip.expenses : []),
+                        ...(Array.isArray(trip.splitExpenses) ? trip.splitExpenses : [])
+                    ];
+                    sourceExpenses.forEach(exp => {
                         const currency = String(exp.currency || 'TWD').toUpperCase();
                         if (currency === 'TWD') return;
                         const dateStr = getExpenseDateStr(exp, trip);
@@ -1936,11 +2018,61 @@
                     }
                 };
 
+                const resetTransientPageState = () => {
+                    // 切換分頁時收合手機鍵盤；v32 誤呼叫未定義的 blurActiveElement，會讓分頁 click 中斷。
+                    blurActiveInput();
+
+                    // 切換頁面時，所有展開卡片回到未展開。
+                    if (currentTrip.value) {
+                        ['splitExpenses', 'expenses', 'shopping', 'todos', 'luggage', 'menuLinks'].forEach(key => {
+                            if (Array.isArray(currentTrip.value[key])) {
+                                currentTrip.value[key].forEach(item => {
+                                    if (item && typeof item === 'object' && Object.prototype.hasOwnProperty.call(item, 'expanded')) {
+                                        item.expanded = false;
+                                    }
+                                });
+                            }
+                        });
+                        Object.values(currentTrip.value.itinerary || {}).forEach(list => {
+                            if (Array.isArray(list)) {
+                                list.forEach(item => {
+                                    if (item && typeof item === 'object' && Object.prototype.hasOwnProperty.call(item, 'expanded')) {
+                                        item.expanded = false;
+                                    }
+                                });
+                            }
+                        });
+                    }
+
+                    // 切換頁面時，正在編輯中的卡片視為取消編輯。
+                    editingMenuLinkIndex.value = null;
+                    editingTodoId.value = null;
+                    editingLuggageId.value = null;
+                    editingSpotIndex.value = null;
+                    editingExpenseIndex.value = null;
+                    editingSplitExpenseId.value = null;
+                    editingShoppingId.value = null;
+                };
+
                 const isTripDayTabActive = () => activeMainTab.value === 'itinerary' && activeDayTab.value !== 'menu';
 
+                const switchDayTab = (tab) => {
+                    if (activeDayTab.value === tab) return;
+                    resetTransientPageState();
+                    activeDayTab.value = tab;
+                };
+
+                const switchAccountingTab = (tab) => {
+                    if (activeAccountingTab.value === tab) return;
+                    resetTransientPageState();
+                    activeAccountingTab.value = tab;
+                };
+
                 const switchMainTab = (tab) => {
+                    if (activeMainTab.value !== tab) resetTransientPageState();
                     activeMainTab.value = tab;
                     if (tab === 'itinerary') activeDayTab.value = 'menu';
+                    if (tab === 'accounting') ensureExpenseExchangeRates(currentTrip.value);
                 };
 
                 const getDayWeather = (dayNum) => {
@@ -2281,6 +2413,7 @@
                         memberUsernameKeys: Array.isArray(sharedData.memberUsernameKeys) ? sharedData.memberUsernameKeys : (Array.isArray(sharedData.memberUsernames) ? sharedData.memberUsernames.map(getUsernameKey).filter(Boolean) : []),
                         memberAuthEmails: Array.isArray(sharedData.memberAuthEmails) ? sharedData.memberAuthEmails : [],
                         splitExpenses: Array.isArray(sharedData.splitExpenses) ? sharedData.splitExpenses : [],
+                        splitRepayments: sharedData.splitRepayments && typeof sharedData.splitRepayments === 'object' ? sharedData.splitRepayments : {},
                         menuLinks: Array.isArray(sharedData.menuLinks) ? sharedData.menuLinks : [],
                         itinerary: ensureItineraryDayKeys(sharedData.itinerary || {}, normalizedDates.days),
                         ...privatePart
@@ -2315,6 +2448,7 @@
                         memberUsernameKeys,
                         memberAuthEmails,
                         splitExpenses: Array.isArray(trip.splitExpenses) ? trip.splitExpenses : [],
+                        splitRepayments: trip.splitRepayments && typeof trip.splitRepayments === 'object' ? trip.splitRepayments : {},
                         menuLinks: Array.isArray(trip.menuLinks) ? trip.menuLinks : [],
                         itinerary: ensureItineraryDayKeys(trip.itinerary || {}, normalizedDates.days)
                     };
@@ -2819,6 +2953,7 @@
                             memberAuthEmails,
                             menuLinks: [],
                             splitExpenses: [],
+                            splitRepayments: {},
                             itinerary
                         };
                         const combinedTrip = combineTripData(sharedTripData, privateTripDefaults());
@@ -2840,6 +2975,7 @@
                                     memberUsernameKeys,
                                     memberAuthEmails,
                                     splitExpenses: [],
+                                    splitRepayments: {},
                                     menuLinks: [],
                                     itinerary,
                                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -2858,6 +2994,7 @@
                                     memberUsernameKeys,
                                     memberAuthEmails,
                                     splitExpenses: [],
+                                    splitRepayments: {},
                                     menuLinks: [],
                                     itinerary,
                                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -2895,6 +3032,7 @@
                     clearShareMessage();
                     shareForm.value = { username: '' };
                     fetchWeather(trip.title, trip);
+                    ensureExpenseExchangeRates(trip);
                 };
 
                 const deleteTrip = async (id) => {
@@ -3319,78 +3457,262 @@
                 };
 
                 const formatCurrencyAmount = (amount, currency = 'TWD') => `${getCurrencySymbol(currency)} ${formatTwdAmount(roundMoney(amount))}`;
+                const formatTwdCurrency = (amount) => `NT$ ${formatTwdAmount(roundMoney(amount))}`;
+
+                const getSplitExpenseRate = (exp) => getExpenseRate(exp);
+                const splitAmountToTwd = (amount, exp) => roundMoney(Number(amount || 0) * getSplitExpenseRate(exp));
+                const getSplitExpenseTotalTwd = (exp) => roundMoney(getSplitExpenseTotal(exp) * getSplitExpenseRate(exp));
+                const formatSplitAmountWithTwd = (amount, exp) => {
+                    const currency = String(exp?.currency || 'TWD').toUpperCase();
+                    const original = formatCurrencyAmount(amount, currency);
+                    if (currency === 'TWD') return original;
+                    return `${original}（約 ${formatTwdCurrency(splitAmountToTwd(amount, exp))}）`;
+                };
+                const formatSplitCardTotal = (exp) => {
+                    const currency = String(exp?.currency || 'TWD').toUpperCase();
+                    if (currency === 'TWD') return formatTwdCurrency(getSplitExpenseTotal(exp));
+                    return `${formatCurrencyAmount(getSplitExpenseTotal(exp), currency)} / 約 ${formatTwdCurrency(getSplitExpenseTotalTwd(exp))}`;
+                };
 
                 const getSplitTotalGroups = () => {
-                    const groups = {};
-                    getSplitExpenses().forEach(exp => {
-                        const currency = exp.currency || 'TWD';
-                        groups[currency] = roundMoney((groups[currency] || 0) + getSplitExpenseTotal(exp));
-                    });
-                    return groups;
+                    const total = getSplitExpenses().reduce((sum, exp) => sum + getSplitExpenseTotalTwd(exp), 0);
+                    return { TWD: roundMoney(total) };
                 };
 
-                const formatSplitTotalSummary = () => {
-                    const groups = getSplitTotalGroups();
-                    const entries = Object.entries(groups).filter(([, amount]) => Number(amount) > 0);
-                    if (!entries.length) return '$ 0';
-                    return entries.map(([currency, amount]) => formatCurrencyAmount(amount, currency)).join(' / ');
+                const formatSplitTotalSummary = () => formatTwdCurrency(getSplitTotalGroups().TWD || 0);
+
+                const getRepaymentMap = () => {
+                    if (!currentTrip.value) return {};
+                    if (!currentTrip.value.splitRepayments || typeof currentTrip.value.splitRepayments !== 'object') currentTrip.value.splitRepayments = {};
+                    return currentTrip.value.splitRepayments;
                 };
 
-                const calculateSplitSettlements = () => {
+                const makeExpenseRepaymentKey = (item) => {
+                    const amountCents = Math.round(Number(item.amountTwd || 0) * 100);
+                    return `${item.expenseId}__${item.fromKey}__${item.toKey}__${amountCents}`;
+                };
+
+                const calculateExpenseRepaymentItems = (exp) => {
+                    if (!exp) return [];
                     const balances = {};
-                    const memberNames = {};
-                    getAccountingMembers().forEach(m => { memberNames[m.key] = m.name; });
+                    const names = {};
+                    const expenseId = String(exp.id || 'expense');
+                    getAccountingMembers().forEach(m => { if (m.key) names[m.key] = m.name; });
 
+                    getSplitPayers(exp).forEach(p => {
+                        const key = p.key || getUsernameKey(p.name);
+                        if (!key) return;
+                        names[key] = p.name || names[key] || key;
+                        balances[key] = roundMoney((balances[key] || 0) + splitAmountToTwd(p.amount, exp));
+                    });
+                    getSplitShares(exp).forEach(s => {
+                        const key = s.key || getUsernameKey(s.name);
+                        if (!key) return;
+                        names[key] = s.name || names[key] || key;
+                        balances[key] = roundMoney((balances[key] || 0) - splitAmountToTwd(s.amount, exp));
+                    });
+
+                    const creditors = [];
+                    const debtors = [];
+                    Object.entries(balances).forEach(([key, amount]) => {
+                        const rounded = roundMoney(amount);
+                        if (rounded > 0.009) creditors.push({ key, amount: rounded });
+                        if (rounded < -0.009) debtors.push({ key, amount: roundMoney(-rounded) });
+                    });
+                    creditors.sort((a, b) => b.amount - a.amount);
+                    debtors.sort((a, b) => b.amount - a.amount);
+
+                    const items = [];
+                    let i = 0, j = 0;
+                    while (i < debtors.length && j < creditors.length) {
+                        const amountTwd = roundMoney(Math.min(debtors[i].amount, creditors[j].amount));
+                        if (amountTwd > 0.009) {
+                            const item = {
+                                expenseId,
+                                expenseTitle: exp.title || '',
+                                fromKey: debtors[i].key,
+                                toKey: creditors[j].key,
+                                from: names[debtors[i].key] || debtors[i].key,
+                                to: names[creditors[j].key] || creditors[j].key,
+                                amountTwd,
+                                currency: 'TWD'
+                            };
+                            item.key = makeExpenseRepaymentKey(item);
+                            items.push(item);
+                        }
+                        debtors[i].amount = roundMoney(debtors[i].amount - amountTwd);
+                        creditors[j].amount = roundMoney(creditors[j].amount - amountTwd);
+                        if (debtors[i].amount <= 0.009) i++;
+                        if (creditors[j].amount <= 0.009) j++;
+                    }
+                    return items;
+                };
+
+                const getExpenseRepaymentItems = (exp) => calculateExpenseRepaymentItems(exp);
+                const isExpenseRepaymentPaid = (item) => !!getRepaymentMap()[item.key || makeExpenseRepaymentKey(item)]?.paid;
+
+                const toggleExpenseRepaymentStatus = async (item, checked) => {
+                    if (!currentTrip.value || !item) return;
+                    const key = item.key || makeExpenseRepaymentKey(item);
+                    const backup = JSON.parse(JSON.stringify(currentTrip.value.splitRepayments || {}));
+                    try {
+                        const repayments = getRepaymentMap();
+                        if (checked) {
+                            repayments[key] = {
+                                paid: true,
+                                paidAt: new Date().toISOString(),
+                                type: 'expense-detail',
+                                expenseId: item.expenseId,
+                                expenseTitle: item.expenseTitle || '',
+                                fromKey: item.fromKey,
+                                toKey: item.toKey,
+                                from: item.from,
+                                to: item.to,
+                                amountTwd: roundMoney(item.amountTwd || 0)
+                            };
+                        } else {
+                            repayments[key] = {
+                                ...(repayments[key] || {}),
+                                paid: false,
+                                unpaidAt: new Date().toISOString(),
+                                type: 'expense-detail',
+                                expenseId: item.expenseId,
+                                expenseTitle: item.expenseTitle || '',
+                                fromKey: item.fromKey,
+                                toKey: item.toKey,
+                                from: item.from,
+                                to: item.to,
+                                amountTwd: roundMoney(item.amountTwd || 0)
+                            };
+                        }
+                        currentTrip.value.splitRepayments = { ...repayments };
+                        await updateSharedTripData();
+                    } catch (err) {
+                        currentTrip.value.splitRepayments = backup;
+                        console.error('Update detail repayment failed:', err);
+                        alert('細項還款狀態儲存失敗：' + (err?.message || '請稍後再試。'));
+                    }
+                };
+
+                // 舊版總還款勾選保留空函式相容，不再由畫面使用
+                const makeSettlementKey = (settle) => `${settle.fromKey}__${settle.toKey}`;
+                const isSettlementRepaid = () => false;
+                const toggleRepaymentStatus = async () => {};
+
+                const calculateMemberSpendSummary = () => {
+                    const map = {};
+                    getAccountingMembers().forEach(member => {
+                        map[member.key] = { key: member.key, name: member.name, paidTwd: 0, shareTwd: 0, netTwd: 0 };
+                    });
                     getSplitExpenses().forEach(exp => {
-                        const currency = exp.currency || 'TWD';
-                        if (!balances[currency]) balances[currency] = {};
                         getSplitPayers(exp).forEach(p => {
                             const key = p.key || getUsernameKey(p.name);
                             if (!key) return;
-                            memberNames[key] = p.name || memberNames[key] || key;
-                            balances[currency][key] = roundMoney((balances[currency][key] || 0) + Number(p.amount || 0));
+                            if (!map[key]) map[key] = { key, name: p.name || key, paidTwd: 0, shareTwd: 0, netTwd: 0 };
+                            map[key].name = p.name || map[key].name;
+                            map[key].paidTwd = roundMoney(map[key].paidTwd + splitAmountToTwd(p.amount, exp));
                         });
                         getSplitShares(exp).forEach(p => {
                             const key = p.key || getUsernameKey(p.name);
                             if (!key) return;
-                            memberNames[key] = p.name || memberNames[key] || key;
-                            balances[currency][key] = roundMoney((balances[currency][key] || 0) - Number(p.amount || 0));
+                            if (!map[key]) map[key] = { key, name: p.name || key, paidTwd: 0, shareTwd: 0, netTwd: 0 };
+                            map[key].name = p.name || map[key].name;
+                            map[key].shareTwd = roundMoney(map[key].shareTwd + splitAmountToTwd(p.amount, exp));
                         });
                     });
+                    return Object.values(map)
+                        .map(item => ({ ...item, netTwd: roundMoney(item.paidTwd - item.shareTwd) }))
+                        .filter(item => item.paidTwd > 0.009 || item.shareTwd > 0.009)
+                        .sort((a, b) => b.shareTwd - a.shareTwd || b.paidTwd - a.paidTwd);
+                };
+                const memberSpendSummary = computed(() => calculateMemberSpendSummary());
 
-                    const settlements = [];
-                    Object.entries(balances).forEach(([currency, map]) => {
-                        const creditors = [];
-                        const debtors = [];
-                        Object.entries(map).forEach(([key, amount]) => {
-                            const rounded = roundMoney(amount);
-                            if (rounded > 0.009) creditors.push({ key, amount: rounded });
-                            if (rounded < -0.009) debtors.push({ key, amount: roundMoney(-rounded) });
-                        });
-                        creditors.sort((a, b) => b.amount - a.amount);
-                        debtors.sort((a, b) => b.amount - a.amount);
-                        let i = 0, j = 0;
-                        while (i < debtors.length && j < creditors.length) {
-                            const payAmount = roundMoney(Math.min(debtors[i].amount, creditors[j].amount));
-                            if (payAmount > 0.009) {
-                                settlements.push({
-                                    fromKey: debtors[i].key,
-                                    toKey: creditors[j].key,
-                                    from: memberNames[debtors[i].key] || debtors[i].key,
-                                    to: memberNames[creditors[j].key] || creditors[j].key,
-                                    amount: payAmount,
-                                    currency
-                                });
-                            }
-                            debtors[i].amount = roundMoney(debtors[i].amount - payAmount);
-                            creditors[j].amount = roundMoney(creditors[j].amount - payAmount);
-                            if (debtors[i].amount <= 0.009) i++;
-                            if (creditors[j].amount <= 0.009) j++;
+                const getAllExpenseRepaymentItems = () => getSplitExpenses().flatMap(exp => calculateExpenseRepaymentItems(exp));
+
+                const calculateSplitSettlements = () => {
+                    const groups = {};
+                    getAllExpenseRepaymentItems().forEach(item => {
+                        const groupKey = `${item.fromKey}__${item.toKey}`;
+                        if (!groups[groupKey]) {
+                            groups[groupKey] = {
+                                key: groupKey,
+                                fromKey: item.fromKey,
+                                toKey: item.toKey,
+                                from: item.from,
+                                to: item.to,
+                                totalTwd: 0,
+                                paidTwd: 0,
+                                unpaidTwd: 0,
+                                amountTwd: 0,
+                                currency: 'TWD'
+                            };
+                        }
+                        groups[groupKey].totalTwd = roundMoney(groups[groupKey].totalTwd + item.amountTwd);
+                        if (isExpenseRepaymentPaid(item)) {
+                            groups[groupKey].paidTwd = roundMoney(groups[groupKey].paidTwd + item.amountTwd);
                         }
                     });
-                    return settlements;
+                    return Object.values(groups)
+                        .map(item => ({
+                            ...item,
+                            unpaidTwd: roundMoney(item.totalTwd - item.paidTwd),
+                            amountTwd: roundMoney(item.totalTwd - item.paidTwd)
+                        }))
+                        .filter(item => item.totalTwd > 0.009)
+                        .sort((a, b) => b.unpaidTwd - a.unpaidTwd || b.totalTwd - a.totalTwd);
                 };
                 const splitSettlements = computed(() => calculateSplitSettlements());
+
+                const calculateSplitSettlementReceivableGroups = () => {
+                    const groups = {};
+                    calculateSplitSettlements().forEach(settle => {
+                        const amountTwd = roundMoney(settle.unpaidTwd || settle.amountTwd || 0);
+                        if (amountTwd <= 0.009) return;
+                        const groupKey = settle.toKey || getUsernameKey(settle.to);
+                        if (!groupKey) return;
+                        if (!groups[groupKey]) {
+                            groups[groupKey] = {
+                                key: groupKey,
+                                toKey: groupKey,
+                                to: settle.to || groupKey,
+                                totalReceivableTwd: 0,
+                                debtorsMap: {}
+                            };
+                        }
+                        groups[groupKey].to = settle.to || groups[groupKey].to;
+                        groups[groupKey].totalReceivableTwd = roundMoney(groups[groupKey].totalReceivableTwd + amountTwd);
+                        const debtorKey = settle.fromKey || getUsernameKey(settle.from);
+                        if (!debtorKey) return;
+                        if (!groups[groupKey].debtorsMap[debtorKey]) {
+                            groups[groupKey].debtorsMap[debtorKey] = {
+                                key: debtorKey,
+                                fromKey: debtorKey,
+                                from: settle.from || debtorKey,
+                                amountTwd: 0
+                            };
+                        }
+                        groups[groupKey].debtorsMap[debtorKey].from = settle.from || groups[groupKey].debtorsMap[debtorKey].from;
+                        groups[groupKey].debtorsMap[debtorKey].amountTwd = roundMoney(groups[groupKey].debtorsMap[debtorKey].amountTwd + amountTwd);
+                    });
+                    return Object.values(groups)
+                        .map(group => ({
+                            ...group,
+                            debtors: Object.values(group.debtorsMap)
+                                .filter(debtor => debtor.amountTwd > 0.009)
+                                .sort((a, b) => b.amountTwd - a.amountTwd || String(a.from).localeCompare(String(b.from), 'zh-Hant'))
+                        }))
+                        .filter(group => group.totalReceivableTwd > 0.009 && group.debtors.length)
+                        .sort((a, b) => b.totalReceivableTwd - a.totalReceivableTwd || String(a.to).localeCompare(String(b.to), 'zh-Hant'));
+                };
+                const splitSettlementReceivableGroups = computed(() => calculateSplitSettlementReceivableGroups());
+
+                const calculateSplitRepaymentSummary = () => {
+                    const items = getAllExpenseRepaymentItems();
+                    const totalTwd = roundMoney(items.reduce((sum, item) => sum + item.amountTwd, 0));
+                    const paidTwd = roundMoney(items.reduce((sum, item) => sum + (isExpenseRepaymentPaid(item) ? item.amountTwd : 0), 0));
+                    return { totalTwd, paidTwd, unpaidTwd: roundMoney(totalTwd - paidTwd) };
+                };
+                const splitRepaymentSummary = computed(() => calculateSplitRepaymentSummary());
 
                 const toggleSplitExpense = (exp) => { exp.expanded = !exp.expanded; };
                 const openEditSplitExpense = (exp) => {
@@ -3527,14 +3849,14 @@
                     user, authForm, registerForm, authPage, authMessage, trips, currentTrip, activeMainTab, activeDayTab, weather, weatherForecast, weatherLoading, weatherError, weatherCity, showWeatherModal, showSpotModal, showExpenseModal, showShopModal, imagePreviewUrl, isKeyMissing, shareForm, shareMessage,
                     showTripModal, isEditingTripMode, tripModalForm, getMinimumReturnDate, handleTripStartDateChange, handleTripEndDateChange, openAddTripModal, openEditTripModal, closeTripModal, saveTripModalAction,
                     expenseSections, getFilteredExpenses, sumByCurrency, getCurrencySymbol, sumExpensesInTwd, formatTwdAmount, getExchangeRateSummary,
-                    newSplitExpense, editingSplitExpenseId, selectedPayerTotal, selectedShareTotal, handleSplitPayerChange, handleSplitPayerAmountInput, handleSplitterChange, handleSplitterAmountInput, getMemberInitial, getSplitExpenses, getFilteredSplitExpenses, getSplitPayers, getSplitShares, getSplitExpenseTotal, getSplitShareCount, getSplitPayerSummary, formatCurrencyAmount, formatSplitTotalSummary, splitSettlements, toggleSplitExpense, openEditSplitExpense,
+                    newSplitExpense, editingSplitExpenseId, activeSettlementTab, activeAccountingTab, selectedPayerTotal, selectedShareTotal, handleSplitPayerChange, handleSplitPayerAmountInput, handleSplitterChange, handleSplitterAmountInput, getMemberInitial, getSplitExpenses, getFilteredSplitExpenses, getSplitPayers, getSplitShares, getSplitExpenseTotal, getSplitShareCount, getSplitPayerSummary, formatCurrencyAmount, formatTwdCurrency, formatSplitAmountWithTwd, formatSplitCardTotal, formatSplitTotalSummary, splitSettlements, splitSettlementReceivableGroups, memberSpendSummary, splitRepaymentSummary, getExpenseRepaymentItems, isExpenseRepaymentPaid, toggleExpenseRepaymentStatus, isSettlementRepaid, toggleRepaymentStatus, toggleSplitExpense, openEditSplitExpense,
                     editingMenuLinkIndex, editMenuLinkData, startMenuLinkEdit, saveMenuLinkEdit,
                     editingTodoId, editTodoTextData, startTodoEdit, saveTodoEdit, toggleTodoDone,
                     editingLuggageId, editLuggageData, startLuggageEdit, saveLuggageEdit, toggleLuggageDone,
                     editingSpotIndex, editSpotData, startSpotEdit, saveSpotEdit,
                     editingExpenseIndex, editExpenseData, startExpenseEdit, saveExpenseEdit,
                     editingShoppingId, editShoppingData, startShoppingEdit, saveShoppingEdit,
-                    newSpot, newMenuLink, newTodoText, newLuggage, newExpense, newShopItem, getCalculatedDateStr, getTripDateRangeText, hasCustomImage, handleImageUpload, getSpotTypeIcon, getSpotTypeLabel, getSpotNoteText, getSpotLinkUrl, getSpotLinkName, getSpotDisplayTime, getSpotDepartureTime, getSpotArrivalTime, parseFlightInfo, isTripDayTabActive, getDayWeather, getTravelWeatherDays, getWeatherButtonSummary, openWeatherModal, closeWeatherModal, fetchWeather, openAddSpotModal, closeSpotModal, openAddExpenseModal, closeExpenseModal, openAddShopModal, closeShopModal, openImagePreview, closeImagePreview, switchMainTab, increaseNewShopQuantity, decreaseNewShopQuantity, increaseEditShopQuantity, decreaseEditShopQuantity,
+                    newSpot, newMenuLink, newTodoText, newLuggage, newExpense, newShopItem, getCalculatedDateStr, getTripDateRangeText, hasCustomImage, handleImageUpload, getSpotTypeIcon, getSpotTypeLabel, getSpotNoteText, getSpotLinkUrl, getSpotLinkName, getSpotDisplayTime, getSpotDepartureTime, getSpotArrivalTime, parseFlightInfo, isTripDayTabActive, getDayWeather, getTravelWeatherDays, getWeatherButtonSummary, openWeatherModal, closeWeatherModal, fetchWeather, openAddSpotModal, closeSpotModal, openAddExpenseModal, closeExpenseModal, openAddShopModal, closeShopModal, openImagePreview, closeImagePreview, switchMainTab, switchDayTab, switchAccountingTab, increaseNewShopQuantity, decreaseNewShopQuantity, increaseEditShopQuantity, decreaseEditShopQuantity,
                     handleLogin, registerAccount, goToLogin, goToRegister, logout, selectTrip, deleteTrip, updateTripData, updateSharedTripData, updatePrivateTripData, inviteUserToTrip, removeTripModalMember, isTripOwner, getTripRoleText, getVisibleMemberUsernames, addSpot, deleteSpot, addMenuLink, deleteMenuLink, addTodo, deleteTodo, addLuggage, deleteLuggage, addExpense, deleteExpense, addShopItem, deleteShopItem
                 };
             }
