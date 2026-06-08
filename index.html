@@ -1185,7 +1185,7 @@
                                 <i class="fa-solid fa-cloud-sun text-neutral-400 mr-1.5"></i> {{ weatherCity }}旅遊天氣
                             </h3>
                             <p class="text-[11px] text-neutral-400 mt-1">
-                                顯示 {{ currentTrip.title }} 旅遊天數內的逐日天氣、氣溫與降雨機率
+                                顯示 {{ currentTrip.title }} 旅遊天數內的逐日天氣、氣溫與降雨資訊；超出預報範圍時會改用近10年同期歷史平均
                             </p>
                         </div>
                         <button @click="closeWeatherModal" class="text-neutral-300 hover:text-neutral-600 text-sm">
@@ -1212,9 +1212,12 @@
                                         <span class="text-xs font-bold text-neutral-700">Day {{ day.dayNum }}</span>
                                         <span class="text-[10px] text-neutral-400">{{ day.fullDateLabel }}</span>
                                     </div>
-                                    <p class="text-sm font-medium text-neutral-700">{{ day.desc }}</p>
+                                    <p class="text-sm font-medium text-neutral-700 flex items-center gap-1 flex-wrap">
+                                        <span>{{ day.desc }}</span>
+                                        <span v-if="day.source === 'history'" class="text-[10px] bg-amber-50 border border-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">歷史同期</span>
+                                    </p>
                                     <p class="text-xs text-neutral-500 mt-0.5">
-                                        氣溫 {{ day.tempText }}｜降雨機率 {{ day.rainText }}
+                                        氣溫 {{ day.tempText }}｜降雨 {{ day.rainText }}
                                     </p>
                                 </div>
                             </div>
@@ -1364,6 +1367,7 @@
                 const weatherError = ref('');
                 const weatherCity = ref('台北');
                 const showWeatherModal = ref(false);
+                const HISTORICAL_WEATHER_YEARS = 10;
                 const showSpotModal = ref(false);
                 const showExpenseModal = ref(false);
                 const showShopModal = ref(false);
@@ -1920,8 +1924,105 @@
                         desc: '尚無預報',
                         icon: 'fa-regular fa-circle-question text-neutral-300',
                         tempText: '—',
-                        rainText: '—'
+                        rainText: '—',
+                        source: 'empty'
                     };
+                };
+
+                const isRainyWeatherCode = (code) => {
+                    const weatherCode = Number(code);
+                    return [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99].includes(weatherCode);
+                };
+
+                const getMostCommonWeatherCode = (codes = []) => {
+                    const counts = {};
+                    codes.filter(code => code !== null && code !== undefined && code !== '').forEach(code => {
+                        const key = String(code);
+                        counts[key] = (counts[key] || 0) + 1;
+                    });
+                    const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+                    return sorted.length ? Number(sorted[0][0]) : null;
+                };
+
+                const fetchHistoricalWeatherFallback = async (coordinates, trip = currentTrip.value, days = 1) => {
+                    if (!coordinates || !trip?.startDate) return {};
+
+                    const startDate = parseLocalDate(trip.startDate);
+                    if (!startDate) return {};
+
+                    const currentYear = new Date().getFullYear();
+                    const years = Array.from({ length: HISTORICAL_WEATHER_YEARS }, (_, i) => currentYear - 1 - i);
+                    const buckets = {};
+                    for (let i = 1; i <= days; i++) {
+                        buckets[i] = { maxTemps: [], minTemps: [], rainFlags: [], codes: [], samples: 0 };
+                    }
+
+                    for (const year of years) {
+                        const historyStart = new Date(year, startDate.getMonth(), startDate.getDate());
+                        const historyEnd = new Date(historyStart);
+                        historyEnd.setDate(historyEnd.getDate() + days - 1);
+                        const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${coordinates.latitude}&longitude=${coordinates.longitude}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=auto&start_date=${formatLocalDate(historyStart)}&end_date=${formatLocalDate(historyEnd)}`;
+                        try {
+                            const res = await fetch(url);
+                            const data = await res.json();
+                            if (!res.ok || !data.daily || !Array.isArray(data.daily.time)) continue;
+
+                            data.daily.time.forEach((dateStr, index) => {
+                                const historyDate = parseLocalDate(dateStr);
+                                if (!historyDate) return;
+                                const diffDays = Math.round((historyDate - historyStart) / 86400000);
+                                const dayNum = diffDays + 1;
+                                if (!buckets[dayNum]) return;
+
+                                const maxTemp = data.daily.temperature_2m_max?.[index];
+                                const minTemp = data.daily.temperature_2m_min?.[index];
+                                const precipitation = data.daily.precipitation_sum?.[index];
+                                const code = data.daily.weather_code?.[index];
+
+                                if (maxTemp !== null && maxTemp !== undefined) buckets[dayNum].maxTemps.push(Number(maxTemp));
+                                if (minTemp !== null && minTemp !== undefined) buckets[dayNum].minTemps.push(Number(minTemp));
+                                if (code !== null && code !== undefined) buckets[dayNum].codes.push(Number(code));
+                                if (precipitation !== null && precipitation !== undefined) {
+                                    buckets[dayNum].rainFlags.push(Number(precipitation) > 0.1 || isRainyWeatherCode(code));
+                                } else if (code !== null && code !== undefined) {
+                                    buckets[dayNum].rainFlags.push(isRainyWeatherCode(code));
+                                }
+                                buckets[dayNum].samples += 1;
+                            });
+                        } catch (e) {}
+                    }
+
+                    const average = values => {
+                        const safeValues = values.filter(v => Number.isFinite(Number(v)));
+                        if (!safeValues.length) return null;
+                        return safeValues.reduce((sum, v) => sum + Number(v), 0) / safeValues.length;
+                    };
+
+                    const historyMap = {};
+                    Object.entries(buckets).forEach(([dayNum, bucket]) => {
+                        if (!bucket.samples) return;
+                        const tripDateStr = getTripDateStrByDay(trip, Number(dayNum));
+                        const code = getMostCommonWeatherCode(bucket.codes);
+                        const info = getWeatherCodeInfo(code);
+                        const avgMin = average(bucket.minTemps);
+                        const avgMax = average(bucket.maxTemps);
+                        const rainRatio = bucket.rainFlags.length
+                            ? Math.round((bucket.rainFlags.filter(Boolean).length / bucket.rainFlags.length) * 100)
+                            : null;
+
+                        historyMap[tripDateStr] = {
+                            date: tripDateStr,
+                            fullDateLabel: formatWeatherDateLabel(tripDateStr),
+                            desc: `${info.desc}｜近${bucket.samples}年同期`,
+                            icon: info.icon,
+                            tempText: (avgMin === null || avgMax === null) ? '—' : `${Math.round(avgMin)}°C～${Math.round(avgMax)}°C`,
+                            rainText: rainRatio === null ? '—' : `歷史${rainRatio}%`,
+                            source: 'history',
+                            sampleYears: bucket.samples
+                        };
+                    });
+
+                    return historyMap;
                 };
 
                 const getCoordinatesForCity = async (city) => {
@@ -1963,47 +2064,73 @@
                         const coordinates = await getCoordinatesForCity(city);
                         weatherCity.value = coordinates.name || city;
 
-                        const url = `https://api.open-meteo.com/v1/forecast?latitude=${coordinates.latitude}&longitude=${coordinates.longitude}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&start_date=${formatLocalDate(startDate)}&end_date=${formatLocalDate(endDate)}`;
-                        const res = await fetch(url);
-                        const data = await res.json();
+                        let dailyMap = {};
+                        let forecastFailed = false;
 
-                        if (!res.ok || !data.daily || !data.daily.time) {
-                            throw new Error(data.reason || '天氣資料讀取失敗');
+                        try {
+                            const url = `https://api.open-meteo.com/v1/forecast?latitude=${coordinates.latitude}&longitude=${coordinates.longitude}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&start_date=${formatLocalDate(startDate)}&end_date=${formatLocalDate(endDate)}`;
+                            const res = await fetch(url);
+                            const data = await res.json();
+
+                            if (!res.ok || !data.daily || !data.daily.time) {
+                                throw new Error(data.reason || '天氣資料讀取失敗');
+                            }
+
+                            data.daily.time.forEach((dateStr, index) => {
+                                const info = getWeatherCodeInfo(data.daily.weather_code?.[index]);
+                                const maxTemp = data.daily.temperature_2m_max?.[index];
+                                const minTemp = data.daily.temperature_2m_min?.[index];
+                                const rain = data.daily.precipitation_probability_max?.[index];
+                                dailyMap[dateStr] = {
+                                    date: dateStr,
+                                    fullDateLabel: formatWeatherDateLabel(dateStr),
+                                    desc: info.desc,
+                                    icon: info.icon,
+                                    tempText: (maxTemp === null || maxTemp === undefined || minTemp === null || minTemp === undefined) ? '—' : `${Math.round(minTemp)}°C～${Math.round(maxTemp)}°C`,
+                                    rainText: (rain === null || rain === undefined) ? '—' : `${rain}%`,
+                                    source: 'forecast'
+                                };
+                            });
+                        } catch (e) {
+                            forecastFailed = true;
                         }
 
-                        const dailyMap = {};
-                        data.daily.time.forEach((dateStr, index) => {
-                            const info = getWeatherCodeInfo(data.daily.weather_code?.[index]);
-                            const maxTemp = data.daily.temperature_2m_max?.[index];
-                            const minTemp = data.daily.temperature_2m_min?.[index];
-                            const rain = data.daily.precipitation_probability_max?.[index];
-                            dailyMap[dateStr] = {
-                                date: dateStr,
-                                fullDateLabel: formatWeatherDateLabel(dateStr),
-                                desc: info.desc,
-                                icon: info.icon,
-                                tempText: (maxTemp === null || maxTemp === undefined || minTemp === null || minTemp === undefined) ? '—' : `${Math.round(minTemp)}°C～${Math.round(maxTemp)}°C`,
-                                rainText: (rain === null || rain === undefined) ? '—' : `${rain}%`
-                            };
-                        });
+                        const missingDates = Array.from({ length: days }, (_, i) => getTripDateStrByDay(trip, i + 1))
+                            .filter(dateStr => dateStr && (!dailyMap[dateStr] || dailyMap[dateStr].tempText === '—'));
+
+                        let historyMap = {};
+                        if (forecastFailed || missingDates.length) {
+                            historyMap = await fetchHistoricalWeatherFallback(coordinates, trip, days);
+                        }
 
                         weatherForecast.value = Array.from({ length: days }, (_, i) => {
                             const dayNum = i + 1;
                             const dateStr = getTripDateStrByDay(trip, dayNum);
-                            return { ...makeEmptyWeatherDay(dayNum, trip), ...(dailyMap[dateStr] || {}), dayNum };
+                            return { ...makeEmptyWeatherDay(dayNum, trip), ...(historyMap[dateStr] || {}), ...(dailyMap[dateStr] || {}), dayNum };
                         });
+
+                        const historyCount = weatherForecast.value.filter(day => day.source === 'history').length;
+                        const forecastCount = weatherForecast.value.filter(day => day.source === 'forecast').length;
+
+                        if (historyCount && forecastCount) {
+                            weatherError.value = `部分日期超出預報範圍，已改用近${HISTORICAL_WEATHER_YEARS}年同期歷史平均；歷史資料的降雨為降雨日比例。`;
+                        } else if (historyCount && !forecastCount) {
+                            weatherError.value = `未取得指定日期預報，已改用近${HISTORICAL_WEATHER_YEARS}年同期歷史平均；歷史資料的降雨為降雨日比例。`;
+                        } else if (!forecastCount && !historyCount) {
+                            weatherError.value = '目前無法取得天氣預報或歷史同期資料，可能是日期太遠、網路受限或天氣服務暫時無回應。';
+                        }
 
                         const first = weatherForecast.value[0] || makeEmptyWeatherDay(1, trip);
                         weather.value = {
                             city: weatherCity.value,
                             temp: first.tempText,
-                            desc: first.desc,
+                            desc: first.source === 'history' ? '歷史同期' : first.desc,
                             icon: first.icon
                         };
                     } catch (e) {
                         weatherForecast.value = Array.from({ length: days }, (_, i) => makeEmptyWeatherDay(i + 1, trip));
                         weather.value = { city, temp: '—', desc: '無法取得天氣', icon: 'fa-regular fa-circle-question text-neutral-300' };
-                        weatherError.value = '目前無法取得天氣預報，可能是日期太遠、網路受限或天氣服務暫時無回應。';
+                        weatherError.value = '目前無法取得天氣預報或歷史同期資料，可能是日期太遠、網路受限或天氣服務暫時無回應。';
                     } finally {
                         weatherLoading.value = false;
                     }
@@ -2080,7 +2207,8 @@
                     if (weatherLoading.value) return '天氣讀取中...';
                     if (weatherError.value) return '點選查看天氣狀態';
                     const first = getDayWeather(1);
-                    return `${weatherCity.value}｜${currentTrip.value?.days || 1}天預報｜Day 1 ${first.desc}`;
+                    const sourceText = first.source === 'history' ? '歷史同期' : '預報';
+                    return `${weatherCity.value}｜${currentTrip.value?.days || 1}天${sourceText}｜Day 1 ${first.desc}`;
                 };
 
                 const openWeatherModal = async () => {
