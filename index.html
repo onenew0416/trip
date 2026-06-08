@@ -838,19 +838,10 @@
                         </div>
 
                         <div v-else class="space-y-5">
-                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div class="grid grid-cols-1 gap-3">
                                 <div class="bg-[#fcfbf9] border border-[#e6e4dc] rounded-2xl p-4">
                                     <p class="text-[11px] text-neutral-400 font-bold">總花費</p>
                                     <p class="text-lg font-bold text-neutral-900 mt-1">{{ formatSplitTotalSummary() }}</p>
-                                </div>
-                                <div class="bg-[#fcfbf9] border border-[#e6e4dc] rounded-2xl p-4">
-                                    <p class="text-[11px] text-neutral-400 font-bold">分帳金額</p>
-                                    <p class="text-lg font-bold text-amber-700 mt-1">{{ formatTwdCurrency(splitRepaymentSummary.totalTwd) }}</p>
-                                </div>
-                                <div class="bg-[#fcfbf9] border border-[#e6e4dc] rounded-2xl p-4">
-                                    <p class="text-[11px] text-neutral-400 font-bold">目前待還款</p>
-                                    <p class="text-lg font-bold text-amber-700 mt-1">{{ formatTwdCurrency(splitRepaymentSummary.unpaidTwd) }}</p>
-                                    <p class="text-[10px] text-neutral-400 mt-0.5">已勾選還款的細項不列入</p>
                                 </div>
                             </div>
 
@@ -3630,36 +3621,58 @@
                 const getAllExpenseRepaymentItems = () => getSplitExpenses().flatMap(exp => calculateExpenseRepaymentItems(exp));
 
                 const calculateSplitSettlements = () => {
-                    const groups = {};
+                    // 將所有細項還款先依「兩位成員」互相抵銷後，只顯示淨額。
+                    // 例如 A 欠 B 100、B 欠 A 200，最後只顯示 B 要還 A 100。
+                    const pairMap = {};
                     getAllExpenseRepaymentItems().forEach(item => {
-                        const groupKey = `${item.fromKey}__${item.toKey}`;
-                        if (!groups[groupKey]) {
-                            groups[groupKey] = {
-                                key: groupKey,
-                                fromKey: item.fromKey,
-                                toKey: item.toKey,
-                                from: item.from,
-                                to: item.to,
-                                totalTwd: 0,
-                                paidTwd: 0,
-                                unpaidTwd: 0,
-                                amountTwd: 0,
-                                currency: 'TWD'
+                        if (isExpenseRepaymentPaid(item)) return;
+                        const fromKey = item.fromKey || getUsernameKey(item.from);
+                        const toKey = item.toKey || getUsernameKey(item.to);
+                        const amountTwd = roundMoney(Number(item.amountTwd || 0));
+                        if (!fromKey || !toKey || fromKey === toKey || amountTwd <= 0.009) return;
+
+                        const keys = [fromKey, toKey].sort((a, b) => String(a).localeCompare(String(b)));
+                        const pairKey = `${keys[0]}__PAIR__${keys[1]}`;
+                        if (!pairMap[pairKey]) {
+                            pairMap[pairKey] = {
+                                key: pairKey,
+                                aKey: keys[0],
+                                bKey: keys[1],
+                                names: {},
+                                aToB: 0,
+                                bToA: 0
                             };
                         }
-                        groups[groupKey].totalTwd = roundMoney(groups[groupKey].totalTwd + item.amountTwd);
-                        if (isExpenseRepaymentPaid(item)) {
-                            groups[groupKey].paidTwd = roundMoney(groups[groupKey].paidTwd + item.amountTwd);
+                        pairMap[pairKey].names[fromKey] = item.from || pairMap[pairKey].names[fromKey] || fromKey;
+                        pairMap[pairKey].names[toKey] = item.to || pairMap[pairKey].names[toKey] || toKey;
+
+                        if (fromKey === pairMap[pairKey].aKey && toKey === pairMap[pairKey].bKey) {
+                            pairMap[pairKey].aToB = roundMoney(pairMap[pairKey].aToB + amountTwd);
+                        } else if (fromKey === pairMap[pairKey].bKey && toKey === pairMap[pairKey].aKey) {
+                            pairMap[pairKey].bToA = roundMoney(pairMap[pairKey].bToA + amountTwd);
                         }
                     });
-                    return Object.values(groups)
-                        .map(item => ({
-                            ...item,
-                            unpaidTwd: roundMoney(item.totalTwd - item.paidTwd),
-                            amountTwd: roundMoney(item.totalTwd - item.paidTwd)
-                        }))
-                        .filter(item => item.totalTwd > 0.009)
-                        .sort((a, b) => b.unpaidTwd - a.unpaidTwd || b.totalTwd - a.totalTwd);
+
+                    return Object.values(pairMap).map(pair => {
+                        const netAtoB = roundMoney(pair.aToB - pair.bToA);
+                        if (Math.abs(netAtoB) <= 0.009) return null;
+                        const fromKey = netAtoB > 0 ? pair.aKey : pair.bKey;
+                        const toKey = netAtoB > 0 ? pair.bKey : pair.aKey;
+                        const amountTwd = roundMoney(Math.abs(netAtoB));
+                        return {
+                            key: `${fromKey}__${toKey}`,
+                            fromKey,
+                            toKey,
+                            from: pair.names[fromKey] || fromKey,
+                            to: pair.names[toKey] || toKey,
+                            totalTwd: amountTwd,
+                            paidTwd: 0,
+                            unpaidTwd: amountTwd,
+                            amountTwd,
+                            currency: 'TWD'
+                        };
+                    }).filter(Boolean)
+                        .sort((a, b) => b.amountTwd - a.amountTwd || String(a.from).localeCompare(String(b.from), 'zh-Hant'));
                 };
                 const splitSettlements = computed(() => calculateSplitSettlements());
 
