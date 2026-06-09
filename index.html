@@ -2518,31 +2518,11 @@
 
                 const combineTripData = (sharedData = {}, privateData = {}) => {
                     const privatePart = {
-                    todos: Array.isArray(privateData?.todos) ? privateData.todos : [],
-                    luggage: Array.isArray(privateData?.luggage) ? privateData.luggage : [],
-                    expenses: Array.isArray(privateData?.expenses) ? privateData.expenses : [],
-                    shopping: Array.isArray(privateData?.shopping) ? privateData.shopping : []
-                };
-
-                const preserveSplitExpenseExpanded = (newTrip, oldTrip) => {
-                    if (!newTrip || !oldTrip) return newTrip;
-
-                    const expandedMap = {};
-                    (oldTrip.splitExpenses || []).forEach(exp => {
-                        if (exp && exp.id != null) {
-                            expandedMap[String(exp.id)] = !!exp.expanded;
-                        }
-                    });
-
-                    return {
-                        ...newTrip,
-                        splitExpenses: (newTrip.splitExpenses || []).map(exp => ({
-                            ...exp,
-                            expanded: expandedMap[String(exp.id)] ?? !!exp.expanded
-                        }))
+                        todos: Array.isArray(privateData?.todos) ? privateData.todos : [],
+                        luggage: Array.isArray(privateData?.luggage) ? privateData.luggage : [],
+                        expenses: Array.isArray(privateData?.expenses) ? privateData.expenses : [],
+                        shopping: Array.isArray(privateData?.shopping) ? privateData.shopping : []
                     };
-                };
-
                     const normalizedDates = normalizeTripDateFields(sharedData || {});
                     return {
                         id: sharedData.id,
@@ -2561,6 +2541,25 @@
                         menuLinks: Array.isArray(sharedData.menuLinks) ? sharedData.menuLinks : [],
                         itinerary: ensureItineraryDayKeys(sharedData.itinerary || {}, normalizedDates.days),
                         ...privatePart
+                    };
+                };
+
+                const preserveSplitExpenseExpanded = (newTrip, oldTrip) => {
+                    if (!newTrip || !oldTrip) return newTrip;
+
+                    const expandedMap = {};
+                    (oldTrip.splitExpenses || []).forEach(exp => {
+                        if (exp && exp.id != null) {
+                            expandedMap[String(exp.id)] = !!exp.expanded;
+                        }
+                    });
+
+                    return {
+                        ...newTrip,
+                        splitExpenses: (newTrip.splitExpenses || []).map(exp => ({
+                            ...exp,
+                            expanded: expandedMap[String(exp.id)] ?? !!exp.expanded
+                        }))
                     };
                 };
 
@@ -2785,7 +2784,6 @@
                             if (currentTrip.value) {
                                 const updated = list.find(t => t.id === currentTrip.value.id);
                                 currentTrip.value = updated ? preserveSplitExpenseExpanded(updated, currentTrip.value) : null;
-
                                 trips.value = list.map(t =>
                                     currentTrip.value && t.id === currentTrip.value.id
                                         ? currentTrip.value
@@ -4034,8 +4032,12 @@
                     try {
                         if (!Array.isArray(currentTrip.value.splitExpenses)) currentTrip.value.splitExpenses = [];
                         const idx = currentTrip.value.splitExpenses.findIndex(item => item.id === editingSplitExpenseId.value);
-                        if (idx >= 0) currentTrip.value.splitExpenses[idx] = expenseData;
-                        else currentTrip.value.splitExpenses.unshift(expenseData);
+                        if (idx >= 0) {
+                            expenseData.expanded = !!currentTrip.value.splitExpenses[idx].expanded;
+                            currentTrip.value.splitExpenses[idx] = expenseData;
+                        } else {
+                            currentTrip.value.splitExpenses.unshift(expenseData);
+                        }
                         await updateSharedTripData();
                         closeExpenseModal();
                     } catch (err) {
