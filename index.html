@@ -2523,6 +2523,26 @@
                     expenses: Array.isArray(privateData?.expenses) ? privateData.expenses : [],
                     shopping: Array.isArray(privateData?.shopping) ? privateData.shopping : []
                 };
+
+                const preserveSplitExpenseExpanded = (newTrip, oldTrip) => {
+                    if (!newTrip || !oldTrip) return newTrip;
+
+                    const expandedMap = {};
+                    (oldTrip.splitExpenses || []).forEach(exp => {
+                        if (exp && exp.id != null) {
+                            expandedMap[String(exp.id)] = !!exp.expanded;
+                        }
+                    });
+
+                    return {
+                        ...newTrip,
+                        splitExpenses: (newTrip.splitExpenses || []).map(exp => ({
+                            ...exp,
+                            expanded: expandedMap[String(exp.id)] ?? !!exp.expanded
+                        }))
+                    };
+                };
+
                     const normalizedDates = normalizeTripDateFields(sharedData || {});
                     return {
                         id: sharedData.id,
@@ -2762,10 +2782,17 @@
                                 }
                             }
                             list.sort((a, b) => String(a.startDate || '').localeCompare(String(b.startDate || '')) || String(a.title || '').localeCompare(String(b.title || '')));
-                            trips.value = list;
                             if (currentTrip.value) {
                                 const updated = list.find(t => t.id === currentTrip.value.id);
-                                currentTrip.value = updated || null;
+                                currentTrip.value = updated ? preserveSplitExpenseExpanded(updated, currentTrip.value) : null;
+
+                                trips.value = list.map(t =>
+                                    currentTrip.value && t.id === currentTrip.value.id
+                                        ? currentTrip.value
+                                        : t
+                                );
+                            } else {
+                                trips.value = list;
                             }
                         };
 
