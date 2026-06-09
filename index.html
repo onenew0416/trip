@@ -3484,6 +3484,12 @@
 
                 // 分帳記帳：共用成員、金額與結算
                 const roundMoney = (value) => Math.round((Number(value) || 0) * 100) / 100;
+				
+				const roundRepaymentTwd = (value) => {
+					const amount = Number(value || 0);
+					if (amount < 0.5) return 0;
+					return Math.round(amount);
+				};
 
                 const getMemberInitial = (name = '') => {
                     const text = String(name || '').trim();
@@ -3580,6 +3586,73 @@
 
                 const getSplitExpenseRate = (exp) => getExpenseRate(exp);
                 const splitAmountToTwd = (amount, exp) => roundMoney(Number(amount || 0) * getSplitExpenseRate(exp));
+				const stableHash = (text) => {
+					const str = String(text || '');
+					let hash = 0;
+					for (let i = 0; i < str.length; i++) {
+						hash = ((hash << 5) - hash) + str.charCodeAt(i);
+						hash |= 0;
+					}
+					return Math.abs(hash);
+				};
+
+				const buildRoundedTwdRows = (rows, exp, seed, targetTotalTwd = null) => {
+					const mapped = rows.map((row, idx) => {
+						const key = row.key || getUsernameKey(row.name);
+						const exactTwd = splitAmountToTwd(row.amount, exp);
+						return {
+							...row,
+							idx,
+							key,
+							exactTwd,
+							amountTwd: Math.floor(exactTwd)
+						};
+					}).filter(row => row.key && row.exactTwd > 0);
+
+					const target = targetTotalTwd ?? roundRepaymentTwd(
+						mapped.reduce((sum, row) => sum + row.exactTwd, 0)
+					);
+
+					let diff = target - mapped.reduce((sum, row) => sum + row.amountTwd, 0);
+
+					const ordered = [...mapped].sort((a, b) => {
+						const aHash = stableHash(`${seed}_${a.key}_${a.idx}`);
+						const bHash = stableHash(`${seed}_${b.key}_${b.idx}`);
+						return aHash - bHash;
+					});
+
+					while (diff > 0 && ordered.length) {
+						for (const row of ordered) {
+							if (diff <= 0) break;
+							row.amountTwd += 1;
+							diff--;
+						}
+					}
+
+					while (diff < 0 && ordered.some(row => row.amountTwd > 0)) {
+						for (const row of ordered) {
+							if (diff >= 0) break;
+							if (row.amountTwd > 0) {
+								row.amountTwd -= 1;
+								diff++;
+							}
+						}
+					}
+
+					return mapped.filter(row => row.amountTwd > 0);
+				};
+
+				const getRoundedExpensePayersTwd = (exp) => {
+					return buildRoundedTwdRows(getSplitPayers(exp), exp, `payer_${exp?.id || ''}`);
+				};
+
+				const getRoundedExpenseSharesTwd = (exp) => {
+					const targetTotalTwd = roundRepaymentTwd(
+						getSplitPayers(exp).reduce((sum, payer) => sum + splitAmountToTwd(payer.amount, exp), 0)
+					);
+
+					return buildRoundedTwdRows(getSplitShares(exp), exp, `share_${exp?.id || ''}`, targetTotalTwd);
+				};				
                 const getSplitExpenseTotalTwd = (exp) => roundMoney(getSplitExpenseTotal(exp) * getSplitExpenseRate(exp));
                 const formatSplitAmountWithTwd = (amount, exp) => {
                     const currency = String(exp?.currency || 'TWD').toUpperCase();
@@ -3618,18 +3691,18 @@
                     const expenseId = String(exp.id || 'expense');
                     getAccountingMembers().forEach(m => { if (m.key) names[m.key] = m.name; });
 
-                    getSplitPayers(exp).forEach(p => {
-                        const key = p.key || getUsernameKey(p.name);
-                        if (!key) return;
-                        names[key] = p.name || names[key] || key;
-                        balances[key] = roundMoney((balances[key] || 0) + splitAmountToTwd(p.amount, exp));
-                    });
-                    getSplitShares(exp).forEach(s => {
-                        const key = s.key || getUsernameKey(s.name);
-                        if (!key) return;
-                        names[key] = s.name || names[key] || key;
-                        balances[key] = roundMoney((balances[key] || 0) - splitAmountToTwd(s.amount, exp));
-                    });
+                    getRoundedExpensePayersTwd(exp).forEach(p => {
+						const key = p.key || getUsernameKey(p.name);
+						if (!key) return;
+						names[key] = p.name || names[key] || key;
+						balances[key] = roundMoney((balances[key] || 0) + p.amountTwd);
+					});
+                    getRoundedExpenseSharesTwd(exp).forEach(s => {
+						const key = s.key || getUsernameKey(s.name);
+						if (!key) return;
+						names[key] = s.name || names[key] || key;
+						balances[key] = roundMoney((balances[key] || 0) - s.amountTwd);
+					});
 
                     const creditors = [];
                     const debtors = [];
@@ -3644,8 +3717,9 @@
                     const items = [];
                     let i = 0, j = 0;
                     while (i < debtors.length && j < creditors.length) {
-                        const amountTwd = roundMoney(Math.min(debtors[i].amount, creditors[j].amount));
-                        if (amountTwd > 0.009) {
+                        const amountTwd = Math.min(debtors[i].amount, creditors[j].amount);
+
+						if (amountTwd > 0) {
                             const item = {
                                 expenseId,
                                 expenseTitle: exp.title || '',
@@ -3659,8 +3733,8 @@
                             item.key = makeExpenseRepaymentKey(item);
                             items.push(item);
                         }
-                        debtors[i].amount = roundMoney(debtors[i].amount - amountTwd);
-                        creditors[j].amount = roundMoney(creditors[j].amount - amountTwd);
+						debtors[i].amount = roundMoney(debtors[i].amount - amountTwd);
+						creditors[j].amount = roundMoney(creditors[j].amount - amountTwd);
                         if (debtors[i].amount <= 0.009) i++;
                         if (creditors[j].amount <= 0.009) j++;
                     }
@@ -3724,20 +3798,20 @@
                         map[member.key] = { key: member.key, name: member.name, paidTwd: 0, shareTwd: 0, netTwd: 0 };
                     });
                     getSplitExpenses().forEach(exp => {
-                        getSplitPayers(exp).forEach(p => {
-                            const key = p.key || getUsernameKey(p.name);
-                            if (!key) return;
-                            if (!map[key]) map[key] = { key, name: p.name || key, paidTwd: 0, shareTwd: 0, netTwd: 0 };
-                            map[key].name = p.name || map[key].name;
-                            map[key].paidTwd = roundMoney(map[key].paidTwd + splitAmountToTwd(p.amount, exp));
-                        });
-                        getSplitShares(exp).forEach(p => {
-                            const key = p.key || getUsernameKey(p.name);
-                            if (!key) return;
-                            if (!map[key]) map[key] = { key, name: p.name || key, paidTwd: 0, shareTwd: 0, netTwd: 0 };
-                            map[key].name = p.name || map[key].name;
-                            map[key].shareTwd = roundMoney(map[key].shareTwd + splitAmountToTwd(p.amount, exp));
-                        });
+                        getRoundedExpensePayersTwd(exp).forEach(p => {
+							const key = p.key || getUsernameKey(p.name);
+							if (!key) return;
+							if (!map[key]) map[key] = { key, name: p.name || key, paidTwd: 0, shareTwd: 0, netTwd: 0 };
+							map[key].name = p.name || map[key].name;
+							map[key].paidTwd = roundMoney(map[key].paidTwd + p.amountTwd);
+						});
+                        getRoundedExpenseSharesTwd(exp).forEach(p => {
+							const key = p.key || getUsernameKey(p.name);
+							if (!key) return;
+							if (!map[key]) map[key] = { key, name: p.name || key, paidTwd: 0, shareTwd: 0, netTwd: 0 };
+							map[key].name = p.name || map[key].name;
+							map[key].shareTwd = roundMoney(map[key].shareTwd + p.amountTwd);
+						});
                     });
                     return Object.values(map)
                         .map(item => ({ ...item, netTwd: roundMoney(item.paidTwd - item.shareTwd) }))
@@ -3783,10 +3857,11 @@
 
                     return Object.values(pairMap).map(pair => {
                         const netAtoB = roundMoney(pair.aToB - pair.bToA);
-                        if (Math.abs(netAtoB) <= 0.009) return null;
-                        const fromKey = netAtoB > 0 ? pair.aKey : pair.bKey;
-                        const toKey = netAtoB > 0 ? pair.bKey : pair.aKey;
-                        const amountTwd = roundMoney(Math.abs(netAtoB));
+						const amountTwd = roundRepaymentTwd(Math.abs(netAtoB));
+						if (amountTwd <= 0) return null;
+
+						const fromKey = netAtoB > 0 ? pair.aKey : pair.bKey;
+						const toKey = netAtoB > 0 ? pair.bKey : pair.aKey;
                         return {
                             key: `${fromKey}__${toKey}`,
                             fromKey,
@@ -3807,8 +3882,8 @@
                 const calculateSplitSettlementReceivableGroups = () => {
                     const groups = {};
                     calculateSplitSettlements().forEach(settle => {
-                        const amountTwd = roundMoney(settle.unpaidTwd || settle.amountTwd || 0);
-                        if (amountTwd <= 0.009) return;
+                        const amountTwd = roundRepaymentTwd(settle.unpaidTwd || settle.amountTwd || 0);
+						if (amountTwd <= 0) return;
                         const groupKey = settle.toKey || getUsernameKey(settle.to);
                         if (!groupKey) return;
                         if (!groups[groupKey]) {
