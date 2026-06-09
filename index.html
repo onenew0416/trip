@@ -2517,7 +2517,12 @@
                 const privateTripDefaults = () => ({ todos: [], luggage: [], expenses: [], shopping: [] });
 
                 const combineTripData = (sharedData = {}, privateData = {}) => {
-                    const privatePart = { ...privateTripDefaults(), ...(privateData || {}) };
+                    const privatePart = {
+                    todos: Array.isArray(privateData?.todos) ? privateData.todos : [],
+                    luggage: Array.isArray(privateData?.luggage) ? privateData.luggage : [],
+                    expenses: Array.isArray(privateData?.expenses) ? privateData.expenses : [],
+                    shopping: Array.isArray(privateData?.shopping) ? privateData.shopping : []
+                };
                     const normalizedDates = normalizeTripDateFields(sharedData || {});
                     return {
                         id: sharedData.id,
@@ -3214,6 +3219,36 @@
                     }
                 };
 
+                const updateSplitRepaymentsOnly = async () => {
+                    if (!currentTrip.value) return;
+
+                    const repayments = currentTrip.value.splitRepayments && typeof currentTrip.value.splitRepayments === 'object'
+                        ? currentTrip.value.splitRepayments
+                        : {};
+
+                    const tripIdx = trips.value.findIndex(t => t.id === currentTrip.value.id);
+                    if (tripIdx >= 0) {
+                        trips.value[tripIdx] = {
+                            ...trips.value[tripIdx],
+                            splitRepayments: repayments
+                        };
+                    }
+
+                    if (!isKeyMissing) {
+                        await db.collection('trips').doc(currentTrip.value.id).update({
+                            splitRepayments: repayments,
+                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                    } else {
+                        const list = getLocalSharedTrips();
+                        const idx = list.findIndex(t => t.id === currentTrip.value.id);
+                        if (idx >= 0) {
+                            list[idx].splitRepayments = repayments;
+                        }
+                        setLocalSharedTrips(list);
+                    }
+                };
+
                 const updatePrivateTripData = async () => {
                     if (!currentTrip.value) return;
                     if (!isKeyMissing) {
@@ -3779,7 +3814,7 @@
                             };
                         }
                         currentTrip.value.splitRepayments = { ...repayments };
-                        await updateSharedTripData();
+                        await updateSplitRepaymentsOnly();
                     } catch (err) {
                         currentTrip.value.splitRepayments = backup;
                         console.error('Update detail repayment failed:', err);
