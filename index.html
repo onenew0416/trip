@@ -2001,8 +2001,11 @@
                     return { from: parseAirport(parts[0]), to: parseAirport(parts.slice(1).join(' - ')) };
                 };
 
-                const MAX_UPLOAD_IMAGE_BYTES = 220 * 1024;
-                const MAX_UPLOAD_IMAGE_EDGE = 1200;
+                // Firestore 單一文件上限約 1MiB；圖片若直接以 base64 存進行程/購物資料，很容易超過。
+                // 這裡改成「縮圖等級」儲存：畫面卡片足夠顯示，也能大幅降低文件大小。
+                const MAX_UPLOAD_IMAGE_BYTES = 28 * 1024;
+                const MAX_UPLOAD_IMAGE_EDGE = 520;
+                const FIRESTORE_SAFE_DOC_BYTES = 900 * 1024;
 
                 const getDataUrlByteSize = (dataUrl = '') => {
                     // dataURL 存進 Firestore 時本質上是字串，這裡用字串長度估算文件大小。
@@ -2040,33 +2043,90 @@
                     return canvas.toDataURL('image/jpeg', quality);
                 };
 
-                const compressImageFile = async (file) => {
-                    const img = await loadImageFromFile(file);
+                const compressImageElement = async (img, targetBytes = MAX_UPLOAD_IMAGE_BYTES) => {
                     let maxEdge = MAX_UPLOAD_IMAGE_EDGE;
                     let bestDataUrl = '';
                     let bestBytes = Infinity;
+                    const qualitySteps = [0.72, 0.62, 0.52, 0.44, 0.36, 0.30, 0.24, 0.18];
 
-                    for (let round = 0; round < 6; round += 1) {
-                        for (let quality = 0.82; quality >= 0.34; quality -= 0.08) {
+                    for (let round = 0; round < 9; round += 1) {
+                        for (const quality of qualitySteps) {
                             const dataUrl = canvasToJpegDataUrl(img, maxEdge, quality);
                             const bytes = getDataUrlByteSize(dataUrl);
                             if (bytes < bestBytes) {
                                 bestDataUrl = dataUrl;
                                 bestBytes = bytes;
                             }
-                            if (bytes <= MAX_UPLOAD_IMAGE_BYTES) {
+                            if (bytes <= targetBytes) {
                                 return { dataUrl, bytes, compressed: true, tooLarge: false };
                             }
                         }
-                        maxEdge = Math.max(520, Math.round(maxEdge * 0.78));
+                        maxEdge = Math.max(220, Math.round(maxEdge * 0.74));
                     }
 
                     return {
                         dataUrl: bestDataUrl,
                         bytes: bestBytes,
                         compressed: true,
-                        tooLarge: bestBytes > MAX_UPLOAD_IMAGE_BYTES
+                        tooLarge: bestBytes > targetBytes
                     };
+                };
+
+                const compressImageFile = async (file) => {
+                    const img = await loadImageFromFile(file);
+                    return compressImageElement(img, MAX_UPLOAD_IMAGE_BYTES);
+                };
+
+                const isEmbeddedImageDataUrl = (value = '') => /^data:image\/(png|jpe?g|webp);base64,/i.test(String(value || ''));
+
+                const loadImageFromDataUrl = (dataUrl) => new Promise((resolve, reject) => {
+                    const img = new Image();
+                    img.onload = () => resolve(img);
+                    img.onerror = () => reject(new Error('圖片讀取失敗'));
+                    img.src = dataUrl;
+                });
+
+                const optimizeDataUrlImage = async (dataUrl) => {
+                    const raw = String(dataUrl || '').trim();
+                    if (!isEmbeddedImageDataUrl(raw)) return raw;
+                    if (getDataUrlByteSize(raw) <= MAX_UPLOAD_IMAGE_BYTES) return raw;
+                    const img = await loadImageFromDataUrl(raw);
+                    const result = await compressImageElement(img, MAX_UPLOAD_IMAGE_BYTES);
+                    return result.dataUrl || raw;
+                };
+
+                const optimizeTripEmbeddedImages = async (trip) => {
+                    if (!trip) return;
+
+                    const dayKeys = Object.keys(trip.itinerary || {});
+                    for (const dayKey of dayKeys) {
+                        const list = Array.isArray(trip.itinerary?.[dayKey]) ? trip.itinerary[dayKey] : [];
+                        for (const spot of list) {
+                            if (spot && isEmbeddedImageDataUrl(spot.imgUrl)) {
+                                spot.imgUrl = await optimizeDataUrlImage(spot.imgUrl);
+                            }
+                        }
+                    }
+
+                    const shoppingList = Array.isArray(trip.shopping) ? trip.shopping : [];
+                    for (const item of shoppingList) {
+                        if (item && isEmbeddedImageDataUrl(item.imgUrl)) {
+                            item.imgUrl = await optimizeDataUrlImage(item.imgUrl);
+                        }
+                    }
+                };
+
+                const estimatePayloadBytes = (payload) => {
+                    const text = JSON.stringify(payload || {});
+                    if (window.TextEncoder) return new TextEncoder().encode(text).length;
+                    return text.length;
+                };
+
+                const assertPayloadSizeSafe = (payload, label = '資料') => {
+                    const bytes = estimatePayloadBytes(payload);
+                    if (bytes > FIRESTORE_SAFE_DOC_BYTES) {
+                        throw new Error(`${label}目前約 ${Math.round(bytes / 1024)}KB，仍然接近或超過 Firestore 單筆上限。請先移除幾張舊的上傳圖片，或改用圖片網址。`);
+                    }
                 };
 
                 const handleImageUpload = async (event, target) => {
@@ -3715,13 +3775,16 @@
 
                 const updateSharedTripData = async () => {
                     if (!currentTrip.value) return;
+                    await optimizeTripEmbeddedImages(currentTrip.value);
                     const sharedPayload = getSharedTripPayload(currentTrip.value);
+                    const firebasePayload = getFirebaseSharedTripPayload(currentTrip.value);
+                    assertPayloadSizeSafe(firebasePayload, '行程資料');
                     const tripIdx = trips.value.findIndex(t => t.id === currentTrip.value.id);
                     if (tripIdx >= 0) trips.value[tripIdx] = { ...trips.value[tripIdx], ...currentTrip.value, ...sharedPayload };
 
                     if (!isKeyMissing) {
                         await db.collection('trips').doc(currentTrip.value.id).set({
-                            ...getFirebaseSharedTripPayload(currentTrip.value),
+                            ...firebasePayload,
                             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                         }, { merge: true });
                     } else {
@@ -3765,13 +3828,16 @@
 
                 const updatePrivateTripData = async () => {
                     if (!currentTrip.value) return;
+                    await optimizeTripEmbeddedImages(currentTrip.value);
+                    const privatePayload = getPrivateTripPayload(currentTrip.value);
+                    assertPayloadSizeSafe(privatePayload, '個人清單資料');
                     if (!isKeyMissing) {
                         await db.collection('users').doc(user.value.uid).collection('tripPrivate').doc(currentTrip.value.id).set({
-                            ...getPrivateTripPayload(currentTrip.value),
+                            ...privatePayload,
                             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                         }, { merge: true });
                     } else {
-                        setLocalPrivateTrip(currentTrip.value.id, getPrivateTripPayload(currentTrip.value));
+                        setLocalPrivateTrip(currentTrip.value.id, privatePayload);
                         const tripIdx = trips.value.findIndex(t => t.id === currentTrip.value.id);
                         if (tripIdx >= 0) trips.value[tripIdx] = { ...trips.value[tripIdx], ...currentTrip.value };
                     }
@@ -4644,28 +4710,35 @@
                 const decreaseEditShopQuantity = () => {
                     editShoppingData.value.quantity = Math.max(1, normalizeQuantityValue(editShoppingData.value.quantity) - 1);
                 };
-                const saveShoppingForm = () => {
+                const saveShoppingForm = async () => {
                     if (!newShopItem.value.text.trim()) return alert('請填寫品項名稱');
-                    if (!currentTrip.value.shopping) currentTrip.value.shopping = [];
-                    const payload = {
-                        text: newShopItem.value.text.trim(),
-                        category: normalizeShoppingCategory(newShopItem.value.category),
-                        quantity: String(normalizeQuantityValue(newShopItem.value.quantity)).trim(),
-                        note: String(newShopItem.value.note || '').trim(),
-                        url: String(newShopItem.value.url || '').trim(),
-                        imgUrl: String(newShopItem.value.imgUrl || '').trim(),
-                        done: false
-                    };
-                    if (shoppingFormMode.value === 'edit' && editingShoppingId.value !== null) {
-                        const shop = currentTrip.value.shopping.find(s => s.id === editingShoppingId.value);
-                        if (shop) Object.assign(shop, payload, { id: shop.id, done: !!shop.done });
-                    } else {
-                        currentTrip.value.shopping.push({ id: Date.now(), ...payload });
+                    const backupShopping = JSON.parse(JSON.stringify(currentTrip.value.shopping || []));
+                    try {
+                        if (!currentTrip.value.shopping) currentTrip.value.shopping = [];
+                        const payload = {
+                            text: newShopItem.value.text.trim(),
+                            category: normalizeShoppingCategory(newShopItem.value.category),
+                            quantity: String(normalizeQuantityValue(newShopItem.value.quantity)).trim(),
+                            note: String(newShopItem.value.note || '').trim(),
+                            url: String(newShopItem.value.url || '').trim(),
+                            imgUrl: String(newShopItem.value.imgUrl || '').trim(),
+                            done: false
+                        };
+                        if (shoppingFormMode.value === 'edit' && editingShoppingId.value !== null) {
+                            const shop = currentTrip.value.shopping.find(s => s.id === editingShoppingId.value);
+                            if (shop) Object.assign(shop, payload, { id: shop.id, done: !!shop.done });
+                        } else {
+                            currentTrip.value.shopping.push({ id: Date.now(), ...payload });
+                        }
+                        await updatePrivateTripData();
+                        newShopItem.value = { text: '', category: '藥妝', quantity: 1, note: '', url: '', imgUrl: '' };
+                        expandedShoppingId.value = null;
+                        closeShopModal();
+                    } catch (err) {
+                        currentTrip.value.shopping = backupShopping;
+                        console.error('Save shopping item failed:', err);
+                        alert('購物儲存失敗：' + (err?.message || '請稍後再試。'));
                     }
-                    updatePrivateTripData();
-                    newShopItem.value = { text: '', category: '藥妝', quantity: 1, note: '', url: '', imgUrl: '' };
-                    expandedShoppingId.value = null;
-                    closeShopModal();
                 };
                 const addShopItem = saveShoppingForm;
                 const deleteShopItem = (id) => {
