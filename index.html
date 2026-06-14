@@ -1528,6 +1528,21 @@
                             <i class="fa-solid fa-circle-info mr-1"></i>{{ weatherError }}
                         </div>
 
+                        <div v-if="isKmaWeatherCity()" class="bg-[#fcfbf9] border border-[#e6e4dc] rounded-2xl p-3 mb-3 space-y-2">
+                            <div class="flex items-start justify-between gap-3">
+                                <div>
+                                    <p class="text-xs font-bold text-neutral-700">韓國氣象廳 KMA 預報</p>
+                                    <p class="text-[10px] text-neutral-400 mt-0.5">首爾、釜山、濟州可優先使用 KMA；未填 ServiceKey 時會自動使用原本一般預報。</p>
+                                </div>
+                            </div>
+                            <div class="flex flex-col sm:flex-row gap-2">
+                                <input v-model="kmaServiceKey" type="password" placeholder="貼上 data.go.kr 的 KMA ServiceKey" class="flex-1 border border-[#e6e4dc] rounded-xl p-2.5 text-xs bg-white focus:outline-none focus-border-primary">
+                                <button @click="saveKmaServiceKeyAndRefresh" type="button" class="px-4 py-2 text-xs bg-neutral-700 text-white rounded-xl hover:bg-neutral-800 shadow-sm whitespace-nowrap">
+                                    儲存並重新整理
+                                </button>
+                            </div>
+                        </div>
+
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div v-for="day in getTravelWeatherDays()" :key="day.dayNum" class="border border-[#e6e4dc] bg-[#fcfbf9] rounded-2xl p-4 flex items-center gap-4">
                                 <div class="w-12 h-12 rounded-2xl bg-white border border-[#e6e4dc] flex items-center justify-center shrink-0">
@@ -1543,6 +1558,9 @@
                                     </p>
                                     <p class="text-xs text-neutral-500 mt-0.5">
                                         氣溫 {{ day.tempText }}｜降雨 {{ day.rainText }}
+                                    </p>
+                                    <p v-if="day.sourceLabel" class="text-[10px] text-neutral-400 mt-0.5">
+                                        資料來源：{{ day.sourceLabel }}
                                     </p>
                                 </div>
                             </div>
@@ -1692,6 +1710,8 @@
                 const weatherError = ref('');
                 const weatherCity = ref('台北');
                 const showWeatherModal = ref(false);
+                const kmaServiceKey = ref('');
+                try { kmaServiceKey.value = localStorage.getItem('travel_kma_service_key') || ''; } catch (e) {}
                 const HISTORICAL_WEATHER_YEARS = 10;
                 const showSpotModal = ref(false);
                 const showExpenseModal = ref(false);
@@ -2057,9 +2077,15 @@
                     '沖繩': { name: '沖繩', latitude: 26.2124, longitude: 127.6809 },
                     '札幌': { name: '札幌', latitude: 43.0618, longitude: 141.3545 },
                     '名古屋': { name: '名古屋', latitude: 35.1815, longitude: 136.9066 },
-                    '首爾': { name: '首爾', latitude: 37.5665, longitude: 126.9780 },
-                    '釜山': { name: '釜山', latitude: 35.1796, longitude: 129.0756 },
-                    '濟州': { name: '濟州', latitude: 33.4996, longitude: 126.5312 },
+                    '首爾': { name: '首爾', latitude: 37.5665, longitude: 126.9780, kma: true, kmaName: '서울', nx: 60, ny: 127 },
+                    'Seoul': { name: '首爾', latitude: 37.5665, longitude: 126.9780, kma: true, kmaName: '서울', nx: 60, ny: 127 },
+                    '서울': { name: '首爾', latitude: 37.5665, longitude: 126.9780, kma: true, kmaName: '서울', nx: 60, ny: 127 },
+                    '釜山': { name: '釜山', latitude: 35.1796, longitude: 129.0756, kma: true, kmaName: '부산', nx: 98, ny: 76 },
+                    'Busan': { name: '釜山', latitude: 35.1796, longitude: 129.0756, kma: true, kmaName: '부산', nx: 98, ny: 76 },
+                    '부산': { name: '釜山', latitude: 35.1796, longitude: 129.0756, kma: true, kmaName: '부산', nx: 98, ny: 76 },
+                    '濟州': { name: '濟州', latitude: 33.4996, longitude: 126.5312, kma: true, kmaName: '제주', nx: 53, ny: 38 },
+                    'Jeju': { name: '濟州', latitude: 33.4996, longitude: 126.5312, kma: true, kmaName: '제주', nx: 53, ny: 38 },
+                    '제주': { name: '濟州', latitude: 33.4996, longitude: 126.5312, kma: true, kmaName: '제주', nx: 53, ny: 38 },
                     '曼谷': { name: '曼谷', latitude: 13.7563, longitude: 100.5018 },
                     '巴黎': { name: '巴黎', latitude: 48.8566, longitude: 2.3522 },
                     '倫敦': { name: '倫敦', latitude: 51.5072, longitude: -0.1276 },
@@ -2067,7 +2093,7 @@
                 };
 
                 const extractTripCity = (title = '') => {
-                    const matches = String(title).match(/(東京|大阪|京都|福岡|沖繩|札幌|名古屋|首爾|釜山|濟州|曼谷|巴黎|倫敦|紐約|台北|台中|高雄|宜蘭|花蓮|台東)/);
+                    const matches = String(title).match(/(東京|大阪|京都|福岡|沖繩|札幌|名古屋|首爾|Seoul|서울|釜山|Busan|부산|濟州|Jeju|제주|曼谷|巴黎|倫敦|紐約|台北|台中|高雄|宜蘭|花蓮|台東)/i);
                     return matches ? matches[0] : '台北';
                 };
 
@@ -2423,6 +2449,171 @@
                     return historyMap;
                 };
 
+                const getKmaServiceKey = () => String(kmaServiceKey.value || '').trim();
+
+                const saveKmaServiceKey = () => {
+                    try { localStorage.setItem('travel_kma_service_key', getKmaServiceKey()); } catch (e) {}
+                };
+
+                const isKmaWeatherCity = () => {
+                    const city = extractTripCity(currentTrip.value?.title || weatherCity.value || '');
+                    const coordinates = cityCoordinateMap[city];
+                    return !!(coordinates && coordinates.kma && coordinates.nx && coordinates.ny);
+                };
+
+                const saveKmaServiceKeyAndRefresh = async () => {
+                    saveKmaServiceKey();
+                    if (currentTrip.value) await fetchWeather(currentTrip.value.title, currentTrip.value);
+                };
+
+                const formatKmaDate = (date) => {
+                    const yy = date.getFullYear();
+                    const mm = String(date.getMonth() + 1).padStart(2, '0');
+                    const dd = String(date.getDate()).padStart(2, '0');
+                    return `${yy}${mm}${dd}`;
+                };
+
+                const formatKmaForecastDate = (yyyymmdd) => {
+                    const text = String(yyyymmdd || '');
+                    if (text.length !== 8) return '';
+                    return `${text.slice(0, 4)}-${text.slice(4, 6)}-${text.slice(6, 8)}`;
+                };
+
+                const getKoreaTimeDate = () => {
+                    const parts = new Intl.DateTimeFormat('en-CA', {
+                        timeZone: 'Asia/Seoul',
+                        year: 'numeric', month: '2-digit', day: '2-digit',
+                        hour: '2-digit', minute: '2-digit', second: '2-digit',
+                        hour12: false
+                    }).formatToParts(new Date()).reduce((acc, part) => {
+                        if (part.type !== 'literal') acc[part.type] = part.value;
+                        return acc;
+                    }, {});
+                    return new Date(Number(parts.year), Number(parts.month) - 1, Number(parts.day), Number(parts.hour), Number(parts.minute), Number(parts.second));
+                };
+
+                const getKmaBaseDateTime = () => {
+                    const kst = getKoreaTimeDate();
+                    // KMA 短期預報通常以 02/05/08/11/14/17/20/23 時為基準；保守抓 90 分鐘前，避免最新批次尚未發布。
+                    kst.setMinutes(kst.getMinutes() - 90);
+                    const baseHours = [2, 5, 8, 11, 14, 17, 20, 23];
+                    const hour = kst.getHours();
+                    let baseHour = baseHours.filter(h => h <= hour).pop();
+                    if (baseHour === undefined) {
+                        kst.setDate(kst.getDate() - 1);
+                        baseHour = 23;
+                    }
+                    return {
+                        baseDate: formatKmaDate(kst),
+                        baseTime: `${String(baseHour).padStart(2, '0')}00`
+                    };
+                };
+
+                const getKmaMostCommonValue = (values) => {
+                    const counts = {};
+                    values.filter(v => v !== undefined && v !== null && v !== '').forEach(v => {
+                        const key = String(v);
+                        counts[key] = (counts[key] || 0) + 1;
+                    });
+                    const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+                    return sorted.length ? sorted[0][0] : null;
+                };
+
+                const getKmaSkyPtyInfo = (skyValues = [], ptyValues = []) => {
+                    const ptyNums = ptyValues.map(v => Number(v)).filter(Number.isFinite);
+                    if (ptyNums.some(v => [1, 4, 5].includes(v))) return { desc: '雨', icon: 'fa-solid fa-cloud-rain text-sky-500' };
+                    if (ptyNums.some(v => [2, 6].includes(v))) return { desc: '雨雪', icon: 'fa-solid fa-cloud-rain text-sky-500' };
+                    if (ptyNums.some(v => [3, 7].includes(v))) return { desc: '雪', icon: 'fa-regular fa-snowflake text-sky-400' };
+                    const sky = Number(getKmaMostCommonValue(skyValues));
+                    if (sky === 1) return { desc: '晴', icon: 'fa-solid fa-sun text-amber-500' };
+                    if (sky === 3) return { desc: '多雲', icon: 'fa-solid fa-cloud-sun text-amber-500' };
+                    if (sky === 4) return { desc: '陰', icon: 'fa-solid fa-cloud text-neutral-400' };
+                    return { desc: '天氣預報', icon: 'fa-solid fa-cloud-sun text-amber-500' };
+                };
+
+                const averageNumbers = (values) => {
+                    const nums = values.map(v => Number(v)).filter(Number.isFinite);
+                    if (!nums.length) return null;
+                    return nums.reduce((sum, v) => sum + v, 0) / nums.length;
+                };
+
+                const fetchOpenMeteoForecast = async (coordinates, startDate, endDate) => {
+                    const dailyMap = {};
+                    const url = `https://api.open-meteo.com/v1/forecast?latitude=${coordinates.latitude}&longitude=${coordinates.longitude}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&start_date=${formatLocalDate(startDate)}&end_date=${formatLocalDate(endDate)}`;
+                    const res = await fetch(url);
+                    const data = await res.json();
+                    if (!res.ok || !data.daily || !data.daily.time) {
+                        throw new Error(data.reason || '天氣資料讀取失敗');
+                    }
+                    data.daily.time.forEach((dateStr, index) => {
+                        const info = getWeatherCodeInfo(data.daily.weather_code?.[index]);
+                        const maxTemp = data.daily.temperature_2m_max?.[index];
+                        const minTemp = data.daily.temperature_2m_min?.[index];
+                        const rain = data.daily.precipitation_probability_max?.[index];
+                        dailyMap[dateStr] = {
+                            date: dateStr,
+                            fullDateLabel: formatWeatherDateLabel(dateStr),
+                            desc: info.desc,
+                            icon: info.icon,
+                            tempText: (maxTemp === null || maxTemp === undefined || minTemp === null || minTemp === undefined) ? '—' : `${Math.round(minTemp)}°C～${Math.round(maxTemp)}°C`,
+                            rainText: (rain === null || rain === undefined) ? '—' : `${rain}%`,
+                            source: 'forecast',
+                            sourceLabel: '一般預報'
+                        };
+                    });
+                    return dailyMap;
+                };
+
+                const fetchKmaWeather = async (coordinates, trip, days) => {
+                    const serviceKey = getKmaServiceKey();
+                    if (!serviceKey) throw new Error('KMA_SERVICE_KEY_MISSING');
+                    const { baseDate, baseTime } = getKmaBaseDateTime();
+                    const startDate = getTripDateStrByDay(trip, 1);
+                    const endDate = getTripDateStrByDay(trip, days);
+                    const serviceKeyParam = serviceKey.includes('%') ? serviceKey : encodeURIComponent(serviceKey);
+                    const url = `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst?serviceKey=${serviceKeyParam}&pageNo=1&numOfRows=1000&dataType=JSON&base_date=${baseDate}&base_time=${baseTime}&nx=${coordinates.nx}&ny=${coordinates.ny}`;
+                    const res = await fetch(url);
+                    const data = await res.json();
+                    const header = data?.response?.header || {};
+                    if (!res.ok || header.resultCode !== '00') {
+                        throw new Error(header.resultMsg || '韓國氣象廳資料讀取失敗');
+                    }
+                    const items = data?.response?.body?.items?.item || [];
+                    const buckets = {};
+                    items.forEach(item => {
+                        const dateStr = formatKmaForecastDate(item.fcstDate);
+                        if (!dateStr || dateStr < startDate || dateStr > endDate) return;
+                        if (!buckets[dateStr]) buckets[dateStr] = { tmp: [], tmn: [], tmx: [], pop: [], sky: [], pty: [] };
+                        const value = item.fcstValue;
+                        if (item.category === 'TMP') buckets[dateStr].tmp.push(Number(value));
+                        if (item.category === 'TMN') buckets[dateStr].tmn.push(Number(value));
+                        if (item.category === 'TMX') buckets[dateStr].tmx.push(Number(value));
+                        if (item.category === 'POP') buckets[dateStr].pop.push(Number(value));
+                        if (item.category === 'SKY') buckets[dateStr].sky.push(value);
+                        if (item.category === 'PTY') buckets[dateStr].pty.push(value);
+                    });
+
+                    const dailyMap = {};
+                    Object.entries(buckets).forEach(([dateStr, bucket]) => {
+                        const temps = bucket.tmp.filter(Number.isFinite);
+                        const minTemp = bucket.tmn.length ? averageNumbers(bucket.tmn) : (temps.length ? Math.min(...temps) : null);
+                        const maxTemp = bucket.tmx.length ? averageNumbers(bucket.tmx) : (temps.length ? Math.max(...temps) : null);
+                        const rain = bucket.pop.length ? Math.max(...bucket.pop.filter(Number.isFinite)) : null;
+                        const info = getKmaSkyPtyInfo(bucket.sky, bucket.pty);
+                        dailyMap[dateStr] = {
+                            date: dateStr,
+                            fullDateLabel: formatWeatherDateLabel(dateStr),
+                            desc: info.desc,
+                            icon: info.icon,
+                            tempText: (minTemp === null || maxTemp === null) ? '—' : `${Math.round(minTemp)}°C～${Math.round(maxTemp)}°C`,
+                            rainText: rain === null || rain === undefined || !Number.isFinite(Number(rain)) ? '—' : `${Math.round(rain)}%`,
+                            source: 'kma',
+                            sourceLabel: '韓國氣象廳'
+                        };
+                    });
+                    return dailyMap;
+                };
+
                 const getCoordinatesForCity = async (city) => {
                     if (cityCoordinateMap[city]) return cityCoordinateMap[city];
                     try {
@@ -2464,31 +2655,32 @@
 
                         let dailyMap = {};
                         let forecastFailed = false;
+                        let weatherNotice = '';
 
                         try {
-                            const url = `https://api.open-meteo.com/v1/forecast?latitude=${coordinates.latitude}&longitude=${coordinates.longitude}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&start_date=${formatLocalDate(startDate)}&end_date=${formatLocalDate(endDate)}`;
-                            const res = await fetch(url);
-                            const data = await res.json();
+                            let openMeteoMap = {};
+                            let kmaMap = {};
 
-                            if (!res.ok || !data.daily || !data.daily.time) {
-                                throw new Error(data.reason || '天氣資料讀取失敗');
+                            try {
+                                openMeteoMap = await fetchOpenMeteoForecast(coordinates, startDate, endDate);
+                            } catch (e) {
+                                forecastFailed = true;
                             }
 
-                            data.daily.time.forEach((dateStr, index) => {
-                                const info = getWeatherCodeInfo(data.daily.weather_code?.[index]);
-                                const maxTemp = data.daily.temperature_2m_max?.[index];
-                                const minTemp = data.daily.temperature_2m_min?.[index];
-                                const rain = data.daily.precipitation_probability_max?.[index];
-                                dailyMap[dateStr] = {
-                                    date: dateStr,
-                                    fullDateLabel: formatWeatherDateLabel(dateStr),
-                                    desc: info.desc,
-                                    icon: info.icon,
-                                    tempText: (maxTemp === null || maxTemp === undefined || minTemp === null || minTemp === undefined) ? '—' : `${Math.round(minTemp)}°C～${Math.round(maxTemp)}°C`,
-                                    rainText: (rain === null || rain === undefined) ? '—' : `${rain}%`,
-                                    source: 'forecast'
-                                };
-                            });
+                            if (coordinates.kma && coordinates.nx && coordinates.ny) {
+                                if (getKmaServiceKey()) {
+                                    try {
+                                        kmaMap = await fetchKmaWeather(coordinates, trip, days);
+                                    } catch (e) {
+                                        weatherNotice = '韓國氣象廳資料暫時讀取失敗，已先改用一般預報；若仍無資料則使用歷史平均。';
+                                    }
+                                } else {
+                                    weatherNotice = '韓國城市可使用韓國氣象廳 KMA 預報；尚未填入 ServiceKey，目前先使用一般預報。';
+                                }
+                            }
+
+                            dailyMap = { ...openMeteoMap, ...kmaMap };
+                            if (!Object.keys(dailyMap).length) forecastFailed = true;
                         } catch (e) {
                             forecastFailed = true;
                         }
@@ -2509,10 +2701,13 @@
 
                         const historyCount = weatherForecast.value.filter(day => day.source === 'history').length;
                         const forecastCount = weatherForecast.value.filter(day => day.source === 'forecast').length;
+                        const kmaCount = weatherForecast.value.filter(day => day.source === 'kma').length;
 
                         if (historyCount) {
                             weatherError.value = `未取得指定日期預報，已改用近${HISTORICAL_WEATHER_YEARS}年同期歷史平均；歷史資料的降雨為降雨日比例。`;
-                        } else if (!forecastCount && !historyCount) {
+                        } else if (weatherNotice) {
+                            weatherError.value = weatherNotice;
+                        } else if (!forecastCount && !kmaCount && !historyCount) {
                             weatherError.value = '目前無法取得天氣預報或歷史同期資料，可能是日期太遠、網路受限或天氣服務暫時無回應。';
                         }
 
@@ -4593,7 +4788,7 @@
                 const changeTheme = () => applyThemeToDocument();
 
                 return {
-                    user, authForm, registerForm, authPage, authMessage, trips, currentTrip, activeMainTab, activeDayTab, weather, weatherForecast, weatherLoading, weatherError, weatherCity, showWeatherModal, showSpotModal, showExpenseModal, showShopModal, showMenuLinkModal, showTodoModal, showLuggageModal, imagePreviewUrl, isKeyMissing, shareForm, shareMessage,
+                    user, authForm, registerForm, authPage, authMessage, trips, currentTrip, activeMainTab, activeDayTab, weather, weatherForecast, weatherLoading, weatherError, weatherCity, showWeatherModal, kmaServiceKey, isKmaWeatherCity, saveKmaServiceKeyAndRefresh, showSpotModal, showExpenseModal, showShopModal, showMenuLinkModal, showTodoModal, showLuggageModal, imagePreviewUrl, isKeyMissing, shareForm, shareMessage,
                     showTripModal, isEditingTripMode, tripModalForm, getMinimumReturnDate, handleTripStartDateChange, handleTripEndDateChange, openAddTripModal, openEditTripModal, closeTripModal, saveTripModalAction,
                     expenseSections, getFilteredExpenses, sumByCurrency, getCurrencySymbol, sumExpensesInTwd, formatTwdAmount, getExchangeRateSummary,
                     newSplitExpense, editingSplitExpenseId, activeSettlementTab, activeAccountingTab, selectedPayerTotal, selectedShareTotal, handleSplitPayerChange, handleSplitPayerAmountInput, handleSplitterChange, handleSplitterAmountInput, getMemberInitial, getSplitExpenses, getFilteredSplitExpenses, getSplitPayers, getSplitShares, getSplitExpenseTotal, getSplitShareCount, getSplitPayerSummary, formatCurrencyAmount, formatTwdCurrency, formatSplitAmountWithTwd, formatSplitCardTotal, formatSplitTotalSummary, splitSettlements, splitSettlementReceivableGroups, memberSpendSummary, splitRepaymentSummary, getExpenseRepaymentItems, isExpenseRepaymentPaid, toggleExpenseRepaymentStatus, isSettlementRepaid, toggleRepaymentStatus, toggleSplitExpense, openEditSplitExpense,
