@@ -2433,9 +2433,18 @@
                 const getSpotNoteText = (spot) => spot?.placeNote || spot?.note || '';
                 const getSpotLinkUrl = (spot) => spot?.linkUrl || spot?.link || '';
                 const getSpotLinkName = (spot) => spot?.linkName || (getSpotLinkUrl(spot) ? '查看參考連結' : '');
-                const getSpotDepartureTime = (spot) => spot?.departureTime || spot?.departTime || spot?.time || '';
-                const getSpotArrivalTime = (spot) => spot?.arrivalTime || spot?.arriveTime || '';
-                const getSpotDisplayTime = (spot) => normalizeSpotType(spot) === '航班' ? getSpotDepartureTime(spot) : (spot?.time || '');
+                const getSpotDepartureTime = (spot) => {
+                    if (normalizeSpotType(spot) !== '航班') return '';
+                    return spot?.departureTime || spot?.departTime || spot?.time || '';
+                };
+                const getSpotArrivalTime = (spot) => {
+                    if (normalizeSpotType(spot) !== '航班') return '';
+                    return spot?.arrivalTime || spot?.arriveTime || '';
+                };
+                const getSpotDisplayTime = (spot) => {
+                    if (normalizeSpotType(spot) === '航班') return getSpotDepartureTime(spot);
+                    return spot?.time || spot?.departureTime || spot?.departTime || '';
+                };
                 const parseTimeToMinutes = (value) => {
                     const match = String(value || '').match(/^(\d{1,2}):(\d{2})/);
                     if (!match) return 99999;
@@ -2449,10 +2458,41 @@
                         .sort((a, b) => (a.sortValue - b.sortValue) || (a.originalIndex - b.originalIndex))
                         .map(item => item.spot);
                 };
-                const normalizeSortedItinerary = (itinerary = {}) => {
+                const cleanSpotTimeFields = (spot = {}) => {
+                    const type = normalizeSpotType(spot);
+                    const cleaned = { ...spot, type };
+
+                    if (type === '航班') {
+                        const departureTime = String(cleaned.departureTime || cleaned.departTime || cleaned.time || '').trim();
+                        const arrivalTime = String(cleaned.arrivalTime || cleaned.arriveTime || '').trim();
+                        delete cleaned.time;
+                        delete cleaned.departTime;
+                        delete cleaned.arriveTime;
+                        cleaned.departureTime = departureTime;
+                        cleaned.arrivalTime = arrivalTime;
+                    } else {
+                        const time = String(cleaned.time || cleaned.departureTime || cleaned.departTime || '').trim();
+                        delete cleaned.departureTime;
+                        delete cleaned.arrivalTime;
+                        delete cleaned.departTime;
+                        delete cleaned.arriveTime;
+                        cleaned.time = time;
+                    }
+
+                    return cleaned;
+                };
+                const cleanItineraryTimeFields = (itinerary = {}) => {
                     const output = {};
                     Object.keys(itinerary || {}).forEach(dayKey => {
-                        output[dayKey] = sortItineraryItems(itinerary[dayKey] || []);
+                        output[dayKey] = (Array.isArray(itinerary[dayKey]) ? itinerary[dayKey] : []).map(cleanSpotTimeFields);
+                    });
+                    return output;
+                };
+                const normalizeSortedItinerary = (itinerary = {}) => {
+                    const output = {};
+                    const cleanedItinerary = cleanItineraryTimeFields(itinerary || {});
+                    Object.keys(cleanedItinerary || {}).forEach(dayKey => {
+                        output[dayKey] = sortItineraryItems(cleanedItinerary[dayKey] || []);
                     });
                     return output;
                 };
@@ -4258,6 +4298,8 @@
                 };
 
                 const selectTrip = (trip) => {
+                    const normalizedDates = normalizeTripDateFields(trip || {});
+                    trip.itinerary = ensureItineraryDayKeys(trip.itinerary || {}, normalizedDates.days || trip.days || 1);
                     currentTrip.value = trip; activeMainTab.value = 'itinerary'; activeDayTab.value = 'menu';
                     clearShareMessage();
                     shareForm.value = { username: '' };
@@ -4307,6 +4349,7 @@
 
                 const updateSharedTripData = async () => {
                     if (!currentTrip.value) return;
+                    currentTrip.value.itinerary = ensureItineraryDayKeys(currentTrip.value.itinerary || {}, currentTrip.value.days || 1);
                     const firebasePayload = await preparePayloadForSave(currentTrip.value, getFirebaseSharedTripPayload, '行程資料');
                     const sharedPayload = getSharedTripPayload(currentTrip.value);
                     const tripIdx = trips.value.findIndex(t => t.id === currentTrip.value.id);
@@ -4636,14 +4679,15 @@
                     expandedSpotIndex.value = expandedSpotIndex.value === index ? null : index;
                 };
                 const startSpotEdit = (index, spot) => {
+                    const type = normalizeSpotType(spot);
                     spotFormMode.value = 'edit';
                     editingSpotIndex.value = index;
                     expandedSpotIndex.value = null;
                     newSpot.value = {
-                        type: normalizeSpotType(spot),
-                        time: spot.time || '',
-                        departureTime: getSpotDepartureTime(spot),
-                        arrivalTime: getSpotArrivalTime(spot),
+                        type,
+                        time: type === '航班' ? '' : (spot.time || spot.departureTime || spot.departTime || ''),
+                        departureTime: type === '航班' ? (spot.departureTime || spot.departTime || spot.time || '') : '',
+                        arrivalTime: type === '航班' ? (spot.arrivalTime || spot.arriveTime || '') : '',
                         name: spot.name || '',
                         placeNote: getSpotNoteText(spot),
                         linkName: spot.linkName || '',
@@ -4652,17 +4696,26 @@
                     };
                     showSpotModal.value = true;
                 };
-                const buildSpotFormData = () => ({
-                    type: normalizeSpotType(newSpot.value.type),
-                    time: String(newSpot.value.time || '').trim(),
-                    departureTime: String(newSpot.value.departureTime || '').trim(),
-                    arrivalTime: String(newSpot.value.arrivalTime || '').trim(),
-                    name: String(newSpot.value.name || '').trim(),
-                    placeNote: String(newSpot.value.placeNote || '').trim(),
-                    linkName: String(newSpot.value.linkName || '').trim(),
-                    linkUrl: String(newSpot.value.linkUrl || '').trim(),
-                    imgUrl: String(newSpot.value.imgUrl || '').trim()
-                });
+                const buildSpotFormData = () => {
+                    const type = normalizeSpotType(newSpot.value.type);
+                    const spotData = {
+                        type,
+                        name: String(newSpot.value.name || '').trim(),
+                        placeNote: String(newSpot.value.placeNote || '').trim(),
+                        linkName: String(newSpot.value.linkName || '').trim(),
+                        linkUrl: String(newSpot.value.linkUrl || '').trim(),
+                        imgUrl: String(newSpot.value.imgUrl || '').trim()
+                    };
+
+                    if (type === '航班') {
+                        spotData.departureTime = String(newSpot.value.departureTime || '').trim();
+                        spotData.arrivalTime = String(newSpot.value.arrivalTime || '').trim();
+                    } else {
+                        spotData.time = String(newSpot.value.time || '').trim();
+                    }
+
+                    return spotData;
+                };
                 const saveSpotForm = async () => {
                     if (!currentTrip.value || activeDayTab.value === 'menu') return alert('請先選擇要新增的 Day 分頁');
                     const spotData = buildSpotFormData();
@@ -4677,7 +4730,7 @@
                         } else {
                             currentTrip.value.itinerary[dayKey].push(spotData);
                         }
-                        currentTrip.value.itinerary[dayKey] = sortItineraryItems(currentTrip.value.itinerary[dayKey]);
+                        currentTrip.value.itinerary[dayKey] = sortItineraryItems((currentTrip.value.itinerary[dayKey] || []).map(cleanSpotTimeFields));
                         await updateSharedTripData();
                         const keepType = newSpot.value.type || '景點';
                         newSpot.value = emptySpotForm(keepType);
