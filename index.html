@@ -1167,7 +1167,63 @@
             }
         }
 
-    </style>
+    
+
+        /* v45：行程卡片標題換行優化
+           原因：先前為了右側展開箭頭保留 padding，加上 word-break/overflow-wrap 允許中英混排文字被提早切斷。
+           這裡縮小保留空間、讓標題吃滿可用寬度，並避免中文單字被拆成孤字換行。 */
+        #app .trip-spot-card .trip-spot-content {
+            padding-right: 0 !important;
+        }
+        #app .trip-spot-content .spot-title-row {
+            width: 100% !important;
+            max-width: 100% !important;
+            display: flex !important;
+            flex-wrap: nowrap !important;
+            align-items: flex-start !important;
+            gap: .38rem !important;
+            padding-right: 1.15rem !important;
+            box-sizing: border-box !important;
+        }
+        #app .trip-spot-content .spot-title-row > i {
+            flex: 0 0 auto !important;
+            margin-top: .12rem !important;
+            line-height: 1.35 !important;
+        }
+        #app .trip-spot-content .spot-title-row .itinerary-wrap-text {
+            flex: 0 1 auto !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+            width: auto !important;
+            margin: 0 !important;
+            white-space: normal !important;
+            word-break: keep-all !important;
+            overflow-wrap: break-word !important;
+            line-break: auto !important;
+            line-height: 1.45 !important;
+        }
+        #app .trip-spot-expand-chevron {
+            right: .9rem !important;
+        }
+        @media (max-width: 640px) {
+            #app .trip-spot-card {
+                gap: .45rem !important;
+                padding-left: .85rem !important;
+                padding-right: .85rem !important;
+            }
+            #app .trip-spot-icon-col {
+                width: 3rem !important;
+            }
+            #app .trip-spot-content .spot-title-row {
+                padding-right: .95rem !important;
+                gap: .35rem !important;
+            }
+            #app .trip-spot-expand-chevron {
+                top: .95rem !important;
+                right: .8rem !important;
+            }
+        }
+</style>
 </head>
 <body>
 
