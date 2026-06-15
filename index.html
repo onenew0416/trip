@@ -2489,10 +2489,11 @@
                 };
 
                 // Firestore 單一文件上限約 1MiB；圖片若直接以 base64 存進行程/購物資料，很容易超過。
-                // 這裡改成「縮圖等級」儲存：畫面卡片足夠顯示，也能大幅降低文件大小。
-                const MAX_UPLOAD_IMAGE_BYTES = 28 * 1024;
-                const MAX_UPLOAD_IMAGE_EDGE = 520;
-                const FIRESTORE_SAFE_DOC_BYTES = 900 * 1024;
+                // 這版改成「自動最佳化」：上傳時先盡量保留較高解析度，儲存前若整份資料接近上限，再逐步壓縮到可寫入的最高品質。
+                const MAX_UPLOAD_IMAGE_BYTES = 160 * 1024;
+                const MAX_UPLOAD_IMAGE_EDGE = 1280;
+                const FIRESTORE_SAFE_DOC_BYTES = 960 * 1024;
+                const IMAGE_SAVE_TARGET_STEPS = [160, 128, 104, 86, 70, 56, 44, 34, 26, 20].map(kb => kb * 1024);
 
                 const getDataUrlByteSize = (dataUrl = '') => {
                     // dataURL 存進 Firestore 時本質上是字串，這裡用字串長度估算文件大小。
@@ -2526,42 +2527,75 @@
                     const ctx = canvas.getContext('2d');
                     ctx.fillStyle = '#ffffff';
                     ctx.fillRect(0, 0, width, height);
+                    ctx.imageSmoothingEnabled = true;
+                    ctx.imageSmoothingQuality = 'high';
                     ctx.drawImage(img, 0, 0, width, height);
                     return canvas.toDataURL('image/jpeg', quality);
                 };
 
-                const compressImageElement = async (img, targetBytes = MAX_UPLOAD_IMAGE_BYTES) => {
-                    let maxEdge = MAX_UPLOAD_IMAGE_EDGE;
-                    let bestDataUrl = '';
-                    let bestBytes = Infinity;
-                    const qualitySteps = [0.72, 0.62, 0.52, 0.44, 0.36, 0.30, 0.24, 0.18];
+                const getImageEdgeCandidates = (preferredMaxEdge = MAX_UPLOAD_IMAGE_EDGE) => {
+                    const raw = [preferredMaxEdge, 1280, 1180, 1080, 980, 900, 820, 740, 660, 580, 500, 420, 340, 280, 220];
+                    return Array.from(new Set(raw.map(n => Math.max(180, Math.round(n))).filter(Boolean))).sort((a, b) => b - a);
+                };
 
-                    for (let round = 0; round < 9; round += 1) {
-                        for (const quality of qualitySteps) {
-                            const dataUrl = canvasToJpegDataUrl(img, maxEdge, quality);
+                const compressImageElement = async (img, targetBytes = MAX_UPLOAD_IMAGE_BYTES, preferredMaxEdge = MAX_UPLOAD_IMAGE_EDGE) => {
+                    let smallestDataUrl = '';
+                    let smallestBytes = Infinity;
+                    let bestMeta = { edge: 0, quality: 0 };
+
+                    for (const edge of getImageEdgeCandidates(preferredMaxEdge)) {
+                        let low = 0.28;
+                        let high = 0.92;
+                        let bestUnder = '';
+                        let bestUnderBytes = 0;
+                        let bestQuality = low;
+
+                        for (let i = 0; i < 9; i += 1) {
+                            const quality = (low + high) / 2;
+                            const dataUrl = canvasToJpegDataUrl(img, edge, quality);
                             const bytes = getDataUrlByteSize(dataUrl);
-                            if (bytes < bestBytes) {
-                                bestDataUrl = dataUrl;
-                                bestBytes = bytes;
+
+                            if (bytes < smallestBytes) {
+                                smallestDataUrl = dataUrl;
+                                smallestBytes = bytes;
+                                bestMeta = { edge, quality };
                             }
+
                             if (bytes <= targetBytes) {
-                                return { dataUrl, bytes, compressed: true, tooLarge: false };
+                                bestUnder = dataUrl;
+                                bestUnderBytes = bytes;
+                                bestQuality = quality;
+                                low = quality;
+                            } else {
+                                high = quality;
                             }
                         }
-                        maxEdge = Math.max(220, Math.round(maxEdge * 0.74));
+
+                        if (bestUnder) {
+                            return {
+                                dataUrl: bestUnder,
+                                bytes: bestUnderBytes,
+                                compressed: true,
+                                tooLarge: false,
+                                edge,
+                                quality: bestQuality
+                            };
+                        }
                     }
 
                     return {
-                        dataUrl: bestDataUrl,
-                        bytes: bestBytes,
+                        dataUrl: smallestDataUrl,
+                        bytes: smallestBytes,
                         compressed: true,
-                        tooLarge: bestBytes > targetBytes
+                        tooLarge: smallestBytes > targetBytes,
+                        edge: bestMeta.edge,
+                        quality: bestMeta.quality
                     };
                 };
 
-                const compressImageFile = async (file) => {
+                const compressImageFile = async (file, targetBytes = MAX_UPLOAD_IMAGE_BYTES) => {
                     const img = await loadImageFromFile(file);
-                    return compressImageElement(img, MAX_UPLOAD_IMAGE_BYTES);
+                    return compressImageElement(img, targetBytes, MAX_UPLOAD_IMAGE_EDGE);
                 };
 
                 const isEmbeddedImageDataUrl = (value = '') => /^data:image\/(png|jpe?g|webp);base64,/i.test(String(value || ''));
@@ -2573,24 +2607,31 @@
                     img.src = dataUrl;
                 });
 
-                const optimizeDataUrlImage = async (dataUrl) => {
+                const optimizeDataUrlImage = async (dataUrl, targetBytes = MAX_UPLOAD_IMAGE_BYTES) => {
                     const raw = String(dataUrl || '').trim();
                     if (!isEmbeddedImageDataUrl(raw)) return raw;
-                    if (getDataUrlByteSize(raw) <= MAX_UPLOAD_IMAGE_BYTES) return raw;
+                    if (getDataUrlByteSize(raw) <= targetBytes) return raw;
                     const img = await loadImageFromDataUrl(raw);
-                    const result = await compressImageElement(img, MAX_UPLOAD_IMAGE_BYTES);
+                    const result = await compressImageElement(img, targetBytes, MAX_UPLOAD_IMAGE_EDGE);
                     return result.dataUrl || raw;
                 };
 
-                const optimizeTripEmbeddedImages = async (trip) => {
+                const optimizeTripEmbeddedImages = async (trip, targetBytes = MAX_UPLOAD_IMAGE_BYTES) => {
                     if (!trip) return;
+
+                    const menuLinks = Array.isArray(trip.menuLinks) ? trip.menuLinks : [];
+                    for (const link of menuLinks) {
+                        if (link && isEmbeddedImageDataUrl(link.imgUrl)) {
+                            link.imgUrl = await optimizeDataUrlImage(link.imgUrl, targetBytes);
+                        }
+                    }
 
                     const dayKeys = Object.keys(trip.itinerary || {});
                     for (const dayKey of dayKeys) {
                         const list = Array.isArray(trip.itinerary?.[dayKey]) ? trip.itinerary[dayKey] : [];
                         for (const spot of list) {
                             if (spot && isEmbeddedImageDataUrl(spot.imgUrl)) {
-                                spot.imgUrl = await optimizeDataUrlImage(spot.imgUrl);
+                                spot.imgUrl = await optimizeDataUrlImage(spot.imgUrl, targetBytes);
                             }
                         }
                     }
@@ -2598,7 +2639,7 @@
                     const shoppingList = Array.isArray(trip.shopping) ? trip.shopping : [];
                     for (const item of shoppingList) {
                         if (item && isEmbeddedImageDataUrl(item.imgUrl)) {
-                            item.imgUrl = await optimizeDataUrlImage(item.imgUrl);
+                            item.imgUrl = await optimizeDataUrlImage(item.imgUrl, targetBytes);
                         }
                     }
                 };
@@ -2614,6 +2655,23 @@
                     if (bytes > FIRESTORE_SAFE_DOC_BYTES) {
                         throw new Error(`${label}目前約 ${Math.round(bytes / 1024)}KB，仍然接近或超過 Firestore 單筆上限。請先移除幾張舊的上傳圖片，或改用圖片網址。`);
                     }
+                };
+
+                const preparePayloadForSave = async (trip, buildPayload, label = '資料') => {
+                    if (!trip || typeof buildPayload !== 'function') return buildPayload ? buildPayload(trip) : {};
+
+                    await optimizeTripEmbeddedImages(trip, MAX_UPLOAD_IMAGE_BYTES);
+                    let payload = buildPayload(trip);
+                    if (estimatePayloadBytes(payload) <= FIRESTORE_SAFE_DOC_BYTES) return payload;
+
+                    for (const targetBytes of IMAGE_SAVE_TARGET_STEPS) {
+                        await optimizeTripEmbeddedImages(trip, targetBytes);
+                        payload = buildPayload(trip);
+                        if (estimatePayloadBytes(payload) <= FIRESTORE_SAFE_DOC_BYTES) return payload;
+                    }
+
+                    assertPayloadSizeSafe(payload, label);
+                    return payload;
                 };
 
                 const handleImageUpload = async (event, target) => {
@@ -2635,7 +2693,7 @@
                     }
 
                     try {
-                        const result = await compressImageFile(file);
+                        const result = await compressImageFile(file, MAX_UPLOAD_IMAGE_BYTES);
                         if (!result.dataUrl || result.tooLarge) {
                             alert('圖片壓縮後仍然過大，請改用較小張的圖片或圖片網址。');
                             input.value = '';
@@ -4262,10 +4320,8 @@
 
                 const updateSharedTripData = async () => {
                     if (!currentTrip.value) return;
-                    await optimizeTripEmbeddedImages(currentTrip.value);
+                    const firebasePayload = await preparePayloadForSave(currentTrip.value, getFirebaseSharedTripPayload, '行程資料');
                     const sharedPayload = getSharedTripPayload(currentTrip.value);
-                    const firebasePayload = getFirebaseSharedTripPayload(currentTrip.value);
-                    assertPayloadSizeSafe(firebasePayload, '行程資料');
                     const tripIdx = trips.value.findIndex(t => t.id === currentTrip.value.id);
                     if (tripIdx >= 0) trips.value[tripIdx] = { ...trips.value[tripIdx], ...currentTrip.value, ...sharedPayload };
 
@@ -4315,9 +4371,7 @@
 
                 const updatePrivateTripData = async () => {
                     if (!currentTrip.value) return;
-                    await optimizeTripEmbeddedImages(currentTrip.value);
-                    const privatePayload = getPrivateTripPayload(currentTrip.value);
-                    assertPayloadSizeSafe(privatePayload, '個人清單資料');
+                    const privatePayload = await preparePayloadForSave(currentTrip.value, getPrivateTripPayload, '個人清單資料');
                     if (!isKeyMissing) {
                         await db.collection('users').doc(user.value.uid).collection('tripPrivate').doc(currentTrip.value.id).set({
                             ...privatePayload,
