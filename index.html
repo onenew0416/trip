@@ -699,19 +699,167 @@
             cursor: pointer;
         }
         .shopping-check::before {
-            content: '';
-            width: .58rem;
-            height: .58rem;
-            border-radius: 999px;
+            content: '\\f00c';
+            font-family: "Font Awesome 6 Free";
+            font-weight: 900;
+            font-size: .72rem;
+            color: #ffffff;
+            line-height: 1;
             transform: scale(0);
             transition: transform .12s ease-in-out;
+        }
+        .shopping-check:checked,
+        .shopping-check.checked {
+            border-color: var(--app-primary);
             background: var(--app-primary);
         }
-        .shopping-check:checked {
-            border-color: var(--app-primary);
-            background: rgba(var(--app-primary-rgb), .10);
+        .shopping-check::before {
+            content: '✓' !important;
+            font-family: 'Noto Sans TC', system-ui, -apple-system, BlinkMacSystemFont, sans-serif !important;
+            font-weight: 900 !important;
+            font-size: .92rem !important;
+            color: #ffffff !important;
+            line-height: 1 !important;
+            transform: scale(0);
+            transition: transform .12s ease-in-out;
         }
-        .shopping-check:checked::before { transform: scale(1); }
+        .shopping-check:checked::before,
+        .shopping-check.checked::before { transform: scale(1); }
+
+        .expand-chevron {
+            flex-shrink: 0;
+            color: #cbd5e1;
+            font-size: .78rem;
+            transition: transform .16s ease, color .16s ease;
+        }
+        .expand-chevron.expanded {
+            transform: rotate(180deg);
+            color: var(--app-primary);
+        }
+        .trip-spot-expand-chevron {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            z-index: 3;
+        }
+        .trip-spot-card .trip-spot-content {
+            padding-right: 1.35rem;
+        }
+        .clickable-item-text {
+            cursor: pointer;
+        }
+        .clickable-item-text:hover {
+            color: var(--app-primary);
+        }
+        .list-inline-row {
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            min-width: 0;
+            width: 100%;
+        }
+        .inline-title-cluster {
+            display: inline-flex;
+            align-items: center;
+            gap: .35rem;
+            min-width: 0;
+            max-width: calc(100% - 2rem);
+            flex: 0 1 auto;
+        }
+        .text-toggle-button {
+            display: inline-flex;
+            align-items: center;
+            min-width: 0;
+            max-width: 100%;
+            width: auto !important;
+            flex: 0 1 auto !important;
+            text-align: left;
+        }
+        .text-toggle-label {
+            display: inline-block;
+            min-width: 0;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .inline-title-cluster + .expand-chevron,
+        .text-toggle-button + .expand-chevron,
+        .menu-link-inline-anchor + .expand-chevron,
+        .shopping-item-main-top > .expand-chevron {
+            margin-left: auto;
+        }
+        .todo-link-inline,
+        .shopping-item-link-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex: 0 0 auto;
+        }
+        .shopping-item-main-top {
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            min-width: 0;
+            width: 100%;
+        }
+        .shopping-title-line {
+            display: inline-flex !important;
+            align-items: center;
+            gap: .35rem;
+            min-width: 0;
+            max-width: calc(100% - 2rem);
+            width: auto !important;
+            flex: 0 1 auto;
+        }
+        .shopping-title-button {
+            display: inline-flex;
+            align-items: center;
+            min-width: 0;
+            max-width: 100%;
+            width: auto !important;
+            flex: 0 1 auto !important;
+            text-align: left;
+        }
+        .shopping-title-button .shopping-item-title-text {
+            display: inline-block;
+            min-width: 0;
+            max-width: 100%;
+        }
+        .menu-link-inline-anchor {
+            display: inline-flex;
+            align-items: center;
+            gap: .25rem;
+            min-width: 0;
+            max-width: calc(100% - 2rem);
+            width: fit-content;
+            flex: 0 1 auto;
+        }
+        .menu-link-inline-anchor span {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .inline-title-cluster,
+        .shopping-title-line {
+            width: fit-content !important;
+            max-width: calc(100% - 2rem) !important;
+            flex: 0 1 auto !important;
+        }
+        .text-toggle-button,
+        .shopping-title-button {
+            width: fit-content !important;
+            max-width: 100% !important;
+            flex: 0 1 auto !important;
+            padding: 0 !important;
+        }
+        .todo-link-inline,
+        .shopping-qty-badge,
+        .shopping-item-link-icon {
+            margin-left: 0 !important;
+            flex: 0 0 auto !important;
+        }
         @media (max-width: 640px) {
             .modal-form-card { padding: 1.35rem; border-radius: 1.25rem; }
             .item-action-panel,
@@ -720,6 +868,249 @@
             .shopping-item-action-panel { grid-template-columns: 1fr; }
         }
 
+
+    
+
+        /* v38：恢復卡片展開按鈕與彈窗視覺，避免前一版點擊範圍修正時覆蓋樣式 */
+        #app .item-action-panel,
+        #app .menu-link-action-panel,
+        #app .trip-card-action-panel,
+        #app .shopping-item-action-panel {
+            width: 100% !important;
+            flex: 0 0 100% !important;
+            margin: .8rem 0 0 0 !important;
+            padding: .75rem 0 0 0 !important;
+            border-top: 1px solid rgba(var(--app-primary-rgb), .16) !important;
+            display: grid !important;
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: .6rem !important;
+            align-items: stretch !important;
+            font-size: .78rem !important;
+        }
+        #app .item-action-panel button,
+        #app .menu-link-action-panel button,
+        #app .trip-card-action-panel button,
+        #app .shopping-item-action-panel button {
+            appearance: none !important;
+            -webkit-appearance: none !important;
+            border: 0 !important;
+            outline: none !important;
+            min-width: 0 !important;
+            width: 100% !important;
+            min-height: 2.5rem !important;
+            border-radius: .85rem !important;
+            padding: .7rem .75rem !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: .35rem !important;
+            font-size: .78rem !important;
+            line-height: 1 !important;
+            font-weight: 900 !important;
+            text-decoration: none !important;
+            box-shadow: none !important;
+            transition: transform .16s ease, filter .16s ease, box-shadow .16s ease !important;
+            white-space: nowrap !important;
+            cursor: pointer !important;
+        }
+        #app .item-action-panel button i,
+        #app .menu-link-action-panel button i,
+        #app .trip-card-action-panel button i,
+        #app .shopping-item-action-panel button i {
+            font-size: .72rem !important;
+            margin: 0 !important;
+        }
+        #app .action-edit-button {
+            background: rgba(var(--app-primary-rgb), .11) !important;
+            color: var(--app-primary) !important;
+        }
+        #app .action-delete-button {
+            background: #fff1f2 !important;
+            color: #ef4444 !important;
+        }
+        #app .action-edit-button:hover,
+        #app .action-delete-button:hover {
+            transform: translateY(-1px) !important;
+            filter: brightness(.98) !important;
+            text-decoration: none !important;
+            box-shadow: 0 8px 16px rgba(15, 23, 42, .06) !important;
+        }
+
+        /* v38：彈出視窗恢復成圓角卡片表單 */
+        #app .modal-form-card {
+            width: min(92vw, 32rem) !important;
+            max-height: 90vh !important;
+            overflow-y: auto !important;
+            border-radius: 1.6rem !important;
+            border: 1px solid rgba(230, 228, 220, .95) !important;
+            background: #ffffff !important;
+            padding: 1.55rem !important;
+            box-shadow: 0 26px 80px rgba(17, 24, 39, .24) !important;
+        }
+        #app .modal-form-card.max-w-lg {
+            width: min(92vw, 36rem) !important;
+            max-width: 36rem !important;
+        }
+        #app .modal-form-header {
+            display: flex !important;
+            align-items: flex-start !important;
+            justify-content: space-between !important;
+            gap: 1rem !important;
+            margin-bottom: 1.05rem !important;
+            padding-bottom: .95rem !important;
+            border-bottom: 1px solid #f1f0ea !important;
+        }
+        #app .modal-form-title {
+            display: flex !important;
+            align-items: center !important;
+            gap: .35rem !important;
+            color: #1f2937 !important;
+            font-size: 1.05rem !important;
+            font-weight: 900 !important;
+            letter-spacing: .01em !important;
+        }
+        #app .modal-form-subtitle {
+            color: #8a94a6 !important;
+            font-size: .72rem !important;
+            line-height: 1.55 !important;
+            margin-top: .35rem !important;
+        }
+        #app .modal-close-button {
+            width: 2.15rem !important;
+            height: 2.15rem !important;
+            border-radius: 999px !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            color: #94a3b8 !important;
+            background: transparent !important;
+            transition: background-color .16s ease, color .16s ease !important;
+        }
+        #app .modal-close-button:hover {
+            background: #f8fafc !important;
+            color: #334155 !important;
+        }
+        #app .modal-form-body {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: .9rem !important;
+        }
+        #app .modal-field {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: .38rem !important;
+        }
+        #app .modal-field-label {
+            color: #64748b !important;
+            font-size: .73rem !important;
+            font-weight: 900 !important;
+        }
+        #app .modal-input {
+            width: 100% !important;
+            min-height: 3.05rem !important;
+            border: 0 !important;
+            border-radius: .9rem !important;
+            background: #eef1f5 !important;
+            color: #334155 !important;
+            padding: .85rem 1rem !important;
+            font-size: .88rem !important;
+            font-weight: 800 !important;
+            outline: none !important;
+            box-shadow: none !important;
+        }
+        #app select.modal-input {
+            cursor: pointer !important;
+        }
+        #app .modal-input::placeholder {
+            color: #a0a8b3 !important;
+            font-weight: 800 !important;
+        }
+        #app .modal-input:focus {
+            box-shadow: 0 0 0 3px rgba(var(--app-primary-rgb), .15) !important;
+        }
+        #app .modal-upload-field {
+            min-height: 3.15rem !important;
+            border: 1px dashed #d9d6cc !important;
+            border-radius: .9rem !important;
+            background: #fcfbf9 !important;
+            color: #64748b !important;
+            font-size: .8rem !important;
+            font-weight: 900 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            cursor: pointer !important;
+        }
+        #app .modal-image-preview {
+            display: flex !important;
+            align-items: center !important;
+            gap: .85rem !important;
+            background: #fcfbf9 !important;
+            border: 1px solid #e6e4dc !important;
+            border-radius: 1rem !important;
+            padding: .65rem !important;
+        }
+        #app .modal-save-button {
+            appearance: none !important;
+            -webkit-appearance: none !important;
+            width: 100% !important;
+            margin-top: 1.1rem !important;
+            border: 0 !important;
+            border-radius: .95rem !important;
+            background: var(--app-primary) !important;
+            color: #ffffff !important;
+            padding: .95rem 1rem !important;
+            font-size: .92rem !important;
+            font-weight: 900 !important;
+            box-shadow: 0 14px 26px rgba(var(--app-primary-rgb), .24) !important;
+            transition: transform .16s ease, filter .16s ease !important;
+            cursor: pointer !important;
+        }
+        #app .modal-save-button:hover {
+            transform: translateY(-1px) !important;
+            filter: brightness(.96) !important;
+        }
+        #app .modal-qty-control {
+            min-height: 3.05rem !important;
+            display: flex !important;
+            align-items: center !important;
+            overflow: hidden !important;
+            border-radius: .9rem !important;
+            background: #eef1f5 !important;
+        }
+        #app .modal-qty-control button {
+            width: 2.9rem !important;
+            height: 3.05rem !important;
+            color: #64748b !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+        #app .modal-qty-control input {
+            min-width: 0 !important;
+            flex: 1 !important;
+            text-align: center !important;
+            background: transparent !important;
+            border: 0 !important;
+            outline: none !important;
+            font-size: .88rem !important;
+            font-weight: 900 !important;
+            color: #334155 !important;
+        }
+        @media (max-width: 640px) {
+            #app .modal-form-card,
+            #app .modal-form-card.max-w-lg {
+                width: min(94vw, 30rem) !important;
+                border-radius: 1.35rem !important;
+                padding: 1.35rem !important;
+            }
+            #app .item-action-panel,
+            #app .menu-link-action-panel,
+            #app .trip-card-action-panel,
+            #app .shopping-item-action-panel {
+                grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            }
+        }
 
     </style>
 </head>
@@ -934,10 +1325,13 @@
                                     <div class="space-y-2 max-h-64 overflow-y-auto">
                                         <div v-if="!currentTrip.menuLinks || !currentTrip.menuLinks.length" class="text-center text-neutral-400 text-xs py-4">尚無交通、票券或優惠券連結</div>
                                         <div v-for="(link, idx) in currentTrip.menuLinks" :key="idx" @click="toggleMenuLinkActions(idx)" class="menu-link-card bg-[#fcfbf9] border border-[#e6e4dc] p-3 rounded-xl text-xs group">
-                                            <a :href="link.url" target="_blank" @click.stop class="text-primary font-medium hover:underline inline-flex max-w-full items-center gap-1">
-                                                <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
-                                                <span class="truncate">{{ link.title }}</span>
-                                            </a>
+                                            <div class="flex items-center gap-2 min-w-0 w-full">
+                                                <a :href="link.url" target="_blank" @click.stop class="menu-link-inline-anchor text-primary font-medium hover:underline">
+                                                    <i class="fa-solid fa-arrow-up-right-from-square text-[10px] shrink-0"></i>
+                                                    <span>{{ link.title }}</span>
+                                                </a>
+                                                <i :class="['fa-solid fa-chevron-down expand-chevron', expandedMenuLinkIndex === idx ? 'expanded' : '']"></i>
+                                            </div>
                                             <div v-if="expandedMenuLinkIndex === idx" class="item-action-panel" @click.stop>
                                                 <button @click="startMenuLinkEdit(idx, link)" type="button" class="action-edit-button"><i class="fa-solid fa-pen text-[11px] mr-1"></i>編輯</button>
                                                 <button @click="deleteMenuLink(idx)" type="button" class="action-delete-button"><i class="fa-solid fa-trash-can text-[11px] mr-1"></i>刪除</button>
@@ -958,9 +1352,17 @@
                                     <div class="space-y-2 max-h-64 overflow-y-auto">
                                         <div v-if="!currentTrip.todos || !currentTrip.todos.length" class="text-center text-neutral-400 text-xs py-4">尚無待辦事項</div>
                                         <div v-for="item in currentTrip.todos" :key="item.id" @click="toggleTodoActions(item.id)" class="actionable-list-card text-xs text-neutral-600 p-3 bg-[#fcfbf9] border border-[#e6e4dc] rounded-xl group">
-                                            <div class="flex items-center gap-2 min-w-0">
+                                            <div class="list-inline-row">
                                                 <input type="checkbox" v-model="item.done" @click.stop @change="updatePrivateTripData" class="rounded text-neutral-700 focus:ring-0 border-[#e6e4dc] shrink-0">
-                                                <span :class="['text-left truncate flex-1 font-medium', {'line-through text-neutral-300': item.done}]">{{ item.text }}</span>
+                                                <div class="inline-title-cluster">
+                                                    <button @click.stop="toggleTodoDone(item)" type="button" class="text-toggle-button">
+                                                        <span :class="['clickable-item-text text-toggle-label font-medium', {'line-through text-neutral-300': item.done}]">{{ item.text }}</span>
+                                                    </button>
+                                                    <a v-if="item.url" :href="item.url" target="_blank" @click.stop class="todo-link-inline text-primary hover:underline" title="開啟待辦連結">
+                                                        <i class="fa-solid fa-arrow-up-right-from-square text-[11px]"></i>
+                                                    </a>
+                                                </div>
+                                                <i :class="['fa-solid fa-chevron-down expand-chevron', expandedTodoId === item.id ? 'expanded' : '']"></i>
                                             </div>
                                             <div v-if="expandedTodoId === item.id" class="item-action-panel" @click.stop>
                                                 <button @click="startTodoEdit(item)" type="button" class="action-edit-button"><i class="fa-solid fa-pen text-[11px] mr-1"></i>編輯</button>
@@ -991,9 +1393,12 @@
                                         <div class="space-y-2 max-h-64 overflow-y-auto">
                                             <div v-if="!(currentTrip.luggage || []).filter(i => i.category === cat).length" class="text-center text-neutral-400 text-xs py-4">尚無項目</div>
                                             <div v-for="item in (currentTrip.luggage || []).filter(i => i.category === cat)" :key="item.id" @click="toggleLuggageActions(item.id)" class="actionable-list-card text-xs text-neutral-600 p-3 bg-white border border-[#e6e4dc] rounded-xl group">
-                                                <div class="flex items-start gap-2 min-w-0">
+                                                <div class="list-inline-row items-start">
                                                     <input type="checkbox" v-model="item.done" @click.stop @change="updatePrivateTripData" class="rounded text-neutral-700 focus:ring-0 border-[#e6e4dc] shrink-0 mt-0.5">
-                                                    <span :class="['text-left truncate flex-1 font-medium', {'line-through text-neutral-300': item.done}]">{{ item.text }}</span>
+                                                    <button @click.stop="toggleLuggageDone(item)" type="button" class="text-toggle-button mt-0.5">
+                                                        <span :class="['clickable-item-text text-toggle-label font-medium', {'line-through text-neutral-300': item.done}]">{{ item.text }}</span>
+                                                    </button>
+                                                    <i :class="['fa-solid fa-chevron-down expand-chevron mt-1', expandedLuggageId === item.id ? 'expanded' : '']"></i>
                                                 </div>
                                                 <div v-if="expandedLuggageId === item.id" class="item-action-panel" @click.stop>
                                                     <button @click="startLuggageEdit(item)" type="button" class="action-edit-button"><i class="fa-solid fa-pen text-[11px] mr-1"></i>編輯</button>
@@ -1024,6 +1429,7 @@
                                     今天還空空的，點右上角「新增行程」來填滿這天吧！
                                 </div>
                                 <div v-for="(spot, index) in (currentTrip.itinerary[activeDayTab] || [])" :key="index" @click="toggleSpotActions(index)" class="trip-spot-card relative bg-[#fcfbf9] border border-[#e6e4dc] rounded-xl p-4 flex flex-row gap-2 sm:gap-4 group">
+                                    <i :class="['fa-solid fa-chevron-down expand-chevron trip-spot-expand-chevron', expandedSpotIndex === index ? 'expanded' : '']"></i>
                                     <div class="absolute -left-[21px] top-5 w-2 h-2 rounded-full bg-primary border-2 border-white shadow-sm"></div>
                                     <div class="trip-spot-icon-col w-14 sm:w-20 shrink-0 flex flex-col gap-2 items-center">
                                         <div class="flex flex-col items-center gap-1 shrink-0">
@@ -1036,6 +1442,7 @@
                                     </div>
                                     <div class="trip-spot-content flex-1 min-w-0 space-y-2">
                                         <div class="spot-title-row flex flex-wrap items-center gap-2 mb-1">
+                                            <i :class="[getSpotTypeIcon(spot), 'text-primary text-sm shrink-0']"></i>
                                             <h4 class="itinerary-wrap-text font-medium text-sm text-neutral-700">{{ spot.name }}</h4>
                                         </div>
                                         <div v-if="getSpotTypeLabel(spot) === '航班' && parseFlightInfo(getSpotNoteText(spot))" class="flight-info-card bg-white border border-[#e6e4dc] rounded-xl p-3 my-2">
@@ -1117,9 +1524,12 @@
                                                         <i class="fa-regular fa-circle-user mr-1"></i>{{ getSplitPayerSummary(exp) }}
                                                     </p>
                                                 </div>
-                                                <div class="text-right shrink-0">
-                                                    <p class="text-sm font-bold text-neutral-900 whitespace-nowrap">{{ formatSplitCardTotal(exp) }}</p>
-                                                    <p class="text-[11px] text-neutral-400 mt-1 whitespace-nowrap">{{ getSplitShareCount(exp) }}人分</p>
+                                                <div class="text-right shrink-0 flex items-center gap-3">
+                                                    <div>
+                                                        <p class="text-sm font-bold text-neutral-900 whitespace-nowrap">{{ formatSplitCardTotal(exp) }}</p>
+                                                        <p class="text-[11px] text-neutral-400 mt-1 whitespace-nowrap">{{ getSplitShareCount(exp) }}人分</p>
+                                                    </div>
+                                                    <i :class="['fa-solid fa-chevron-down expand-chevron', exp.expanded ? 'expanded' : '']"></i>
                                                 </div>
                                             </button>
 
@@ -1267,7 +1677,10 @@
 
                                 <div class="shopping-item-list">
                                     <div v-for="item in section.items" :key="item.id" @click="toggleShoppingActions(item.id)" :class="['shopping-item-row', item.done ? 'shopping-item-done' : '']">
-                                        <input type="checkbox" v-model="item.done" @click.stop @change="updatePrivateTripData" class="shopping-check">
+                                        <button type="button"
+                                               :class="['shopping-check', item.done ? 'checked' : '']"
+                                               :aria-label="item.done ? '取消勾選' : '勾選完成'"
+                                               @click.stop="toggleShoppingDone(item)"></button>
 
                                         <button v-if="hasCustomImage(item.imgUrl)" @click.stop="openImagePreview(item.imgUrl)" type="button" class="shopping-thumb cursor-zoom-in hover:opacity-90 transition-opacity">
                                             <img :src="item.imgUrl" alt="商品圖片">
@@ -1277,12 +1690,17 @@
                                         </div>
 
                                         <div class="shopping-item-main">
-                                            <div class="shopping-title-line">
-                                                <span class="shopping-item-title-text">{{ item.text }}</span>
-                                                <span class="shopping-qty-badge">x{{ normalizeQuantityValue(item.quantity) }}</span>
-                                                <a v-if="item.url" :href="item.url" target="_blank" class="shopping-item-link-icon" title="開啟商品連結" @click.stop>
-                                                    <i class="fa-solid fa-arrow-up-right-from-square"></i>
-                                                </a>
+                                            <div class="shopping-item-main-top">
+                                                <div class="shopping-title-line">
+                                                    <button @click.stop="toggleShoppingDone(item)" type="button" class="shopping-title-button">
+                                                        <span class="shopping-item-title-text clickable-item-text">{{ item.text }}</span>
+                                                    </button>
+                                                    <span class="shopping-qty-badge">x{{ normalizeQuantityValue(item.quantity) }}</span>
+                                                    <a v-if="item.url" :href="item.url" target="_blank" class="shopping-item-link-icon" title="開啟商品連結" @click.stop>
+                                                        <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                                                    </a>
+                                                </div>
+                                                <i :class="['fa-solid fa-chevron-down expand-chevron', expandedShoppingId === item.id ? 'expanded' : '']"></i>
                                             </div>
                                             <p v-if="item.note" class="shopping-item-note-text">{{ item.note }}</p>
                                             <div v-if="expandedShoppingId === item.id" class="shopping-item-action-panel" @click.stop>
@@ -1345,6 +1763,7 @@
                     </div>
                     <div class="modal-form-body">
                         <label class="modal-field"><span class="modal-field-label">待辦內容</span><input v-model="newTodoText" type="text" placeholder="例如：確認護照、預約餐廳" class="modal-input" @keyup.enter="saveTodoForm"></label>
+                        <label class="modal-field"><span class="modal-field-label">連結網址(選填)</span><input v-model="newTodoUrl" type="text" placeholder="https://..." class="modal-input" @keyup.enter="saveTodoForm"></label>
                     </div>
                     <button @click="saveTodoForm" type="button" class="modal-save-button">儲存變更</button>
                 </div>
@@ -1379,21 +1798,21 @@
                     <div class="modal-form-body">
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <label class="modal-field"><span class="modal-field-label">類型</span><select v-model="newSpot.type" class="modal-input"><option value="航班">✈️ 航班</option><option value="交通">🚇 交通</option><option value="景點">📍 景點</option><option value="餐飲">🍽️ 餐飲</option><option value="購物">🛍️ 購物</option><option value="租車">🚗 租車</option><option value="住宿">🏨 住宿</option></select></label>
-                            <label class="modal-field"><span class="modal-field-label">標題</span><input v-model="newSpot.name" type="text" placeholder="例如：台中車站 → 桃園機場" class="modal-input"></label>
+                            <label class="modal-field"><span class="modal-field-label">標題</span><input v-model="newSpot.name" type="text" placeholder="輸入名稱" class="modal-input"></label>
                         </div>
                         <div v-if="newSpot.type === '航班'" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <label class="modal-field"><span class="modal-field-label">出發時間</span><input v-model="newSpot.departureTime" type="time" class="modal-input"></label>
-                            <label class="modal-field"><span class="modal-field-label">抵達時間</span><input v-model="newSpot.arrivalTime" type="time" class="modal-input"></label>
+                            <label class="modal-field"><span class="modal-field-label">出發時間(選填)</span><input v-model="newSpot.departureTime" type="time" class="modal-input"></label>
+                            <label class="modal-field"><span class="modal-field-label">抵達時間(選填)</span><input v-model="newSpot.arrivalTime" type="time" class="modal-input"></label>
                         </div>
-                        <label v-else class="modal-field"><span class="modal-field-label">時間</span><input v-model="newSpot.time" type="time" class="modal-input"></label>
-                        <label class="modal-field"><span class="modal-field-label">地點 / 備註</span><input v-model="newSpot.placeNote" type="text" :placeholder="newSpot.type === '航班' ? '航班資訊，例：[TPE 台北(桃園) - HSG 佐賀]' : '地點、交通方式或備註'" class="modal-input"></label>
+                        <label v-else class="modal-field"><span class="modal-field-label">時間(選填)</span><input v-model="newSpot.time" type="time" class="modal-input"></label>
+                        <label class="modal-field"><span class="modal-field-label">地點 / 備註(選填)</span><input v-model="newSpot.placeNote" type="text" :placeholder="newSpot.type === '航班' ? '航班資訊，例：[TPE 台北(桃園) - HSG 佐賀]' : '地點、交通方式或備註'" class="modal-input"></label>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <label class="modal-field"><span class="modal-field-label">連結名稱</span><input v-model="newSpot.linkName" type="text" placeholder="例如：Google 地圖" class="modal-input"></label>
-                            <label class="modal-field"><span class="modal-field-label">連結網址</span><input v-model="newSpot.linkUrl" type="text" placeholder="https://..." class="modal-input"></label>
+                            <label class="modal-field"><span class="modal-field-label">連結名稱(選填)</span><input v-model="newSpot.linkName" type="text" placeholder="例如：Google 地圖" class="modal-input"></label>
+                            <label class="modal-field"><span class="modal-field-label">連結網址(選填)</span><input v-model="newSpot.linkUrl" type="text" placeholder="https://..." class="modal-input"></label>
                         </div>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <label class="modal-field"><span class="modal-field-label">圖片網址</span><input v-model="newSpot.imgUrl" type="text" placeholder="圖片網址（選填）" class="modal-input"></label>
-                            <label class="modal-upload-field"><span><i class="fa-solid fa-upload mr-1"></i>上傳圖片檔</span><input type="file" accept="image/*" @change="handleImageUpload($event, newSpot)" class="hidden"></label>
+                            <label class="modal-field"><span class="modal-field-label">圖片網址(選填)</span><input v-model="newSpot.imgUrl" type="text" placeholder="圖片網址（選填）" class="modal-input"></label>
+                            <label class="modal-upload-field"><span><i class="fa-solid fa-upload mr-1"></i>上傳圖片檔(選填)</span><input type="file" accept="image/*" @change="handleImageUpload($event, newSpot)" class="hidden"></label>
                         </div>
                         <div v-if="newSpot.imgUrl" class="modal-image-preview"><img :src="newSpot.imgUrl" class="w-16 h-16 object-cover rounded-lg border bg-white"><button @click="newSpot.imgUrl = ''" type="button" class="text-xs text-rose-500 hover:underline">移除圖片</button></div>
                     </div>
@@ -1477,15 +1896,15 @@
                         <button @click="closeShopModal" type="button" class="modal-close-button"><i class="fa-solid fa-xmark"></i></button>
                     </div>
                     <div class="modal-form-body">
-                        <label class="modal-field"><span class="modal-field-label">名稱</span><input v-model="newShopItem.text" type="text" placeholder="例如：PRESS BUTTER SAND 草莓夾心餅乾" class="modal-input"></label>
+                        <label class="modal-field"><span class="modal-field-label">名稱</span><input v-model="newShopItem.text" type="text" placeholder="輸入商品名稱" class="modal-input"></label>
                         <label class="modal-field"><span class="modal-field-label">分類</span><select v-model="newShopItem.category" class="modal-input"><option v-for="cat in shoppingCategories" :key="cat" :value="cat">{{ cat }}</option></select></label>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <label class="modal-field"><span class="modal-field-label">數量</span><div class="modal-qty-control"><button @click="decreaseNewShopQuantity" type="button"><i class="fa-solid fa-minus text-[10px]"></i></button><input v-model.number="newShopItem.quantity" type="number" min="1"><button @click="increaseNewShopQuantity" type="button"><i class="fa-solid fa-plus text-[10px]"></i></button></div></label>
-                            <label class="modal-field"><span class="modal-field-label">備註</span><input v-model="newShopItem.note" type="text" placeholder="例如：地下街、白色" class="modal-input"></label>
+                            <label class="modal-field"><span class="modal-field-label">數量(選填)</span><div class="modal-qty-control"><button @click="decreaseNewShopQuantity" type="button"><i class="fa-solid fa-minus text-[10px]"></i></button><input v-model.number="newShopItem.quantity" type="number" min="1"><button @click="increaseNewShopQuantity" type="button"><i class="fa-solid fa-plus text-[10px]"></i></button></div></label>
+                            <label class="modal-field"><span class="modal-field-label">備註(選填)</span><input v-model="newShopItem.note" type="text" placeholder="如：Olive young" class="modal-input"></label>
                         </div>
-                        <label class="modal-field"><span class="modal-field-label">商品連結</span><input v-model="newShopItem.url" type="text" placeholder="https://..." class="modal-input"></label>
+                        <label class="modal-field"><span class="modal-field-label">商品連結(選填)</span><input v-model="newShopItem.url" type="text" placeholder="https://..." class="modal-input"></label>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <label class="modal-field"><span class="modal-field-label">圖片網址</span><input v-model="newShopItem.imgUrl" type="text" placeholder="圖片網址" class="modal-input"></label>
+                            <label class="modal-field"><span class="modal-field-label">圖片網址(選填)</span><input v-model="newShopItem.imgUrl" type="text" placeholder="圖片網址" class="modal-input"></label>
                             <label class="modal-upload-field"><span><i class="fa-solid fa-upload mr-1"></i>上傳圖片檔</span><input type="file" accept="image/*" @change="handleImageUpload($event, newShopItem)" class="hidden"></label>
                         </div>
                         <div v-if="newShopItem.imgUrl" class="modal-image-preview"><button @click="openImagePreview(newShopItem.imgUrl)" type="button" class="w-16 h-16 rounded-lg border bg-white overflow-hidden cursor-zoom-in hover:opacity-90 transition-opacity"><img :src="newShopItem.imgUrl" class="w-full h-full object-cover" alt="商品圖片預覽"></button><button @click="newShopItem.imgUrl = ''" type="button" class="text-xs text-rose-500 hover:underline">移除圖片</button></div>
@@ -1880,6 +2299,7 @@
                 const newSpot = ref({ type: '景點', time: '', departureTime: '', arrivalTime: '', name: '', placeNote: '', linkName: '', linkUrl: '', imgUrl: '' });
                 const newMenuLink = ref({ title: '', url: '' });
                 const newTodoText = ref('');
+                const newTodoUrl = ref('');
                 const newLuggage = ref({ text: '', category: '隨身包包' });
                 const newExpense = ref({ dayKey: 'pre', title: '', amount: null, currency: 'TWD' });
                 const emptySplitExpenseForm = () => ({ dayKey: 'pre', title: '', currency: 'TWD', payers: [], splitters: [] });
@@ -3961,6 +4381,7 @@
                     todoFormMode.value = 'add';
                     editingTodoId.value = null;
                     newTodoText.value = '';
+                    newTodoUrl.value = '';
                     showTodoModal.value = true;
                 };
                 const closeTodoModal = () => {
@@ -3973,19 +4394,25 @@
                     editingTodoId.value = item.id;
                     expandedTodoId.value = null;
                     newTodoText.value = item.text || '';
+                    newTodoUrl.value = item.url || '';
                     showTodoModal.value = true;
                 };
                 const saveTodoForm = () => {
                     if (!newTodoText.value.trim()) return;
                     if (!currentTrip.value.todos) currentTrip.value.todos = [];
+                    const todoPayload = {
+                        text: newTodoText.value.trim(),
+                        url: String(newTodoUrl.value || '').trim()
+                    };
                     if (todoFormMode.value === 'edit' && editingTodoId.value !== null) {
                         const todo = currentTrip.value.todos.find(t => t.id === editingTodoId.value);
-                        if (todo) todo.text = newTodoText.value.trim();
+                        if (todo) Object.assign(todo, todoPayload);
                     } else {
-                        currentTrip.value.todos.push({ id: Date.now(), text: newTodoText.value.trim(), done: false });
+                        currentTrip.value.todos.push({ id: Date.now(), ...todoPayload, done: false });
                     }
                     updatePrivateTripData();
                     newTodoText.value = '';
+                    newTodoUrl.value = '';
                     expandedTodoId.value = null;
                     closeTodoModal();
                 };
@@ -4679,6 +5106,11 @@
                 const toggleShoppingActions = (id) => {
                     expandedShoppingId.value = expandedShoppingId.value === id ? null : id;
                 };
+                const toggleShoppingDone = (item) => {
+                    if (!item) return;
+                    item.done = !item.done;
+                    updatePrivateTripData();
+                };
                 const startShoppingEdit = (item) => {
                     shoppingFormMode.value = 'edit';
                     editingShoppingId.value = item.id;
@@ -4763,8 +5195,8 @@
                     editingSpotIndex, expandedSpotIndex, editSpotData, toggleSpotActions, startSpotEdit, saveSpotEdit, saveSpotForm,
                     editingExpenseIndex, editExpenseData, startExpenseEdit, saveExpenseEdit,
                     shoppingCategories, shoppingCategoryFilter, shoppingCategoryMeta, normalizeShoppingCategory, normalizeQuantityValue, getShoppingCategoryMeta, getShoppingSortKey, getSortedShoppingItems, getFilteredShoppingItems, getShoppingCategoryCount, getShoppingGroupedSections,
-                    expandedShoppingId, toggleShoppingActions, editingShoppingId, editShoppingData, startShoppingEdit, saveShoppingEdit, saveShoppingForm,
-                    newSpot, newMenuLink, newTodoText, newLuggage, newExpense, newShopItem, getCalculatedDateStr, getTripDateRangeText, hasCustomImage, handleImageUpload, getSpotTypeIcon, getSpotTypeLabel, getSpotNoteText, getSpotLinkUrl, getSpotLinkName, getSpotDisplayTime, getSpotDepartureTime, getSpotArrivalTime, parseFlightInfo, isTripDayTabActive, getDayWeather, getTravelWeatherDays, getWeatherButtonSummary, openWeatherModal, closeWeatherModal, fetchWeather, openAddSpotModal, closeSpotModal, openAddExpenseModal, closeExpenseModal, openAddShopModal, closeShopModal, openImagePreview, closeImagePreview, switchMainTab, switchDayTab, switchAccountingTab, increaseNewShopQuantity, decreaseNewShopQuantity, increaseEditShopQuantity, decreaseEditShopQuantity,
+                    expandedShoppingId, toggleShoppingActions, toggleShoppingDone, editingShoppingId, editShoppingData, startShoppingEdit, saveShoppingEdit, saveShoppingForm,
+                    newSpot, newMenuLink, newTodoText, newTodoUrl, newLuggage, newExpense, newShopItem, getCalculatedDateStr, getTripDateRangeText, hasCustomImage, handleImageUpload, getSpotTypeIcon, getSpotTypeLabel, getSpotNoteText, getSpotLinkUrl, getSpotLinkName, getSpotDisplayTime, getSpotDepartureTime, getSpotArrivalTime, parseFlightInfo, isTripDayTabActive, getDayWeather, getTravelWeatherDays, getWeatherButtonSummary, openWeatherModal, closeWeatherModal, fetchWeather, openAddSpotModal, closeSpotModal, openAddExpenseModal, closeExpenseModal, openAddShopModal, closeShopModal, openImagePreview, closeImagePreview, switchMainTab, switchDayTab, switchAccountingTab, increaseNewShopQuantity, decreaseNewShopQuantity, increaseEditShopQuantity, decreaseEditShopQuantity,
                     handleLogin, registerAccount, goToLogin, goToRegister, logout, selectTrip, deleteTrip, updateTripData, updateSharedTripData, updatePrivateTripData, inviteUserToTrip, removeTripModalMember, isTripOwner, getTripRoleText, getVisibleMemberUsernames, addSpot, deleteSpot, addMenuLink, deleteMenuLink, addTodo, deleteTodo, addLuggage, deleteLuggage, addExpense, deleteExpense, addShopItem, deleteShopItem
                 };
             }
