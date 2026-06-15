@@ -1242,11 +1242,11 @@
                         </div>
                         <div class="flex justify-between items-center mt-6 border-t border-[#f7f6f3] pt-3">
                             <span class="text-xs text-neutral-400"><i class="fa-regular fa-calendar-check mr-1"></i> 點擊翻開旅遊手冊</span>
-                            <div class="flex gap-2 shrink-0">
-                                <button @click.stop="openEditTripModal(trip)" class="text-neutral-400 hover:text-blue-500 p-1 text-xs">
+                            <div v-if="isTripOwner(trip)" class="flex gap-2 shrink-0">
+                                <button @click.stop="openEditTripModal(trip)" class="text-neutral-400 hover:text-blue-500 p-1 text-xs" title="編輯旅程">
                                     <i class="fa-solid fa-pen-to-square"></i>
                                 </button>
-                                <button @click.stop="deleteTrip(trip.id)" class="text-neutral-300 hover:text-rose-500 p-1 text-xs">
+                                <button @click.stop="deleteTrip(trip.id)" class="text-neutral-300 hover:text-rose-500 p-1 text-xs" title="刪除旅程">
                                     <i class="fa-solid fa-trash"></i>
                                 </button>
                             </div>
