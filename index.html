@@ -860,6 +860,61 @@
             margin-left: 0 !important;
             flex: 0 0 auto !important;
         }
+
+
+        /* 行程卡片：手機版名稱 icon 與文字維持同一行起始 */
+        #app .trip-spot-content .spot-title-row {
+            display: flex !important;
+            flex-wrap: nowrap !important;
+            align-items: flex-start !important;
+            gap: .45rem !important;
+            min-width: 0 !important;
+            padding-right: 1.9rem !important;
+        }
+        #app .trip-spot-content .spot-title-row > i {
+            flex: 0 0 auto !important;
+            margin-top: .08rem !important;
+            line-height: 1.35 !important;
+        }
+        #app .trip-spot-content .spot-title-row .itinerary-wrap-text {
+            display: block !important;
+            flex: 1 1 auto !important;
+            min-width: 0 !important;
+            margin: 0 !important;
+            line-height: 1.45 !important;
+        }
+        .menu-link-thumb {
+            width: 2.35rem;
+            height: 2.35rem;
+            border-radius: .65rem;
+            border: 1px solid #e5e7eb;
+            background: #ffffff;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        .menu-link-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .menu-link-title-plain {
+            display: inline-flex;
+            align-items: center;
+            gap: .25rem;
+            min-width: 0;
+            max-width: calc(100% - 2rem);
+            width: fit-content;
+            flex: 0 1 auto;
+            color: var(--app-primary);
+            font-weight: 700;
+        }
+        .menu-link-title-plain span {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
         @media (max-width: 640px) {
             .modal-form-card { padding: 1.35rem; border-radius: 1.25rem; }
             .item-action-panel,
@@ -1317,19 +1372,26 @@
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div class="bg-white border border-[#e6e4dc] rounded-2xl p-5 space-y-4">
                                     <div class="flex items-center justify-between gap-3 border-b pb-2">
-                                        <h3 class="text-sm font-medium text-neutral-700"><i class="fa-solid fa-ticket text-neutral-400 mr-1.5"></i> 交通娛樂與優惠券</h3>
+                                        <h3 class="text-sm font-medium text-neutral-700"><i class="fa-solid fa-ticket text-neutral-400 mr-1.5"></i> 其他資訊與優惠券</h3>
                                         <button @click="openAddMenuLinkModal" type="button" class="bg-neutral-700 hover:bg-neutral-800 text-white text-xs px-3 py-2 rounded-xl font-medium shadow-sm transition-colors flex items-center gap-1.5 whitespace-nowrap">
                                             <i class="fa-solid fa-plus"></i> 新增
                                         </button>
                                     </div>
                                     <div class="space-y-2 max-h-64 overflow-y-auto">
-                                        <div v-if="!currentTrip.menuLinks || !currentTrip.menuLinks.length" class="text-center text-neutral-400 text-xs py-4">尚無交通、票券或優惠券連結</div>
+                                        <div v-if="!currentTrip.menuLinks || !currentTrip.menuLinks.length" class="text-center text-neutral-400 text-xs py-4">尚無其他資訊或優惠券連結</div>
                                         <div v-for="(link, idx) in currentTrip.menuLinks" :key="idx" @click="toggleMenuLinkActions(idx)" class="menu-link-card bg-[#fcfbf9] border border-[#e6e4dc] p-3 rounded-xl text-xs group">
                                             <div class="flex items-center gap-2 min-w-0 w-full">
-                                                <a :href="link.url" target="_blank" @click.stop class="menu-link-inline-anchor text-primary font-medium hover:underline">
+                                                <button v-if="hasCustomImage(link.imgUrl)" @click.stop="openImagePreview(link.imgUrl)" type="button" class="menu-link-thumb cursor-zoom-in hover:opacity-90 transition-opacity">
+                                                    <img :src="link.imgUrl" alt="資訊圖片">
+                                                </button>
+                                                <a v-if="link.url" :href="link.url" target="_blank" @click.stop class="menu-link-inline-anchor text-primary font-medium hover:underline">
                                                     <i class="fa-solid fa-arrow-up-right-from-square text-[10px] shrink-0"></i>
                                                     <span>{{ link.title }}</span>
                                                 </a>
+                                                <span v-else class="menu-link-title-plain">
+                                                    <i class="fa-solid fa-circle-info text-[10px] shrink-0"></i>
+                                                    <span>{{ link.title }}</span>
+                                                </span>
                                                 <i :class="['fa-solid fa-chevron-down expand-chevron', expandedMenuLinkIndex === idx ? 'expanded' : '']"></i>
                                             </div>
                                             <div v-if="expandedMenuLinkIndex === idx" class="item-action-panel" @click.stop>
@@ -1739,14 +1801,19 @@
                 <div class="modal-form-card">
                     <div class="modal-form-header">
                         <div>
-                            <h3 class="modal-form-title"><i class="fa-solid fa-ticket-simple text-primary mr-1.5"></i>{{ menuLinkFormMode === 'edit' ? '編輯交通娛樂與優惠券' : '新增交通娛樂與優惠券' }}</h3>
-                            <p class="modal-form-subtitle">可放交通票券、入場券、優惠券或訂單連結。</p>
+                            <h3 class="modal-form-title"><i class="fa-solid fa-ticket-simple text-primary mr-1.5"></i>{{ menuLinkFormMode === 'edit' ? '編輯其他資訊與優惠券' : '新增其他資訊與優惠券' }}</h3>
+                            <p class="modal-form-subtitle">可放票券、訂單、優惠券、圖片或參考連結。</p>
                         </div>
                         <button @click="closeMenuLinkModal" type="button" class="modal-close-button"><i class="fa-solid fa-xmark"></i></button>
                     </div>
                     <div class="modal-form-body">
-                        <label class="modal-field"><span class="modal-field-label">名稱</span><input v-model="newMenuLink.title" type="text" placeholder="例如：導航、票券、優惠券" class="modal-input"></label>
-                        <label class="modal-field"><span class="modal-field-label">連結網址</span><input v-model="newMenuLink.url" type="text" placeholder="https://..." class="modal-input"></label>
+                        <label class="modal-field"><span class="modal-field-label">名稱</span><input v-model="newMenuLink.title" type="text" placeholder="例如：機場停車、票券、優惠券" class="modal-input"></label>
+                        <label class="modal-field"><span class="modal-field-label">連結網址(選填)</span><input v-model="newMenuLink.url" type="text" placeholder="https://..." class="modal-input"></label>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <label class="modal-field"><span class="modal-field-label">圖片網址(選填)</span><input v-model="newMenuLink.imgUrl" type="text" placeholder="圖片網址" class="modal-input"></label>
+                            <label class="modal-upload-field"><span><i class="fa-solid fa-upload mr-1"></i>上傳圖片檔(選填)</span><input type="file" accept="image/*" @change="handleImageUpload($event, newMenuLink)" class="hidden"></label>
+                        </div>
+                        <div v-if="newMenuLink.imgUrl" class="modal-image-preview"><img :src="newMenuLink.imgUrl" class="w-16 h-16 object-cover rounded-lg border bg-white"><button @click="newMenuLink.imgUrl = ''" type="button" class="text-xs text-rose-500 hover:underline">移除圖片</button></div>
                     </div>
                     <button @click="saveMenuLinkForm" type="button" class="modal-save-button">儲存變更</button>
                 </div>
@@ -2211,7 +2278,7 @@
                 // 原地編輯各項目索引暫存
                 const editingMenuLinkIndex = ref(null);
                 const expandedMenuLinkIndex = ref(null);
-                const editMenuLinkData = ref({ title: '', url: '' });
+                const editMenuLinkData = ref({ title: '', url: '', imgUrl: '' });
                 
                 const editingTodoId = ref(null);
                 const editTodoTextData = ref('');
@@ -2297,7 +2364,7 @@
 
                 // 新增用欄位暫存
                 const newSpot = ref({ type: '景點', time: '', departureTime: '', arrivalTime: '', name: '', placeNote: '', linkName: '', linkUrl: '', imgUrl: '' });
-                const newMenuLink = ref({ title: '', url: '' });
+                const newMenuLink = ref({ title: '', url: '', imgUrl: '' });
                 const newTodoText = ref('');
                 const newTodoUrl = ref('');
                 const newLuggage = ref({ text: '', category: '隨身包包' });
@@ -4338,7 +4405,7 @@
                 const openAddMenuLinkModal = () => {
                     menuLinkFormMode.value = 'add';
                     editingMenuLinkIndex.value = null;
-                    newMenuLink.value = { title: '', url: '' };
+                    newMenuLink.value = { title: '', url: '', imgUrl: '' };
                     showMenuLinkModal.value = true;
                 };
                 const closeMenuLinkModal = () => {
@@ -4350,20 +4417,24 @@
                     menuLinkFormMode.value = 'edit';
                     editingMenuLinkIndex.value = idx;
                     expandedMenuLinkIndex.value = null;
-                    newMenuLink.value = { title: link?.title || '', url: link?.url || '' };
+                    newMenuLink.value = { title: link?.title || '', url: link?.url || '', imgUrl: hasCustomImage(link?.imgUrl) ? link.imgUrl : '' };
                     showMenuLinkModal.value = true;
                 };
                 const saveMenuLinkForm = () => {
-                    if (!newMenuLink.value.title || !newMenuLink.value.url) return alert('請填寫完整');
+                    if (!String(newMenuLink.value.title || '').trim()) return alert('請填寫名稱');
                     if (!currentTrip.value.menuLinks) currentTrip.value.menuLinks = [];
-                    const payload = { title: String(newMenuLink.value.title || '').trim(), url: String(newMenuLink.value.url || '').trim() };
+                    const payload = {
+                        title: String(newMenuLink.value.title || '').trim(),
+                        url: String(newMenuLink.value.url || '').trim(),
+                        imgUrl: String(newMenuLink.value.imgUrl || '').trim()
+                    };
                     if (menuLinkFormMode.value === 'edit' && editingMenuLinkIndex.value !== null) {
                         currentTrip.value.menuLinks[editingMenuLinkIndex.value] = payload;
                     } else {
                         currentTrip.value.menuLinks.push(payload);
                     }
                     updateSharedTripData();
-                    newMenuLink.value = { title: '', url: '' };
+                    newMenuLink.value = { title: '', url: '', imgUrl: '' };
                     expandedMenuLinkIndex.value = null;
                     closeMenuLinkModal();
                 };
