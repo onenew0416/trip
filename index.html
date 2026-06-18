@@ -306,9 +306,9 @@
             display: flex;
             flex-direction: column;
             gap: 1.25rem;
-            max-height: 520px;
-            overflow-y: auto;
-            padding-right: .15rem;
+            max-height: none;
+            overflow: visible;
+            padding-right: 0;
         }
         .shopping-category-section {
             overflow: hidden;
@@ -324,6 +324,21 @@
             padding: 1rem 1.15rem;
             background: rgba(var(--app-primary-rgb), .10);
             border-bottom: 1px solid rgba(var(--app-primary-rgb), .14);
+            cursor: pointer;
+            user-select: none;
+        }
+        .shopping-category-header:hover {
+            background: rgba(var(--app-primary-rgb), .16) !important;
+        }
+        .shopping-category-collapse-icon {
+            color: #94a3b8;
+            font-size: .78rem;
+            transition: transform .16s ease, color .16s ease;
+            flex-shrink: 0;
+        }
+        .shopping-category-collapse-icon.collapsed {
+            transform: rotate(-90deg);
+            color: var(--app-primary);
         }
         .shopping-category-icon {
             color: var(--app-primary);
@@ -1777,16 +1792,17 @@
 
                         <div v-else class="shopping-category-board">
                             <section v-for="section in getShoppingGroupedSections()" :key="section.key" class="shopping-category-section">
-                                <div class="shopping-category-header">
+                                <div class="shopping-category-header" @click="toggleShoppingCategoryCollapse(section.key)" role="button" tabindex="0" @keydown.enter.prevent="toggleShoppingCategoryCollapse(section.key)" @keydown.space.prevent="toggleShoppingCategoryCollapse(section.key)">
                                     <i :class="[section.icon, 'shopping-category-icon']"></i>
                                     <div class="flex items-center gap-2 min-w-0">
                                         <span class="shopping-category-title">{{ section.label }}</span>
                                         <span class="shopping-category-en">{{ section.en }}</span>
                                     </div>
                                     <span class="shopping-count-badge ml-auto">{{ section.count }}</span>
+                                    <i :class="['fa-solid fa-chevron-down shopping-category-collapse-icon', isShoppingCategoryCollapsed(section.key) ? 'collapsed' : '']"></i>
                                 </div>
 
-                                <div class="shopping-item-list">
+                                <div v-show="!isShoppingCategoryCollapsed(section.key)" class="shopping-item-list">
                                     <div v-for="item in section.items" :key="item.id" @click="toggleShoppingActions(item.id)" :class="['shopping-item-row', item.done ? 'shopping-item-done' : '']">
                                         <button type="button"
                                                :class="['shopping-check', item.done ? 'checked' : '']"
@@ -2350,6 +2366,19 @@
                 };
                 const shoppingCategoryFilter = ref('全部');
                 const expandedShoppingId = ref(null);
+                const collapsedShoppingCategories = ref([]);
+
+                const isShoppingCategoryCollapsed = (category) => {
+                    return collapsedShoppingCategories.value.includes(category);
+                };
+
+                const toggleShoppingCategoryCollapse = (category) => {
+                    if (isShoppingCategoryCollapsed(category)) {
+                        collapsedShoppingCategories.value = collapsedShoppingCategories.value.filter(item => item !== category);
+                    } else {
+                        collapsedShoppingCategories.value = [...collapsedShoppingCategories.value, category];
+                    }
+                };
 
                 const normalizeShoppingCategory = (category) => {
                     return shoppingCategories.includes(category) ? category : '藥妝';
@@ -5416,6 +5445,7 @@
                     editingSpotIndex, expandedSpotIndex, editSpotData, toggleSpotActions, startSpotEdit, saveSpotEdit, saveSpotForm,
                     editingExpenseIndex, editExpenseData, startExpenseEdit, saveExpenseEdit,
                     shoppingCategories, shoppingCategoryFilter, shoppingCategoryMeta, normalizeShoppingCategory, normalizeQuantityValue, getShoppingCategoryMeta, getShoppingSortKey, getSortedShoppingItems, getFilteredShoppingItems, getShoppingCategoryCount, getShoppingGroupedSections,
+                    collapsedShoppingCategories, isShoppingCategoryCollapsed, toggleShoppingCategoryCollapse,
                     expandedShoppingId, toggleShoppingActions, toggleShoppingDone, editingShoppingId, editShoppingData, startShoppingEdit, saveShoppingEdit, saveShoppingForm,
                     newSpot, newMenuLink, newTodoText, newTodoUrl, newLuggage, newExpense, newShopItem, getCalculatedDateStr, getTripDateRangeText, hasCustomImage, handleImageUpload, getSpotTypeIcon, getSpotTypeLabel, getSpotNoteText, getSpotLinkUrl, getSpotLinkName, getSpotDisplayTime, getSpotDepartureTime, getSpotArrivalTime, parseFlightInfo, isTripDayTabActive, getDayWeather, getTravelWeatherDays, getWeatherButtonSummary, openWeatherModal, closeWeatherModal, fetchWeather, openAddSpotModal, closeSpotModal, openAddExpenseModal, closeExpenseModal, openAddShopModal, closeShopModal, openImagePreview, closeImagePreview, switchMainTab, switchDayTab, switchAccountingTab, increaseNewShopQuantity, decreaseNewShopQuantity, increaseEditShopQuantity, decreaseEditShopQuantity,
                     handleLogin, registerAccount, goToLogin, goToRegister, logout, selectTrip, deleteTrip, updateTripData, updateSharedTripData, updatePrivateTripData, inviteUserToTrip, removeTripModalMember, isTripOwner, getTripRoleText, getVisibleMemberUsernames, addSpot, deleteSpot, addMenuLink, deleteMenuLink, addTodo, deleteTodo, addLuggage, deleteLuggage, addExpense, deleteExpense, addShopItem, deleteShopItem
