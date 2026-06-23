@@ -1997,10 +1997,10 @@
                             </div>
                             <div class="space-y-2">
                                 <label v-for="share in newSplitExpense.splitters" :key="share.key" class="flex items-center gap-3 bg-white border border-neutral-100 rounded-xl p-2.5">
-                                    <input type="checkbox" v-model="share.selected" @change="handleSplitterChange" class="split-check rounded border-neutral-300">
+                                    <input type="checkbox" v-model="share.selected" @change="handleSplitterChange(share)" class="split-check rounded border-neutral-300">
                                     <span class="split-person-avatar">{{ getMemberInitial(share.name) }}</span>
                                     <span class="flex-1 text-sm font-medium text-neutral-700 break-words">{{ share.name }}</span>
-                                    <input v-if="share.selected" v-model.number="share.amount" @input="handleSplitterAmountInput" type="number" min="0" step="0.01" placeholder="應分金額" class="w-28 border-0 border-b border-neutral-200 text-right text-xs focus:outline-none bg-transparent">
+                                    <input v-if="share.selected" v-model.number="share.amount" @input="handleSplitterAmountInput(share)" type="number" min="0" step="0.01" placeholder="應分金額" class="w-28 border-0 border-b border-neutral-200 text-right text-xs focus:outline-none bg-transparent">
                                 </label>
                             </div>
                         </div>
@@ -2008,7 +2008,16 @@
 
                     <div class="flex justify-end gap-2 pt-2 border-t border-neutral-100">
                         <button @click="closeExpenseModal" type="button" class="px-4 py-2 text-xs border border-neutral-300 rounded-xl text-neutral-500 hover:bg-neutral-50">取消</button>
-                        <button @click="addExpense" type="button" class="px-4 py-2 text-xs bg-neutral-700 text-white rounded-xl hover:bg-neutral-800 shadow-sm">儲存分帳</button>
+                        <button
+                            @click="addExpense"
+                            type="button"
+                            :disabled="isSavingExpense"
+                            :aria-busy="isSavingExpense ? 'true' : 'false'"
+                            :class="['px-4 py-2 text-xs text-white rounded-xl shadow-sm inline-flex items-center justify-center gap-2 min-w-[96px] transition-colors', isSavingExpense ? 'bg-neutral-400 cursor-not-allowed opacity-80' : 'bg-neutral-700 hover:bg-neutral-800']"
+                        >
+                            <i v-if="isSavingExpense" class="fa-solid fa-spinner fa-spin"></i>
+                            <span>{{ isSavingExpense ? '儲存中' : '儲存分帳' }}</span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -2240,6 +2249,7 @@
                 const HISTORICAL_WEATHER_YEARS = 10;
                 const showSpotModal = ref(false);
                 const showExpenseModal = ref(false);
+                const isSavingExpense = ref(false);
                 const showShopModal = ref(false);
                 const showMenuLinkModal = ref(false);
                 const showTodoModal = ref(false);
@@ -2983,30 +2993,77 @@
 
                 const getRateCacheKey = (currency, dateStr) => `fx_twd_${String(currency).toUpperCase()}_${dateStr}`;
 
+                // 只有真正從匯率來源取得、且具有實際日期的資料才視為有效快取。
+                // 舊版曾把 0.023 等內建估算寫進 localStorage，這裡會自動忽略並清除。
+                const isActualRatePayload = (payload) => {
+                    const rate = Number(payload?.rate);
+                    const rateDate = String(payload?.date || '');
+                    const source = String(payload?.source || '');
+                    return Number.isFinite(rate)
+                        && rate > 0
+                        && /^\d{4}-\d{2}-\d{2}$/.test(rateDate)
+                        && rateDate !== 'fallback'
+                        && !source.includes('內建估算');
+                };
+
                 const readCachedRate = (currency, dateStr) => {
+                    const key = getRateCacheKey(currency, dateStr);
                     try {
-                        const saved = localStorage.getItem(getRateCacheKey(currency, dateStr));
-                        return saved ? JSON.parse(saved) : null;
-                    } catch (e) { return null; }
+                        const saved = localStorage.getItem(key);
+                        if (!saved) return null;
+                        const payload = JSON.parse(saved);
+                        if (isActualRatePayload(payload)) return payload;
+
+                        // 清掉舊版留下的 fallback / 損壞快取，讓程式重新向 API 查詢。
+                        localStorage.removeItem(key);
+                        return null;
+                    } catch (e) {
+                        try { localStorage.removeItem(key); } catch (_) {}
+                        return null;
+                    }
                 };
 
                 const writeCachedRate = (currency, requestedDate, payload) => {
-                    try { localStorage.setItem(getRateCacheKey(currency, requestedDate), JSON.stringify(payload)); } catch (e) {}
+                    // 不再永久快取「內建估算」，避免網路短暫失敗後一直卡在 0.023。
+                    if (!isActualRatePayload(payload)) return;
+                    try {
+                        localStorage.setItem(
+                            getRateCacheKey(currency, requestedDate),
+                            JSON.stringify(payload)
+                        );
+                    } catch (e) {}
                 };
 
                 const findNearestCachedRate = (currency, dateStr) => {
                     try {
                         const prefix = `fx_twd_${String(currency).toUpperCase()}_`;
+                        const requestedDate = parseLocalDate(dateStr);
                         const entries = [];
-                        for (let i = 0; i < localStorage.length; i++) {
+
+                        for (let i = localStorage.length - 1; i >= 0; i--) {
                             const key = localStorage.key(i);
                             if (!key || !key.startsWith(prefix)) continue;
-                            const payload = JSON.parse(localStorage.getItem(key));
-                            if (payload && payload.rate) entries.push(payload);
+
+                            let payload = null;
+                            try { payload = JSON.parse(localStorage.getItem(key)); } catch (e) {}
+
+                            if (!isActualRatePayload(payload)) {
+                                // 順便清除舊版 fallback 或無效資料。
+                                try { localStorage.removeItem(key); } catch (e) {}
+                                continue;
+                            }
+
+                            const payloadDate = parseLocalDate(payload.date);
+                            // 歷史消費只能使用該日或更早的匯率，不可誤用未來日期。
+                            if (requestedDate && payloadDate && payloadDate > requestedDate) continue;
+                            entries.push(payload);
                         }
-                        entries.sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+
+                        entries.sort((a, b) => String(b.date).localeCompare(String(a.date)));
                         return entries[0] || null;
-                    } catch (e) { return null; }
+                    } catch (e) {
+                        return null;
+                    }
                 };
 
                 const fallbackTwdRate = (currency) => {
@@ -3015,38 +3072,80 @@
                     return { rate: 1, date: 'fallback', source: '內建估算' };
                 };
 
+                const fetchJsonWithTimeout = async (url, timeoutMs = 7000) => {
+                    const controller = new AbortController();
+                    const timer = setTimeout(() => controller.abort(), timeoutMs);
+                    try {
+                        const response = await fetch(url, {
+                            signal: controller.signal,
+                            cache: 'no-store'
+                        });
+                        if (!response.ok) return null;
+                        return await response.json();
+                    } catch (e) {
+                        return null;
+                    } finally {
+                        clearTimeout(timer);
+                    }
+                };
+
+                const fetchRateDataForDate = async (currency, rateDate) => {
+                    const lowerCurrency = String(currency).toLowerCase();
+                    const urls = [
+                        `https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@${rateDate}/v1/currencies/${lowerCurrency}.json`,
+                        `https://${rateDate}.currency-api.pages.dev/v1/currencies/${lowerCurrency}.json`
+                    ];
+
+                    for (const url of urls) {
+                        const data = await fetchJsonWithTimeout(url);
+                        const rate = Number(data?.[lowerCurrency]?.twd);
+                        if (Number.isFinite(rate) && rate > 0) return rate;
+                    }
+                    return null;
+                };
+
                 const fetchRateToTwd = async (currency, dateStr) => {
                     const cur = String(currency || 'TWD').toUpperCase();
                     if (cur === 'TWD') return { rate: 1, date: dateStr, source: 'TWD' };
+
+                    // 只採用有效的真實快取；舊版的 0.023 fallback 會被 readCachedRate 清掉。
                     const cached = readCachedRate(cur, dateStr);
-                    if (cached && cached.rate) return cached;
+                    if (cached) return cached;
 
                     const baseDate = parseLocalDate(dateStr) || new Date();
+
+                    // 從消費日開始逐日往前查。遇到週末或連假沒有資料時，
+                    // 會一路找到最近一個有匯率的營業日，例如 6/21 -> 6/18。
                     for (let offset = 0; offset <= 14; offset++) {
                         const targetDate = new Date(baseDate);
                         targetDate.setDate(targetDate.getDate() - offset);
                         const rateDate = formatLocalDate(targetDate);
-                        try {
-                            const res = await fetch(`https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@${rateDate}/v1/currencies/${cur.toLowerCase()}.json`);
-                            if (!res.ok) continue;
-                            const data = await res.json();
-                            const rate = data?.[cur.toLowerCase()]?.twd;
-                            if (rate && Number(rate) > 0) {
-                                const payload = { rate: Number(rate), date: rateDate, source: offset === 0 ? '當天匯率' : `最近匯率 ${rateDate}` };
-                                writeCachedRate(cur, dateStr, payload);
-                                return payload;
-                            }
-                        } catch (e) {}
+                        const rate = await fetchRateDataForDate(cur, rateDate);
+
+                        if (rate) {
+                            const payload = {
+                                rate,
+                                date: rateDate,
+                                source: offset === 0 ? '當天匯率' : `最近可用匯率 ${rateDate}`
+                            };
+
+                            // 同時以「查詢日期」及「實際匯率日期」建立有效快取。
+                            writeCachedRate(cur, dateStr, payload);
+                            writeCachedRate(cur, rateDate, payload);
+                            return payload;
+                        }
                     }
 
+                    // API 暫時無法連線時，優先使用該消費日以前的真實快取。
                     const nearest = findNearestCachedRate(cur, dateStr);
-                    if (nearest && nearest.rate) {
+                    if (nearest) {
                         writeCachedRate(cur, dateStr, nearest);
                         return nearest;
                     }
-                    const fallback = fallbackTwdRate(cur);
-                    writeCachedRate(cur, dateStr, fallback);
-                    return fallback;
+
+                    // 最後才暫時使用內建估算，但不寫入 localStorage。
+                    // 下次開啟或重新查詢時仍會再次嘗試取得真實歷史匯率。
+                    return fallbackTwdRate(cur);
                 };
 
                 const ensureExpenseExchangeRates = async (trip = currentTrip.value) => {
@@ -3060,7 +3159,10 @@
                         const currency = String(exp.currency || 'TWD').toUpperCase();
                         if (currency === 'TWD') return;
                         const dateStr = getExpenseDateStr(exp, trip);
-                        if (!exchangeRates.value[dateStr]?.[currency]) targets.push({ currency, dateStr });
+                        const existing = exchangeRates.value[dateStr]?.[currency];
+
+                        // 如果目前只有內建估算，仍要重新查 API，不能把 0.023 當成已完成。
+                        if (!isActualRatePayload(existing)) targets.push({ currency, dateStr });
                     });
                     if (!targets.length) return;
                     exchangeRateLoading.value = true;
@@ -3088,7 +3190,12 @@
                     const currency = String(exp?.currency || 'TWD').toUpperCase();
                     if (currency === 'TWD') return 1;
                     const dateStr = getExpenseDateStr(exp);
-                    return Number(exchangeRates.value[dateStr]?.[currency]?.rate || readCachedRate(currency, dateStr)?.rate || fallbackTwdRate(currency).rate || 0);
+                    const inMemory = exchangeRates.value[dateStr]?.[currency];
+                    const cached = readCachedRate(currency, dateStr);
+
+                    if (isActualRatePayload(inMemory)) return Number(inMemory.rate);
+                    if (cached) return Number(cached.rate);
+                    return Number(inMemory?.rate || fallbackTwdRate(currency).rate || 0);
                 };
 
                 const sumExpensesInTwd = () => {
@@ -4731,11 +4838,14 @@
                     editingSpotIndex.value = null;
                 };
                 const openAddExpenseModal = () => {
+                    if (isSavingExpense.value) return;
+                    isSavingExpense.value = false;
                     editingSplitExpenseId.value = null;
                     prepareSplitExpenseForm();
                     showExpenseModal.value = true;
                 };
                 const closeExpenseModal = () => {
+                    if (isSavingExpense.value) return;
                     blurActiveInput();
                     showExpenseModal.value = false;
                     editingSplitExpenseId.value = null;
@@ -4870,7 +4980,10 @@
                             name: existing.name || member.name,
                             key: member.key,
                             selected: !!existing.selected || Number(existing.amount || 0) > 0,
-                            amount: existing.amount === 0 ? 0 : (existing.amount || '')
+                            amount: existing.amount === 0 ? 0 : (existing.amount || ''),
+                            // 僅供分帳視窗使用，不會寫入 Firestore：
+                            // 已有金額視為手動設定，新勾選者則由系統自動分配剩餘金額。
+                            manualAmount: Number(existing.amount || 0) > 0
                         };
                     });
                 };
@@ -4910,16 +5023,46 @@
                     });
                 };
 
+                // 自動分配規則：
+                // 1. 使用者手動輸入過的分款金額保持不變。
+                // 2. 付款總額扣除手動金額後，剩餘金額平均分給其他已勾選分款者。
+                // 3. 取消再重新勾選某位分款者時，該列會恢復為自動分配。
                 const recalcSplitShares = () => {
                     const rows = selectedShareRows();
-                    const amounts = splitEvenAmounts(selectedPayerTotal(), rows.length);
-                    rows.forEach((row, idx) => { row.amount = amounts[idx] || 0; });
+                    if (!rows.length) return;
+
+                    const manualRows = rows.filter(row => row.manualAmount === true);
+                    const autoRows = rows.filter(row => row.manualAmount !== true);
+                    const manualTotal = roundMoney(
+                        manualRows.reduce((sum, row) => sum + Number(row.amount || 0), 0)
+                    );
+                    const remaining = roundMoney(selectedPayerTotal() - manualTotal);
+
+                    // 若全部分款者都已手動輸入，保留使用者輸入，交由儲存前驗證總額。
+                    if (!autoRows.length) return;
+
+                    const amounts = splitEvenAmounts(Math.max(0, remaining), autoRows.length);
+                    autoRows.forEach((row, idx) => {
+                        row.amount = amounts[idx] || 0;
+                    });
                 };
 
                 const handleSplitPayerChange = () => recalcSplitShares();
                 const handleSplitPayerAmountInput = () => recalcSplitShares();
-                const handleSplitterChange = () => recalcSplitShares();
-                const handleSplitterAmountInput = () => {};
+
+                const handleSplitterChange = (row) => {
+                    if (!row) return;
+                    // 無論取消或重新勾選，都清除舊的手動狀態；重新勾選時改由系統分配剩餘金額。
+                    row.manualAmount = false;
+                    row.amount = '';
+                    recalcSplitShares();
+                };
+
+                const handleSplitterAmountInput = (row) => {
+                    if (!row) return;
+                    row.manualAmount = true;
+                    recalcSplitShares();
+                };
 
                 const getSplitExpenses = () => Array.isArray(currentTrip.value?.splitExpenses) ? currentTrip.value.splitExpenses : [];
                 const getFilteredSplitExpenses = (dayKey) => getSplitExpenses().filter(exp => (exp.dayKey || 'pre') === dayKey);
@@ -5294,6 +5437,7 @@
                 const startExpenseEdit = () => {};
                 const saveExpenseEdit = () => {};
                 const addExpense = async () => {
+                    if (isSavingExpense.value) return;
                     if (!currentTrip.value) return;
                     const title = String(newSplitExpense.value.title || '').trim();
                     const payerRows = selectedPayerRows()
@@ -5322,6 +5466,7 @@
                     };
 
                     const backup = JSON.parse(JSON.stringify(currentTrip.value.splitExpenses || []));
+                    isSavingExpense.value = true;
                     try {
                         if (!Array.isArray(currentTrip.value.splitExpenses)) currentTrip.value.splitExpenses = [];
                         const idx = currentTrip.value.splitExpenses.findIndex(item => item.id === editingSplitExpenseId.value);
@@ -5337,6 +5482,8 @@
                         currentTrip.value.splitExpenses = backup;
                         console.error('Save split expense failed:', err);
                         alert('分帳儲存失敗：' + (err?.message || '請稍後再試。'));
+                    } finally {
+                        isSavingExpense.value = false;
                     }
                 };
                 const deleteExpense = async (id) => {
@@ -5437,7 +5584,7 @@
                     user, authForm, registerForm, authPage, authMessage, trips, currentTrip, activeMainTab, activeDayTab, weather, weatherForecast, weatherLoading, weatherError, weatherCity, showWeatherModal, showSpotModal, showExpenseModal, showShopModal, showMenuLinkModal, showTodoModal, showLuggageModal, imagePreviewUrl, isKeyMissing, shareForm, shareMessage,
                     showTripModal, isEditingTripMode, tripModalForm, getMinimumReturnDate, handleTripStartDateChange, handleTripEndDateChange, openAddTripModal, openEditTripModal, closeTripModal, saveTripModalAction,
                     expenseSections, getFilteredExpenses, sumByCurrency, getCurrencySymbol, sumExpensesInTwd, formatTwdAmount, getExchangeRateSummary,
-                    newSplitExpense, editingSplitExpenseId, activeSettlementTab, activeAccountingTab, selectedPayerTotal, selectedShareTotal, handleSplitPayerChange, handleSplitPayerAmountInput, handleSplitterChange, handleSplitterAmountInput, getMemberInitial, getSplitExpenses, getFilteredSplitExpenses, getSplitPayers, getSplitShares, getSplitExpenseTotal, getSplitShareCount, getSplitPayerSummary, formatCurrencyAmount, formatTwdCurrency, formatSplitAmountWithTwd, formatSplitCardTotal, formatSplitTotalSummary, splitSettlements, splitSettlementReceivableGroups, memberSpendSummary, splitRepaymentSummary, getExpenseRepaymentItems, isExpenseRepaymentPaid, toggleExpenseRepaymentStatus, isSettlementRepaid, toggleRepaymentStatus, toggleSplitExpense, openEditSplitExpense,
+                    newSplitExpense, editingSplitExpenseId, isSavingExpense, activeSettlementTab, activeAccountingTab, selectedPayerTotal, selectedShareTotal, handleSplitPayerChange, handleSplitPayerAmountInput, handleSplitterChange, handleSplitterAmountInput, getMemberInitial, getSplitExpenses, getFilteredSplitExpenses, getSplitPayers, getSplitShares, getSplitExpenseTotal, getSplitShareCount, getSplitPayerSummary, formatCurrencyAmount, formatTwdCurrency, formatSplitAmountWithTwd, formatSplitCardTotal, formatSplitTotalSummary, splitSettlements, splitSettlementReceivableGroups, memberSpendSummary, splitRepaymentSummary, getExpenseRepaymentItems, isExpenseRepaymentPaid, toggleExpenseRepaymentStatus, isSettlementRepaid, toggleRepaymentStatus, toggleSplitExpense, openEditSplitExpense,
                     menuLinkFormMode, todoFormMode, luggageFormMode, spotFormMode, shoppingFormMode,
                     editingMenuLinkIndex, expandedMenuLinkIndex, editMenuLinkData, toggleMenuLinkActions, openAddMenuLinkModal, closeMenuLinkModal, startMenuLinkEdit, saveMenuLinkEdit, saveMenuLinkForm,
                     editingTodoId, expandedTodoId, editTodoTextData, toggleTodoActions, openAddTodoModal, closeTodoModal, startTodoEdit, saveTodoEdit, saveTodoForm, toggleTodoDone,
