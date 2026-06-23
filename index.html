@@ -1351,33 +1351,89 @@
                     <i class="fa-solid fa-map-location-dot text-4xl text-neutral-300 mb-3"></i>
                     <p class="text-sm">尚未建立任何旅程，點擊右上角開啟你的第一個旅遊手冊吧！</p>
                 </div>
-                
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    <div v-for="trip in trips" :key="trip.id" @click="selectTrip(trip)" class="bg-white border border-[#e6e4dc] rounded-2xl p-6 cursor-pointer hover:shadow-md transition-all relative group flex flex-col justify-between min-h-[180px]">
-                        <div>
-                            <div class="flex justify-between items-start mb-2">
-                                <span class="text-[11px] text-neutral-500 font-medium bg-neutral-50 px-2 py-0.5 rounded border border-neutral-100">
-                                    📅 {{ getTripDateRangeText(trip) }}
-                                </span>
-                            </div>
-                            <h3 class="text-lg font-medium text-neutral-700 group-hover:text-primary transition-colors mt-1">{{ trip.title }}</h3>
-                            <div class="flex flex-wrap gap-2 mt-2">
-                                <span class="text-[10px] bg-[#fcfbf9] border border-[#e6e4dc] text-neutral-500 px-2 py-0.5 rounded-full">{{ getTripRoleText(trip) }}</span>
-                                <span class="text-[10px] bg-[#fcfbf9] border border-[#e6e4dc] text-neutral-500 px-2 py-0.5 rounded-full">{{ getVisibleMemberUsernames(trip.memberUsernames).length }} 人共編</span>
+
+                <div v-else class="space-y-10">
+                    <section>
+                        <div class="flex items-center gap-2 mb-4">
+                            <h3 class="text-base font-medium text-neutral-700">尚未到來／進行中</h3>
+                            <span class="text-[10px] bg-[#f7f6f3] border border-[#e6e4dc] text-neutral-500 px-2 py-0.5 rounded-full">
+                                {{ upcomingActiveTrips.length }}
+                            </span>
+                        </div>
+
+                        <div v-if="upcomingActiveTrips.length === 0" class="border border-dashed border-[#e6e4dc] bg-white rounded-2xl p-8 text-center text-neutral-400">
+                            <p class="text-sm">目前沒有尚未到來或進行中的旅程</p>
+                        </div>
+
+                        <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                            <div v-for="trip in upcomingActiveTrips" :key="trip.id" @click="selectTrip(trip)" class="bg-white border border-[#e6e4dc] rounded-2xl p-6 cursor-pointer hover:shadow-md transition-all relative group flex flex-col justify-between min-h-[180px]">
+                                <div>
+                                    <div class="flex justify-between items-start mb-2">
+                                        <span class="text-[11px] text-neutral-500 font-medium bg-neutral-50 px-2 py-0.5 rounded border border-neutral-100">
+                                            📅 {{ getTripDateRangeText(trip) }}
+                                        </span>
+                                    </div>
+                                    <h3 class="text-lg font-medium text-neutral-700 group-hover:text-primary transition-colors mt-1">{{ trip.title }}</h3>
+                                    <div class="flex flex-wrap gap-2 mt-2">
+                                        <span class="text-[10px] bg-[#fcfbf9] border border-[#e6e4dc] text-neutral-500 px-2 py-0.5 rounded-full">{{ getTripRoleText(trip) }}</span>
+                                        <span class="text-[10px] bg-[#fcfbf9] border border-[#e6e4dc] text-neutral-500 px-2 py-0.5 rounded-full">{{ getVisibleMemberUsernames(trip.memberUsernames).length }} 人共編</span>
+                                    </div>
+                                </div>
+                                <div class="flex justify-between items-center mt-6 border-t border-[#f7f6f3] pt-3">
+                                    <span class="text-xs text-neutral-400"><i class="fa-regular fa-calendar-check mr-1"></i> 點擊翻開旅遊手冊</span>
+                                    <div v-if="isTripOwner(trip)" class="flex gap-2 shrink-0">
+                                        <button @click.stop="openEditTripModal(trip)" class="text-neutral-400 hover:text-blue-500 p-1 text-xs" title="編輯旅程">
+                                            <i class="fa-solid fa-pen-to-square"></i>
+                                        </button>
+                                        <button @click.stop="deleteTrip(trip.id)" class="text-neutral-300 hover:text-rose-500 p-1 text-xs" title="刪除旅程">
+                                            <i class="fa-solid fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <div class="flex justify-between items-center mt-6 border-t border-[#f7f6f3] pt-3">
-                            <span class="text-xs text-neutral-400"><i class="fa-regular fa-calendar-check mr-1"></i> 點擊翻開旅遊手冊</span>
-                            <div v-if="isTripOwner(trip)" class="flex gap-2 shrink-0">
-                                <button @click.stop="openEditTripModal(trip)" class="text-neutral-400 hover:text-blue-500 p-1 text-xs" title="編輯旅程">
-                                    <i class="fa-solid fa-pen-to-square"></i>
-                                </button>
-                                <button @click.stop="deleteTrip(trip.id)" class="text-neutral-300 hover:text-rose-500 p-1 text-xs" title="刪除旅程">
-                                    <i class="fa-solid fa-trash"></i>
-                                </button>
+                    </section>
+
+                    <section>
+                        <div class="flex items-center gap-2 mb-4">
+                            <h3 class="text-base font-medium text-neutral-700">已完成</h3>
+                            <span class="text-[10px] bg-[#f7f6f3] border border-[#e6e4dc] text-neutral-500 px-2 py-0.5 rounded-full">
+                                {{ completedTrips.length }}
+                            </span>
+                        </div>
+
+                        <div v-if="completedTrips.length === 0" class="border border-dashed border-[#e6e4dc] bg-white rounded-2xl p-8 text-center text-neutral-400">
+                            <p class="text-sm">目前沒有已完成的旅程</p>
+                        </div>
+
+                        <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                            <div v-for="trip in completedTrips" :key="trip.id" @click="selectTrip(trip)" class="bg-white border border-[#e6e4dc] rounded-2xl p-6 cursor-pointer hover:shadow-md transition-all relative group flex flex-col justify-between min-h-[180px]">
+                                <div>
+                                    <div class="flex justify-between items-start mb-2">
+                                        <span class="text-[11px] text-neutral-500 font-medium bg-neutral-50 px-2 py-0.5 rounded border border-neutral-100">
+                                            📅 {{ getTripDateRangeText(trip) }}
+                                        </span>
+                                    </div>
+                                    <h3 class="text-lg font-medium text-neutral-700 group-hover:text-primary transition-colors mt-1">{{ trip.title }}</h3>
+                                    <div class="flex flex-wrap gap-2 mt-2">
+                                        <span class="text-[10px] bg-[#fcfbf9] border border-[#e6e4dc] text-neutral-500 px-2 py-0.5 rounded-full">{{ getTripRoleText(trip) }}</span>
+                                        <span class="text-[10px] bg-[#fcfbf9] border border-[#e6e4dc] text-neutral-500 px-2 py-0.5 rounded-full">{{ getVisibleMemberUsernames(trip.memberUsernames).length }} 人共編</span>
+                                    </div>
+                                </div>
+                                <div class="flex justify-between items-center mt-6 border-t border-[#f7f6f3] pt-3">
+                                    <span class="text-xs text-neutral-400"><i class="fa-regular fa-calendar-check mr-1"></i> 點擊翻開旅遊手冊</span>
+                                    <div v-if="isTripOwner(trip)" class="flex gap-2 shrink-0">
+                                        <button @click.stop="openEditTripModal(trip)" class="text-neutral-400 hover:text-blue-500 p-1 text-xs" title="編輯旅程">
+                                            <i class="fa-solid fa-pen-to-square"></i>
+                                        </button>
+                                        <button @click.stop="deleteTrip(trip.id)" class="text-neutral-300 hover:text-rose-500 p-1 text-xs" title="刪除旅程">
+                                            <i class="fa-solid fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    </section>
                 </div>
             </div>
 
@@ -3022,6 +3078,53 @@
                     if (!normalized.startDate || !normalized.endDate) return '未設定日期';
                     return `${formatDateWithWeek(normalized.startDate)}~${formatDateWithWeek(normalized.endDate)}`;
                 };
+
+                const getSystemToday = () => {
+                    const now = new Date();
+                    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                };
+
+                const getTripNormalizedEndDate = (trip = {}) => {
+                    const normalized = normalizeTripDateFields(trip || {});
+                    return parseLocalDate(normalized.endDate);
+                };
+
+                const isTripCompleted = (trip = {}) => {
+                    const endDate = getTripNormalizedEndDate(trip);
+                    if (!endDate) return false;
+                    return getSystemToday() > endDate;
+                };
+
+                const getTripStartSortTime = (trip = {}) => {
+                    const normalized = normalizeTripDateFields(trip || {});
+                    const startDate = parseLocalDate(normalized.startDate);
+                    return startDate ? startDate.getTime() : Number.MAX_SAFE_INTEGER;
+                };
+
+                const getTripEndSortTime = (trip = {}) => {
+                    const endDate = getTripNormalizedEndDate(trip);
+                    return endDate ? endDate.getTime() : 0;
+                };
+
+                const upcomingActiveTrips = computed(() => {
+                    return (trips.value || [])
+                        .filter(trip => !isTripCompleted(trip))
+                        .slice()
+                        .sort((a, b) =>
+                            getTripStartSortTime(a) - getTripStartSortTime(b)
+                            || String(a.title || '').localeCompare(String(b.title || ''), 'zh-Hant')
+                        );
+                });
+
+                const completedTrips = computed(() => {
+                    return (trips.value || [])
+                        .filter(trip => isTripCompleted(trip))
+                        .slice()
+                        .sort((a, b) =>
+                            getTripEndSortTime(b) - getTripEndSortTime(a)
+                            || String(a.title || '').localeCompare(String(b.title || ''), 'zh-Hant')
+                        );
+                });
 
                 const ensureItineraryDayKeys = (itinerary = {}, days = 1) => {
                     const output = normalizeSortedItinerary(itinerary || {});
@@ -5736,7 +5839,7 @@
                 const changeTheme = () => applyThemeToDocument();
 
                 return {
-                    user, authForm, registerForm, authPage, authMessage, trips, currentTrip, activeMainTab, activeDayTab, weather, weatherForecast, weatherLoading, weatherError, weatherCity, showWeatherModal, showSpotModal, showExpenseModal, showShopModal, showMenuLinkModal, showTodoModal, showLuggageModal, showCopyLuggageModal, copyLuggageSourceTripId, isCopyingLuggage, editableLuggageSourceTrips, imagePreviewUrl, isKeyMissing, shareForm, shareMessage,
+                    user, authForm, registerForm, authPage, authMessage, trips, upcomingActiveTrips, completedTrips, currentTrip, activeMainTab, activeDayTab, weather, weatherForecast, weatherLoading, weatherError, weatherCity, showWeatherModal, showSpotModal, showExpenseModal, showShopModal, showMenuLinkModal, showTodoModal, showLuggageModal, showCopyLuggageModal, copyLuggageSourceTripId, isCopyingLuggage, editableLuggageSourceTrips, imagePreviewUrl, isKeyMissing, shareForm, shareMessage,
                     showTripModal, isEditingTripMode, tripModalForm, getMinimumReturnDate, handleTripStartDateChange, handleTripEndDateChange, openAddTripModal, openEditTripModal, closeTripModal, saveTripModalAction,
                     expenseSections, getFilteredExpenses, sumByCurrency, getCurrencySymbol, sumExpensesInTwd, formatTwdAmount, getExchangeRateSummary,
                     newSplitExpense, editingSplitExpenseId, isSavingExpense, activeSettlementTab, activeAccountingTab, selectedPayerTotal, selectedShareTotal, handleSplitPayerChange, handleSplitPayerAmountInput, handleSplitterChange, handleSplitterAmountInput, getMemberInitial, getSplitExpenses, getFilteredSplitExpenses, getSplitPayers, getSplitShares, getSplitExpenseTotal, getSplitShareCount, getSplitPayerSummary, formatCurrencyAmount, formatTwdCurrency, formatSplitAmountWithTwd, formatSplitCardTotal, formatSplitTotalSummary, splitSettlements, splitSettlementReceivableGroups, memberSpendSummary, splitRepaymentSummary, getExpenseRepaymentItems, isExpenseRepaymentPaid, toggleExpenseRepaymentStatus, isSettlementRepaid, toggleRepaymentStatus, toggleSplitExpense, openEditSplitExpense,
