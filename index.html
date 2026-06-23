@@ -1513,9 +1513,14 @@
                                     <div>
                                         <h3 class="text-sm font-medium text-neutral-700"><i class="fa-solid fa-suitcase-rolling text-neutral-400 mr-1.5"></i> 個人行李清單</h3>
                                     </div>
-                                    <button @click="openAddLuggageModal" type="button" class="bg-neutral-700 hover:bg-neutral-800 text-white text-xs px-3 py-2 rounded-xl font-medium shadow-sm transition-colors flex items-center gap-1.5 whitespace-nowrap">
-                                        <i class="fa-solid fa-plus"></i> 新增
-                                    </button>
+                                    <div class="flex items-center gap-2 shrink-0">
+                                        <button @click="openCopyLuggageModal" type="button" class="bg-white hover:bg-neutral-50 text-neutral-600 border border-[#d9d6cc] text-xs px-3 py-2 rounded-xl font-medium shadow-sm transition-colors flex items-center gap-1.5 whitespace-nowrap">
+                                            <i class="fa-regular fa-copy"></i> 複製
+                                        </button>
+                                        <button @click="openAddLuggageModal" type="button" class="bg-neutral-700 hover:bg-neutral-800 text-white text-xs px-3 py-2 rounded-xl font-medium shadow-sm transition-colors flex items-center gap-1.5 whitespace-nowrap">
+                                            <i class="fa-solid fa-plus"></i> 新增
+                                        </button>
+                                    </div>
                                 </div>
                                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div v-for="cat in ['隨身包包', '手提行李', '託運行李']" :key="cat" class="bg-[#fcfbf9] border border-[#e6e4dc] rounded-xl p-3">
@@ -1915,6 +1920,63 @@
                 </div>
             </div>
 
+            <div v-if="showCopyLuggageModal" @mousedown.self="closeCopyLuggageModal" class="fixed inset-0 bg-black/20 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+                <div class="modal-form-card max-w-md">
+                    <div class="modal-form-header">
+                        <div>
+                            <h3 class="modal-form-title"><i class="fa-regular fa-copy text-primary mr-1.5"></i>複製行李清單</h3>
+                            <p class="modal-form-subtitle">選擇要複製行李項目的旅程。</p>
+                        </div>
+                        <button @click="closeCopyLuggageModal" :disabled="isCopyingLuggage" type="button" :class="['modal-close-button', isCopyingLuggage ? 'opacity-40 cursor-not-allowed' : '']"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+
+                    <div class="modal-form-body">
+                        <div v-if="!editableLuggageSourceTrips.length" class="rounded-xl border border-dashed border-[#d9d6cc] bg-[#fcfbf9] px-4 py-8 text-center">
+                            <i class="fa-solid fa-suitcase-rolling text-2xl text-neutral-300 mb-2"></i>
+                            <p class="text-sm font-medium text-neutral-500">沒有其他可複製的旅程</p>
+                            <p class="text-xs text-neutral-400 mt-1">只會列出你是擁有者或共編成員的旅程。</p>
+                        </div>
+
+                        <div v-else class="space-y-2 max-h-[48vh] overflow-y-auto pr-1">
+                            <label
+                                v-for="trip in editableLuggageSourceTrips"
+                                :key="trip.id"
+                                :class="['flex items-center gap-3 rounded-xl border p-3 transition-colors', (trip.luggage || []).length ? 'cursor-pointer hover:bg-[#fcfbf9]' : 'cursor-not-allowed opacity-50', copyLuggageSourceTripId === trip.id ? 'border-neutral-500 bg-[#fcfbf9]' : 'border-[#e6e4dc] bg-white']"
+                            >
+                                <input
+                                    v-model="copyLuggageSourceTripId"
+                                    :value="trip.id"
+                                    :disabled="!(trip.luggage || []).length || isCopyingLuggage"
+                                    type="radio"
+                                    class="text-neutral-700 focus:ring-neutral-400 border-neutral-300 shrink-0"
+                                >
+                                <div class="min-w-0 flex-1">
+                                    <p class="text-sm font-bold text-neutral-700 break-words">{{ trip.title }}</p>
+                                    <p class="text-xs text-neutral-400 mt-0.5">{{ getTripRoleText(trip) }} · {{ (trip.luggage || []).length }} 項行李</p>
+                                </div>
+                                <i class="fa-solid fa-suitcase-rolling text-neutral-300 shrink-0"></i>
+                            </label>
+                        </div>
+
+                        <div class="rounded-xl bg-amber-50 border border-amber-100 px-3 py-2.5 text-xs text-amber-700 leading-relaxed">
+                            複製後會加入目前旅程的行李清單，原有項目不會刪除；所有複製項目的勾選狀態會重設為未完成。
+                        </div>
+                    </div>
+
+                    <button
+                        @click="copyLuggageFromSelectedTrip"
+                        type="button"
+                        :disabled="!copyLuggageSourceTripId || isCopyingLuggage"
+                        :aria-busy="isCopyingLuggage ? 'true' : 'false'"
+                        :class="['modal-save-button inline-flex items-center justify-center gap-2', (!copyLuggageSourceTripId || isCopyingLuggage) ? 'opacity-50 cursor-not-allowed' : '']"
+                    >
+                        <i v-if="isCopyingLuggage" class="fa-solid fa-spinner fa-spin"></i>
+                        <i v-else class="fa-regular fa-copy"></i>
+                        <span>{{ isCopyingLuggage ? '複製中' : '複製到目前旅程' }}</span>
+                    </button>
+                </div>
+            </div>
+
             <div v-if="showSpotModal" @mousedown.self="closeSpotModal" class="fixed inset-0 bg-black/20 backdrop-blur-xs flex items-center justify-center p-4 z-50">
                 <div class="modal-form-card max-w-lg">
                     <div class="modal-form-header">
@@ -2254,6 +2316,9 @@
                 const showMenuLinkModal = ref(false);
                 const showTodoModal = ref(false);
                 const showLuggageModal = ref(false);
+                const showCopyLuggageModal = ref(false);
+                const copyLuggageSourceTripId = ref('');
+                const isCopyingLuggage = ref(false);
                 const menuLinkFormMode = ref('add');
                 const todoFormMode = ref('add');
                 const luggageFormMode = ref('add');
@@ -3923,6 +3988,29 @@
                 });
 
                 const isTripOwner = (trip) => !!(trip && user.value && trip.ownerUid === user.value.uid);
+                const canEditTrip = (trip) => {
+                    if (!trip || !user.value) return false;
+                    const username = user.value.username || user.value.email || '';
+                    const usernameKey = user.value.usernameKey || getUsernameKey(username);
+                    const authEmail = user.value.authEmail || getUsernameAuthEmail(username);
+                    const memberUids = Array.isArray(trip.memberUids) ? trip.memberUids : [];
+                    const memberUsernames = Array.isArray(trip.memberUsernames) ? trip.memberUsernames : [];
+                    const memberUsernameKeys = Array.isArray(trip.memberUsernameKeys) ? trip.memberUsernameKeys : [];
+                    const memberAuthEmails = Array.isArray(trip.memberAuthEmails) ? trip.memberAuthEmails : [];
+                    return trip.ownerUid === user.value.uid
+                        || memberUids.includes(user.value.uid)
+                        || memberUsernames.includes(username)
+                        || memberUsernames.map(getUsernameKey).includes(usernameKey)
+                        || memberUsernameKeys.includes(usernameKey)
+                        || memberAuthEmails.includes(authEmail);
+                };
+                const editableLuggageSourceTrips = computed(() => {
+                    const currentTripId = currentTrip.value?.id;
+                    return (trips.value || [])
+                        .filter(trip => trip && trip.id !== currentTripId && canEditTrip(trip))
+                        .slice()
+                        .sort((a, b) => String(a.startDate || '').localeCompare(String(b.startDate || '')) || String(a.title || '').localeCompare(String(b.title || '')));
+                });
                 const getTripRoleText = (trip) => isTripOwner(trip) ? '旅程擁有者' : '共同編輯者';
                 const getVisibleMemberUsernames = (names = []) => {
                     const seen = new Set();
@@ -4779,6 +4867,69 @@
                 const toggleLuggageActions = (id) => {
                     expandedLuggageId.value = expandedLuggageId.value === id ? null : id;
                 };
+                const openCopyLuggageModal = () => {
+                    copyLuggageSourceTripId.value = '';
+                    isCopyingLuggage.value = false;
+                    showCopyLuggageModal.value = true;
+                };
+                const closeCopyLuggageModal = () => {
+                    if (isCopyingLuggage.value) return;
+                    blurActiveInput();
+                    showCopyLuggageModal.value = false;
+                    copyLuggageSourceTripId.value = '';
+                };
+                const copyLuggageFromSelectedTrip = async () => {
+                    if (isCopyingLuggage.value || !currentTrip.value) return;
+                    const sourceTrip = editableLuggageSourceTrips.value.find(trip => trip.id === copyLuggageSourceTripId.value);
+                    if (!sourceTrip) {
+                        alert('請先選擇要複製的旅程。');
+                        return;
+                    }
+                    const sourceItems = Array.isArray(sourceTrip.luggage) ? sourceTrip.luggage : [];
+                    if (!sourceItems.length) {
+                        alert('選擇的旅程沒有行李項目。');
+                        return;
+                    }
+
+                    isCopyingLuggage.value = true;
+                    const originalLuggage = Array.isArray(currentTrip.value.luggage)
+                        ? currentTrip.value.luggage.map(item => ({ ...item }))
+                        : [];
+                    try {
+                        const usedIds = new Set(originalLuggage.map(item => String(item.id)));
+                        let nextId = Date.now();
+                        const copiedItems = sourceItems.map(item => {
+                            while (usedIds.has(String(nextId))) nextId += 1;
+                            const copied = {
+                                id: nextId,
+                                text: String(item?.text || '').trim(),
+                                category: ['隨身包包', '手提行李', '託運行李'].includes(item?.category) ? item.category : '隨身包包',
+                                done: false
+                            };
+                            usedIds.add(String(nextId));
+                            nextId += 1;
+                            return copied;
+                        }).filter(item => item.text);
+
+                        if (!copiedItems.length) {
+                            alert('選擇的旅程沒有可複製的有效行李項目。');
+                            return;
+                        }
+
+                        currentTrip.value.luggage = [...originalLuggage, ...copiedItems];
+                        await updatePrivateTripData();
+                        expandedLuggageId.value = null;
+                        isCopyingLuggage.value = false;
+                        closeCopyLuggageModal();
+                    } catch (err) {
+                        currentTrip.value.luggage = originalLuggage;
+                        console.error('Copy luggage list failed:', err);
+                        alert('行李清單複製失敗：' + (err?.message || '請稍後再試。'));
+                    } finally {
+                        isCopyingLuggage.value = false;
+                    }
+                };
+
                 const openAddLuggageModal = () => {
                     luggageFormMode.value = 'add';
                     editingLuggageId.value = null;
@@ -5585,21 +5736,21 @@
                 const changeTheme = () => applyThemeToDocument();
 
                 return {
-                    user, authForm, registerForm, authPage, authMessage, trips, currentTrip, activeMainTab, activeDayTab, weather, weatherForecast, weatherLoading, weatherError, weatherCity, showWeatherModal, showSpotModal, showExpenseModal, showShopModal, showMenuLinkModal, showTodoModal, showLuggageModal, imagePreviewUrl, isKeyMissing, shareForm, shareMessage,
+                    user, authForm, registerForm, authPage, authMessage, trips, currentTrip, activeMainTab, activeDayTab, weather, weatherForecast, weatherLoading, weatherError, weatherCity, showWeatherModal, showSpotModal, showExpenseModal, showShopModal, showMenuLinkModal, showTodoModal, showLuggageModal, showCopyLuggageModal, copyLuggageSourceTripId, isCopyingLuggage, editableLuggageSourceTrips, imagePreviewUrl, isKeyMissing, shareForm, shareMessage,
                     showTripModal, isEditingTripMode, tripModalForm, getMinimumReturnDate, handleTripStartDateChange, handleTripEndDateChange, openAddTripModal, openEditTripModal, closeTripModal, saveTripModalAction,
                     expenseSections, getFilteredExpenses, sumByCurrency, getCurrencySymbol, sumExpensesInTwd, formatTwdAmount, getExchangeRateSummary,
                     newSplitExpense, editingSplitExpenseId, isSavingExpense, activeSettlementTab, activeAccountingTab, selectedPayerTotal, selectedShareTotal, handleSplitPayerChange, handleSplitPayerAmountInput, handleSplitterChange, handleSplitterAmountInput, getMemberInitial, getSplitExpenses, getFilteredSplitExpenses, getSplitPayers, getSplitShares, getSplitExpenseTotal, getSplitShareCount, getSplitPayerSummary, formatCurrencyAmount, formatTwdCurrency, formatSplitAmountWithTwd, formatSplitCardTotal, formatSplitTotalSummary, splitSettlements, splitSettlementReceivableGroups, memberSpendSummary, splitRepaymentSummary, getExpenseRepaymentItems, isExpenseRepaymentPaid, toggleExpenseRepaymentStatus, isSettlementRepaid, toggleRepaymentStatus, toggleSplitExpense, openEditSplitExpense,
                     menuLinkFormMode, todoFormMode, luggageFormMode, spotFormMode, shoppingFormMode,
                     editingMenuLinkIndex, expandedMenuLinkIndex, editMenuLinkData, toggleMenuLinkActions, openAddMenuLinkModal, closeMenuLinkModal, startMenuLinkEdit, saveMenuLinkEdit, saveMenuLinkForm,
                     editingTodoId, expandedTodoId, editTodoTextData, toggleTodoActions, openAddTodoModal, closeTodoModal, startTodoEdit, saveTodoEdit, saveTodoForm, toggleTodoDone,
-                    editingLuggageId, expandedLuggageId, editLuggageData, toggleLuggageActions, openAddLuggageModal, closeLuggageModal, startLuggageEdit, saveLuggageEdit, saveLuggageForm, toggleLuggageDone,
+                    editingLuggageId, expandedLuggageId, editLuggageData, toggleLuggageActions, openCopyLuggageModal, closeCopyLuggageModal, copyLuggageFromSelectedTrip, openAddLuggageModal, closeLuggageModal, startLuggageEdit, saveLuggageEdit, saveLuggageForm, toggleLuggageDone,
                     editingSpotIndex, expandedSpotIndex, editSpotData, toggleSpotActions, startSpotEdit, saveSpotEdit, saveSpotForm,
                     editingExpenseIndex, editExpenseData, startExpenseEdit, saveExpenseEdit,
                     shoppingCategories, shoppingCategoryFilter, shoppingCategoryMeta, normalizeShoppingCategory, normalizeQuantityValue, getShoppingCategoryMeta, getShoppingSortKey, getSortedShoppingItems, getFilteredShoppingItems, getShoppingCategoryCount, getShoppingGroupedSections,
                     collapsedShoppingCategories, isShoppingCategoryCollapsed, toggleShoppingCategoryCollapse,
                     expandedShoppingId, toggleShoppingActions, toggleShoppingDone, editingShoppingId, editShoppingData, startShoppingEdit, saveShoppingEdit, saveShoppingForm,
                     newSpot, newMenuLink, newTodoText, newTodoUrl, newLuggage, newExpense, newShopItem, getCalculatedDateStr, getTripDateRangeText, hasCustomImage, handleImageUpload, getSpotTypeIcon, getSpotTypeLabel, getSpotNoteText, getSpotLinkUrl, getSpotLinkName, getSpotDisplayTime, getSpotDepartureTime, getSpotArrivalTime, parseFlightInfo, isTripDayTabActive, getDayWeather, getTravelWeatherDays, getWeatherButtonSummary, openWeatherModal, closeWeatherModal, fetchWeather, openAddSpotModal, closeSpotModal, openAddExpenseModal, closeExpenseModal, openAddShopModal, closeShopModal, openImagePreview, closeImagePreview, switchMainTab, switchDayTab, switchAccountingTab, increaseNewShopQuantity, decreaseNewShopQuantity, increaseEditShopQuantity, decreaseEditShopQuantity,
-                    handleLogin, registerAccount, goToLogin, goToRegister, logout, selectTrip, deleteTrip, updateTripData, updateSharedTripData, updatePrivateTripData, inviteUserToTrip, removeTripModalMember, isTripOwner, getTripRoleText, getVisibleMemberUsernames, addSpot, deleteSpot, addMenuLink, deleteMenuLink, addTodo, deleteTodo, addLuggage, deleteLuggage, addExpense, deleteExpense, addShopItem, deleteShopItem
+                    handleLogin, registerAccount, goToLogin, goToRegister, logout, selectTrip, deleteTrip, updateTripData, updateSharedTripData, updatePrivateTripData, inviteUserToTrip, removeTripModalMember, isTripOwner, canEditTrip, getTripRoleText, getVisibleMemberUsernames, addSpot, deleteSpot, addMenuLink, deleteMenuLink, addTodo, deleteTodo, addLuggage, deleteLuggage, addExpense, deleteExpense, addShopItem, deleteShopItem
                 };
             }
         }).mount('#app');
