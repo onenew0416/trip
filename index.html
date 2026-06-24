@@ -630,6 +630,7 @@
             transition: transform .16s ease, filter .16s ease;
         }
         .modal-save-button:hover { filter: brightness(.96); transform: translateY(-1px); }
+        .modal-save-button:disabled { opacity: .62; cursor: not-allowed; transform: none; filter: none; }
         .modal-qty-control {
             display: flex;
             align-items: center;
@@ -1974,7 +1975,7 @@
                         <div>
                             <h3 class="modal-form-title"><i class="fa-solid fa-ticket-simple text-primary mr-1.5"></i>{{ menuLinkFormMode === 'edit' ? '編輯其他資訊與優惠券' : '新增其他資訊與優惠券' }}</h3>
                         </div>
-                        <button @click="closeMenuLinkModal" type="button" class="modal-close-button"><i class="fa-solid fa-xmark"></i></button>
+                        <button @click="closeMenuLinkModal" :disabled="isSavingMenuLink" type="button" :class="['modal-close-button', isSavingMenuLink ? 'opacity-40 cursor-not-allowed' : '']"><i class="fa-solid fa-xmark"></i></button>
                     </div>
                     <div class="modal-form-body">
                         <label class="modal-field"><span class="modal-field-label">名稱</span><input v-model="newMenuLink.title" type="text" placeholder="例如：機場停車、票券、優惠券" class="modal-input"></label>
@@ -1985,7 +1986,16 @@
                         </div>
                         <div v-if="newMenuLink.imgUrl" class="modal-image-preview"><img :src="newMenuLink.imgUrl" class="w-16 h-16 object-cover rounded-lg border bg-white"><button @click="newMenuLink.imgUrl = ''" type="button" class="text-xs text-rose-500 hover:underline">移除圖片</button></div>
                     </div>
-                    <button @click="saveMenuLinkForm" type="button" class="modal-save-button">儲存變更</button>
+                    <button
+                        @click="saveMenuLinkForm"
+                        type="button"
+                        :disabled="isSavingMenuLink"
+                        :aria-busy="isSavingMenuLink ? 'true' : 'false'"
+                        :class="['modal-save-button inline-flex items-center justify-center gap-2', isSavingMenuLink ? 'opacity-50 cursor-not-allowed' : '']"
+                    >
+                        <i v-if="isSavingMenuLink" class="fa-solid fa-spinner fa-spin"></i>
+                        <span>{{ isSavingMenuLink ? '儲存中' : '儲存變更' }}</span>
+                    </button>
                 </div>
             </div>
 
@@ -1995,13 +2005,22 @@
                         <div>
                             <h3 class="modal-form-title"><i class="fa-solid fa-clipboard-list text-primary mr-1.5"></i>{{ todoFormMode === 'edit' ? '編輯待辦事項' : '新增待辦事項' }}</h3>
                         </div>
-                        <button @click="closeTodoModal" type="button" class="modal-close-button"><i class="fa-solid fa-xmark"></i></button>
+                        <button @click="closeTodoModal" :disabled="isSavingTodo" type="button" :class="['modal-close-button', isSavingTodo ? 'opacity-40 cursor-not-allowed' : '']"><i class="fa-solid fa-xmark"></i></button>
                     </div>
                     <div class="modal-form-body">
                         <label class="modal-field"><span class="modal-field-label">待辦內容</span><input v-model="newTodoText" type="text" placeholder="例如：確認護照、預約餐廳" class="modal-input" @keyup.enter="saveTodoForm"></label>
                         <label class="modal-field"><span class="modal-field-label">連結網址(選填)</span><input v-model="newTodoUrl" type="text" placeholder="https://..." class="modal-input" @keyup.enter="saveTodoForm"></label>
                     </div>
-                    <button @click="saveTodoForm" type="button" class="modal-save-button">儲存變更</button>
+                    <button
+                        @click="saveTodoForm"
+                        type="button"
+                        :disabled="isSavingTodo"
+                        :aria-busy="isSavingTodo ? 'true' : 'false'"
+                        :class="['modal-save-button inline-flex items-center justify-center gap-2', isSavingTodo ? 'opacity-50 cursor-not-allowed' : '']"
+                    >
+                        <i v-if="isSavingTodo" class="fa-solid fa-spinner fa-spin"></i>
+                        <span>{{ isSavingTodo ? '儲存中' : '儲存變更' }}</span>
+                    </button>
                 </div>
             </div>
 
@@ -2011,13 +2030,22 @@
                         <div>
                             <h3 class="modal-form-title"><i class="fa-solid fa-suitcase-rolling text-primary mr-1.5"></i>{{ luggageFormMode === 'edit' ? '編輯行李項目' : '新增行李項目' }}</h3>
                         </div>
-                        <button @click="closeLuggageModal" type="button" class="modal-close-button"><i class="fa-solid fa-xmark"></i></button>
+                        <button @click="closeLuggageModal" :disabled="isSavingLuggage" type="button" :class="['modal-close-button', isSavingLuggage ? 'opacity-40 cursor-not-allowed' : '']"><i class="fa-solid fa-xmark"></i></button>
                     </div>
                     <div class="modal-form-body">
                         <label class="modal-field"><span class="modal-field-label">分類</span><select v-model="newLuggage.category" class="modal-input"><option value="隨身包包">🎒 隨身包包</option><option value="手提行李">💼 手提行李</option><option value="託運行李">🧳 託運行李</option></select></label>
                         <label class="modal-field"><span class="modal-field-label">項目名稱</span><input v-model="newLuggage.text" type="text" placeholder="例如：充電器、藥品、衣物" class="modal-input" @keyup.enter="saveLuggageForm"></label>
                     </div>
-                    <button @click="saveLuggageForm" type="button" class="modal-save-button">儲存變更</button>
+                    <button
+                        @click="saveLuggageForm"
+                        type="button"
+                        :disabled="isSavingLuggage"
+                        :aria-busy="isSavingLuggage ? 'true' : 'false'"
+                        :class="['modal-save-button inline-flex items-center justify-center gap-2', isSavingLuggage ? 'opacity-50 cursor-not-allowed' : '']"
+                    >
+                        <i v-if="isSavingLuggage" class="fa-solid fa-spinner fa-spin"></i>
+                        <span>{{ isSavingLuggage ? '儲存中' : '儲存變更' }}</span>
+                    </button>
                 </div>
             </div>
 
@@ -2085,7 +2113,7 @@
                             <h3 class="modal-form-title"><i class="fa-solid fa-map-location-dot text-primary mr-1.5"></i>{{ spotFormMode === 'edit' ? '編輯行程' : '新增 Day ' + activeDayTab + ' 行程' }}</h3>
                             <p class="modal-form-subtitle">填寫行程類型、時間、地點備註與參考連結。</p>
                         </div>
-                        <button @click="closeSpotModal" type="button" class="modal-close-button"><i class="fa-solid fa-xmark"></i></button>
+                        <button @click="closeSpotModal" :disabled="isSavingSpot" type="button" :class="['modal-close-button', isSavingSpot ? 'opacity-40 cursor-not-allowed' : '']"><i class="fa-solid fa-xmark"></i></button>
                     </div>
                     <div class="modal-form-body">
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -2108,7 +2136,16 @@
                         </div>
                         <div v-if="newSpot.imgUrl" class="modal-image-preview"><img :src="newSpot.imgUrl" class="w-16 h-16 object-cover rounded-lg border bg-white"><button @click="newSpot.imgUrl = ''" type="button" class="text-xs text-rose-500 hover:underline">移除圖片</button></div>
                     </div>
-                    <button @click="saveSpotForm" type="button" class="modal-save-button">儲存變更</button>
+                    <button
+                        @click="saveSpotForm"
+                        type="button"
+                        :disabled="isSavingSpot"
+                        :aria-busy="isSavingSpot ? 'true' : 'false'"
+                        :class="['modal-save-button inline-flex items-center justify-center gap-2', isSavingSpot ? 'opacity-50 cursor-not-allowed' : '']"
+                    >
+                        <i v-if="isSavingSpot" class="fa-solid fa-spinner fa-spin"></i>
+                        <span>{{ isSavingSpot ? '儲存中' : '儲存變更' }}</span>
+                    </button>
                 </div>
             </div>
 
@@ -2191,7 +2228,7 @@
                         <div>
                             <h3 class="modal-form-title"><i class="fa-solid fa-bag-shopping text-primary mr-1.5"></i>{{ shoppingFormMode === 'edit' ? '編輯購物品項' : '新增購物品項' }}</h3>
                         </div>
-                        <button @click="closeShopModal" type="button" class="modal-close-button"><i class="fa-solid fa-xmark"></i></button>
+                        <button @click="closeShopModal" :disabled="isSavingShopping" type="button" :class="['modal-close-button', isSavingShopping ? 'opacity-40 cursor-not-allowed' : '']"><i class="fa-solid fa-xmark"></i></button>
                     </div>
                     <div class="modal-form-body">
                         <label class="modal-field"><span class="modal-field-label">名稱</span><input v-model="newShopItem.text" type="text" placeholder="輸入商品名稱" class="modal-input"></label>
@@ -2207,7 +2244,16 @@
                         </div>
                         <div v-if="newShopItem.imgUrl" class="modal-image-preview"><button @click="openImagePreview(newShopItem.imgUrl)" type="button" class="w-16 h-16 rounded-lg border bg-white overflow-hidden cursor-zoom-in hover:opacity-90 transition-opacity"><img :src="newShopItem.imgUrl" class="w-full h-full object-cover" alt="商品圖片預覽"></button><button @click="newShopItem.imgUrl = ''" type="button" class="text-xs text-rose-500 hover:underline">移除圖片</button></div>
                     </div>
-                    <button @click="saveShoppingForm" type="button" class="modal-save-button">儲存變更</button>
+                    <button
+                        @click="saveShoppingForm"
+                        type="button"
+                        :disabled="isSavingShopping"
+                        :aria-busy="isSavingShopping ? 'true' : 'false'"
+                        :class="['modal-save-button inline-flex items-center justify-center gap-2', isSavingShopping ? 'opacity-50 cursor-not-allowed' : '']"
+                    >
+                        <i v-if="isSavingShopping" class="fa-solid fa-spinner fa-spin"></i>
+                        <span>{{ isSavingShopping ? '儲存中' : '儲存變更' }}</span>
+                    </button>
                 </div>
             </div>
 
@@ -2340,8 +2386,20 @@
                         </div>
                     </div>
                     <div class="flex justify-end gap-2 pt-2 border-t border-neutral-100">
-                        <button @click="closeTripModal" class="px-4 py-2 text-xs border border-neutral-300 rounded-xl text-neutral-500 hover:bg-neutral-50">取消</button>
-                        <button @click="saveTripModalAction" class="px-4 py-2 text-xs bg-neutral-700 text-white rounded-xl hover:bg-neutral-800 shadow-sm">確認儲存</button>
+                        <button
+                            @click="closeTripModal"
+                            :disabled="isSavingTrip"
+                            :class="['px-4 py-2 text-xs border border-neutral-300 rounded-xl text-neutral-500', isSavingTrip ? 'opacity-40 cursor-not-allowed' : 'hover:bg-neutral-50']"
+                        >取消</button>
+                        <button
+                            @click="saveTripModalAction"
+                            :disabled="isSavingTrip"
+                            :aria-busy="isSavingTrip ? 'true' : 'false'"
+                            :class="['px-4 py-2 text-xs text-white rounded-xl shadow-sm inline-flex items-center justify-center gap-2 min-w-[96px] transition-colors', isSavingTrip ? 'bg-neutral-400 cursor-not-allowed opacity-80' : 'bg-neutral-700 hover:bg-neutral-800']"
+                        >
+                            <i v-if="isSavingTrip" class="fa-solid fa-spinner fa-spin"></i>
+                            <span>{{ isSavingTrip ? '儲存中' : '確認儲存' }}</span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -2413,6 +2471,12 @@
                 const showSpotModal = ref(false);
                 const showExpenseModal = ref(false);
                 const isSavingExpense = ref(false);
+                const isSavingTrip = ref(false);
+                const isSavingMenuLink = ref(false);
+                const isSavingTodo = ref(false);
+                const isSavingLuggage = ref(false);
+                const isSavingSpot = ref(false);
+                const isSavingShopping = ref(false);
                 const showShopModal = ref(false);
                 const showMenuLinkModal = ref(false);
                 const showTodoModal = ref(false);
@@ -4475,11 +4539,14 @@
                 };
 
                 const closeTripModal = () => {
+                    if (isSavingTrip.value) return;
                     blurActiveInput();
                     showTripModal.value = false;
                 };
 
                 const openAddTripModal = () => {
+                    if (isSavingTrip.value) return;
+                    isSavingTrip.value = false;
                     isEditingTripMode.value = false;
                     editingTripId.value = null;
                     resetTripShareForm();
@@ -4500,6 +4567,8 @@
                 };
 
                 const openEditTripModal = (trip) => {
+                    if (isSavingTrip.value) return;
+                    isSavingTrip.value = false;
                     isEditingTripMode.value = true;
                     editingTripId.value = trip.id;
                     resetTripShareForm();
@@ -4520,6 +4589,7 @@
                 };
 
                 const saveTripModalAction = async () => {
+                    if (isSavingTrip.value) return;
                     try {
                     const title = String(tripModalForm.value.title || '').trim();
                     const startDate = tripModalForm.value.startDate || '';
@@ -4542,6 +4612,7 @@
                         return;
                     }
 
+                    isSavingTrip.value = true;
                     const ownerUsername = tripModalForm.value.ownerUsername || getCurrentUsername();
                     const ownerUsernameKey = user.value.usernameKey || getUsernameKey(ownerUsername);
                     const ownerAuthEmail = user.value.authEmail || getUsernameAuthEmail(ownerUsername);
@@ -4715,13 +4786,16 @@
                         fetchWeather(currentTrip.value.title, currentTrip.value);
                     }
                     resetTripShareForm();
-                    showTripModal.value = false;
+                    isSavingTrip.value = false;
+                    closeTripModal();
                     } catch (err) {
                         console.error('Save trip failed:', err);
                         const errMsg = err?.message || '請稍後再試。';
                         showShareMessage('error', errMsg.includes('Missing or insufficient permissions')
                             ? '旅程儲存失敗：Firestore 權限不足。共編要讓對方看得到，trips 文件必須能寫入 memberAuthEmails 或 memberUids；請確認你是旅程擁有者，並調整 Firestore rules 允許 owner 更新 memberUsernames/memberUsernameKeys/memberAuthEmails/memberUids。'
                             : '旅程儲存失敗：' + errMsg);
+                    } finally {
+                        isSavingTrip.value = false;
                     }
                 };
 
@@ -4915,40 +4989,57 @@
                     expandedMenuLinkIndex.value = expandedMenuLinkIndex.value === idx ? null : idx;
                 };
                 const openAddMenuLinkModal = () => {
+                    if (isSavingMenuLink.value) return;
+                    isSavingMenuLink.value = false;
                     menuLinkFormMode.value = 'add';
                     editingMenuLinkIndex.value = null;
                     newMenuLink.value = { title: '', url: '', imgUrl: '' };
                     showMenuLinkModal.value = true;
                 };
                 const closeMenuLinkModal = () => {
+                    if (isSavingMenuLink.value) return;
                     blurActiveInput();
                     showMenuLinkModal.value = false;
                     editingMenuLinkIndex.value = null;
                 };
                 const startMenuLinkEdit = (idx, link) => {
+                    if (isSavingMenuLink.value) return;
+                    isSavingMenuLink.value = false;
                     menuLinkFormMode.value = 'edit';
                     editingMenuLinkIndex.value = idx;
                     expandedMenuLinkIndex.value = null;
                     newMenuLink.value = { title: link?.title || '', url: link?.url || '', imgUrl: hasCustomImage(link?.imgUrl) ? link.imgUrl : '' };
                     showMenuLinkModal.value = true;
                 };
-                const saveMenuLinkForm = () => {
+                const saveMenuLinkForm = async () => {
+                    if (isSavingMenuLink.value) return;
                     if (!String(newMenuLink.value.title || '').trim()) return alert('請填寫名稱');
-                    if (!currentTrip.value.menuLinks) currentTrip.value.menuLinks = [];
-                    const payload = {
-                        title: String(newMenuLink.value.title || '').trim(),
-                        url: String(newMenuLink.value.url || '').trim(),
-                        imgUrl: String(newMenuLink.value.imgUrl || '').trim()
-                    };
-                    if (menuLinkFormMode.value === 'edit' && editingMenuLinkIndex.value !== null) {
-                        currentTrip.value.menuLinks[editingMenuLinkIndex.value] = payload;
-                    } else {
-                        currentTrip.value.menuLinks.push(payload);
+                    const backupMenuLinks = JSON.parse(JSON.stringify(currentTrip.value.menuLinks || []));
+                    isSavingMenuLink.value = true;
+                    try {
+                        if (!currentTrip.value.menuLinks) currentTrip.value.menuLinks = [];
+                        const payload = {
+                            title: String(newMenuLink.value.title || '').trim(),
+                            url: String(newMenuLink.value.url || '').trim(),
+                            imgUrl: String(newMenuLink.value.imgUrl || '').trim()
+                        };
+                        if (menuLinkFormMode.value === 'edit' && editingMenuLinkIndex.value !== null) {
+                            currentTrip.value.menuLinks[editingMenuLinkIndex.value] = payload;
+                        } else {
+                            currentTrip.value.menuLinks.push(payload);
+                        }
+                        await updateSharedTripData();
+                        newMenuLink.value = { title: '', url: '', imgUrl: '' };
+                        expandedMenuLinkIndex.value = null;
+                        isSavingMenuLink.value = false;
+                        closeMenuLinkModal();
+                    } catch (err) {
+                        currentTrip.value.menuLinks = backupMenuLinks;
+                        console.error('Save menu link failed:', err);
+                        alert('其他資訊儲存失敗：' + (err?.message || '請稍後再試。'));
+                    } finally {
+                        isSavingMenuLink.value = false;
                     }
-                    updateSharedTripData();
-                    newMenuLink.value = { title: '', url: '', imgUrl: '' };
-                    expandedMenuLinkIndex.value = null;
-                    closeMenuLinkModal();
                 };
                 const addMenuLink = saveMenuLinkForm;
                 const saveMenuLinkEdit = (idx) => saveMenuLinkForm();
@@ -4961,6 +5052,8 @@
                     expandedTodoId.value = expandedTodoId.value === id ? null : id;
                 };
                 const openAddTodoModal = () => {
+                    if (isSavingTodo.value) return;
+                    isSavingTodo.value = false;
                     todoFormMode.value = 'add';
                     editingTodoId.value = null;
                     newTodoText.value = '';
@@ -4968,11 +5061,14 @@
                     showTodoModal.value = true;
                 };
                 const closeTodoModal = () => {
+                    if (isSavingTodo.value) return;
                     blurActiveInput();
                     showTodoModal.value = false;
                     editingTodoId.value = null;
                 };
                 const startTodoEdit = (item) => {
+                    if (isSavingTodo.value) return;
+                    isSavingTodo.value = false;
                     todoFormMode.value = 'edit';
                     editingTodoId.value = item.id;
                     expandedTodoId.value = null;
@@ -4980,24 +5076,36 @@
                     newTodoUrl.value = item.url || '';
                     showTodoModal.value = true;
                 };
-                const saveTodoForm = () => {
-                    if (!newTodoText.value.trim()) return;
-                    if (!currentTrip.value.todos) currentTrip.value.todos = [];
-                    const todoPayload = {
-                        text: newTodoText.value.trim(),
-                        url: String(newTodoUrl.value || '').trim()
-                    };
-                    if (todoFormMode.value === 'edit' && editingTodoId.value !== null) {
-                        const todo = currentTrip.value.todos.find(t => t.id === editingTodoId.value);
-                        if (todo) Object.assign(todo, todoPayload);
-                    } else {
-                        currentTrip.value.todos.push({ id: Date.now(), ...todoPayload, done: false });
+                const saveTodoForm = async () => {
+                    if (isSavingTodo.value) return;
+                    if (!newTodoText.value.trim()) return alert('請填寫待辦內容');
+                    const backupTodos = JSON.parse(JSON.stringify(currentTrip.value.todos || []));
+                    isSavingTodo.value = true;
+                    try {
+                        if (!currentTrip.value.todos) currentTrip.value.todos = [];
+                        const todoPayload = {
+                            text: newTodoText.value.trim(),
+                            url: String(newTodoUrl.value || '').trim()
+                        };
+                        if (todoFormMode.value === 'edit' && editingTodoId.value !== null) {
+                            const todo = currentTrip.value.todos.find(t => t.id === editingTodoId.value);
+                            if (todo) Object.assign(todo, todoPayload);
+                        } else {
+                            currentTrip.value.todos.push({ id: Date.now(), ...todoPayload, done: false });
+                        }
+                        await updatePrivateTripData();
+                        newTodoText.value = '';
+                        newTodoUrl.value = '';
+                        expandedTodoId.value = null;
+                        isSavingTodo.value = false;
+                        closeTodoModal();
+                    } catch (err) {
+                        currentTrip.value.todos = backupTodos;
+                        console.error('Save todo failed:', err);
+                        alert('待辦儲存失敗：' + (err?.message || '請稍後再試。'));
+                    } finally {
+                        isSavingTodo.value = false;
                     }
-                    updatePrivateTripData();
-                    newTodoText.value = '';
-                    newTodoUrl.value = '';
-                    expandedTodoId.value = null;
-                    closeTodoModal();
                 };
                 const saveTodoEdit = (id) => saveTodoForm();
                 const addTodo = saveTodoForm;
@@ -5079,37 +5187,54 @@
                 };
 
                 const openAddLuggageModal = () => {
+                    if (isSavingLuggage.value) return;
+                    isSavingLuggage.value = false;
                     luggageFormMode.value = 'add';
                     editingLuggageId.value = null;
                     newLuggage.value = { text: '', category: newLuggage.value.category || '隨身包包' };
                     showLuggageModal.value = true;
                 };
                 const closeLuggageModal = () => {
+                    if (isSavingLuggage.value) return;
                     blurActiveInput();
                     showLuggageModal.value = false;
                     editingLuggageId.value = null;
                 };
                 const startLuggageEdit = (item) => {
+                    if (isSavingLuggage.value) return;
+                    isSavingLuggage.value = false;
                     luggageFormMode.value = 'edit';
                     editingLuggageId.value = item.id;
                     expandedLuggageId.value = null;
                     newLuggage.value = { text: item.text || '', category: item.category || '隨身包包' };
                     showLuggageModal.value = true;
                 };
-                const saveLuggageForm = () => {
-                    if (!newLuggage.value.text.trim()) return;
-                    if (!currentTrip.value.luggage) currentTrip.value.luggage = [];
-                    if (luggageFormMode.value === 'edit' && editingLuggageId.value !== null) {
-                        const item = currentTrip.value.luggage.find(i => i.id === editingLuggageId.value);
-                        if (item) { item.text = newLuggage.value.text.trim(); item.category = newLuggage.value.category || '隨身包包'; }
-                    } else {
-                        currentTrip.value.luggage.push({ id: Date.now(), text: newLuggage.value.text.trim(), category: newLuggage.value.category || '隨身包包', done: false });
+                const saveLuggageForm = async () => {
+                    if (isSavingLuggage.value) return;
+                    if (!newLuggage.value.text.trim()) return alert('請填寫行李項目名稱');
+                    const backupLuggage = JSON.parse(JSON.stringify(currentTrip.value.luggage || []));
+                    isSavingLuggage.value = true;
+                    try {
+                        if (!currentTrip.value.luggage) currentTrip.value.luggage = [];
+                        if (luggageFormMode.value === 'edit' && editingLuggageId.value !== null) {
+                            const item = currentTrip.value.luggage.find(i => i.id === editingLuggageId.value);
+                            if (item) { item.text = newLuggage.value.text.trim(); item.category = newLuggage.value.category || '隨身包包'; }
+                        } else {
+                            currentTrip.value.luggage.push({ id: Date.now(), text: newLuggage.value.text.trim(), category: newLuggage.value.category || '隨身包包', done: false });
+                        }
+                        await updatePrivateTripData();
+                        const keepCategory = newLuggage.value.category || '隨身包包';
+                        newLuggage.value = { text: '', category: keepCategory };
+                        expandedLuggageId.value = null;
+                        isSavingLuggage.value = false;
+                        closeLuggageModal();
+                    } catch (err) {
+                        currentTrip.value.luggage = backupLuggage;
+                        console.error('Save luggage failed:', err);
+                        alert('行李儲存失敗：' + (err?.message || '請稍後再試。'));
+                    } finally {
+                        isSavingLuggage.value = false;
                     }
-                    updatePrivateTripData();
-                    const keepCategory = newLuggage.value.category || '隨身包包';
-                    newLuggage.value = { text: '', category: keepCategory };
-                    expandedLuggageId.value = null;
-                    closeLuggageModal();
                 };
                 const saveLuggageEdit = (id) => saveLuggageForm();
                 const addLuggage = saveLuggageForm;
@@ -5125,13 +5250,16 @@
                 };
 
                 const openAddSpotModal = () => {
+                    if (isSavingSpot.value) return;
                     if (!isTripDayTabActive()) return;
+                    isSavingSpot.value = false;
                     spotFormMode.value = 'add';
                     editingSpotIndex.value = null;
                     newSpot.value = emptySpotForm(newSpot.value.type || '景點');
                     showSpotModal.value = true;
                 };
                 const closeSpotModal = () => {
+                    if (isSavingSpot.value) return;
                     blurActiveInput();
                     showSpotModal.value = false;
                     editingSpotIndex.value = null;
@@ -5150,12 +5278,15 @@
                     editingSplitExpenseId.value = null;
                 };
                 const openAddShopModal = () => {
+                    if (isSavingShopping.value) return;
+                    isSavingShopping.value = false;
                     shoppingFormMode.value = 'add';
                     editingShoppingId.value = null;
                     newShopItem.value = { text: '', category: '藥妝', quantity: 1, note: '', url: '', imgUrl: '' };
                     showShopModal.value = true;
                 };
                 const closeShopModal = () => {
+                    if (isSavingShopping.value) return;
                     blurActiveInput();
                     showShopModal.value = false;
                     editingShoppingId.value = null;
@@ -5173,6 +5304,8 @@
                     expandedSpotIndex.value = expandedSpotIndex.value === index ? null : index;
                 };
                 const startSpotEdit = (index, spot) => {
+                    if (isSavingSpot.value) return;
+                    isSavingSpot.value = false;
                     const type = normalizeSpotType(spot);
                     spotFormMode.value = 'edit';
                     editingSpotIndex.value = index;
@@ -5211,11 +5344,13 @@
                     return spotData;
                 };
                 const saveSpotForm = async () => {
+                    if (isSavingSpot.value) return;
                     if (!currentTrip.value || activeDayTab.value === 'menu') return alert('請先選擇要新增的 Day 分頁');
                     const spotData = buildSpotFormData();
                     if (!spotData.name) return alert('請填寫名稱');
                     const dayKey = activeDayTab.value;
                     const backupItinerary = JSON.parse(JSON.stringify(currentTrip.value.itinerary || {}));
+                    isSavingSpot.value = true;
                     try {
                         if (!currentTrip.value.itinerary) currentTrip.value.itinerary = ensureItineraryDayKeys({}, currentTrip.value.days || 1);
                         if (!Array.isArray(currentTrip.value.itinerary[dayKey])) currentTrip.value.itinerary[dayKey] = [];
@@ -5229,11 +5364,14 @@
                         const keepType = newSpot.value.type || '景點';
                         newSpot.value = emptySpotForm(keepType);
                         expandedSpotIndex.value = null;
+                        isSavingSpot.value = false;
                         closeSpotModal();
                     } catch (err) {
                         currentTrip.value.itinerary = backupItinerary;
                         console.error('Save itinerary item failed:', err);
                         alert('行程儲存失敗：' + (err?.message || '請稍後再試。'));
+                    } finally {
+                        isSavingSpot.value = false;
                     }
                 };
                 const addSpot = saveSpotForm;
@@ -5812,6 +5950,8 @@
                     updatePrivateTripData();
                 };
                 const startShoppingEdit = (item) => {
+                    if (isSavingShopping.value) return;
+                    isSavingShopping.value = false;
                     shoppingFormMode.value = 'edit';
                     editingShoppingId.value = item.id;
                     expandedShoppingId.value = null;
@@ -5843,8 +5983,10 @@
                     editShoppingData.value.quantity = Math.max(1, normalizeQuantityValue(editShoppingData.value.quantity) - 1);
                 };
                 const saveShoppingForm = async () => {
+                    if (isSavingShopping.value) return;
                     if (!newShopItem.value.text.trim()) return alert('請填寫品項名稱');
                     const backupShopping = JSON.parse(JSON.stringify(currentTrip.value.shopping || []));
+                    isSavingShopping.value = true;
                     try {
                         if (!currentTrip.value.shopping) currentTrip.value.shopping = [];
                         const payload = {
@@ -5865,11 +6007,14 @@
                         await updatePrivateTripData();
                         newShopItem.value = { text: '', category: '藥妝', quantity: 1, note: '', url: '', imgUrl: '' };
                         expandedShoppingId.value = null;
+                        isSavingShopping.value = false;
                         closeShopModal();
                     } catch (err) {
                         currentTrip.value.shopping = backupShopping;
                         console.error('Save shopping item failed:', err);
                         alert('購物儲存失敗：' + (err?.message || '請稍後再試。'));
+                    } finally {
+                        isSavingShopping.value = false;
                     }
                 };
                 const addShopItem = saveShoppingForm;
@@ -5885,10 +6030,10 @@
 
                 return {
                     user, authForm, registerForm, authPage, authMessage, trips, upcomingActiveTrips, completedTrips, currentTrip, activeMainTab, activeDayTab, weather, weatherForecast, weatherLoading, weatherError, weatherCity, showWeatherModal, showSpotModal, showExpenseModal, showShopModal, showMenuLinkModal, showTodoModal, showLuggageModal, showCopyLuggageModal, copyLuggageSourceTripId, isCopyingLuggage, editableLuggageSourceTrips, imagePreviewUrl, isKeyMissing, shareForm, shareMessage,
-                    showTripModal, isEditingTripMode, tripModalForm, getMinimumReturnDate, handleTripStartDateChange, handleTripEndDateChange, openAddTripModal, openEditTripModal, closeTripModal, saveTripModalAction,
+                    showTripModal, isEditingTripMode, isSavingTrip, tripModalForm, getMinimumReturnDate, handleTripStartDateChange, handleTripEndDateChange, openAddTripModal, openEditTripModal, closeTripModal, saveTripModalAction,
                     expenseSections, getFilteredExpenses, sumByCurrency, getCurrencySymbol, sumExpensesInTwd, formatTwdAmount, getExchangeRateSummary,
                     newSplitExpense, editingSplitExpenseId, isSavingExpense, activeSettlementTab, activeAccountingTab, selectedPayerTotal, selectedShareTotal, handleSplitPayerChange, handleSplitPayerAmountInput, handleSplitterChange, handleSplitterAmountInput, getMemberInitial, getSplitExpenses, getFilteredSplitExpenses, getSplitPayers, getSplitShares, getSplitExpenseTotal, getSplitShareCount, getSplitPayerSummary, formatCurrencyAmount, formatTwdCurrency, formatSplitAmountWithTwd, formatSplitCardTotal, formatSplitTotalSummary, splitSettlements, splitSettlementReceivableGroups, memberSpendSummary, splitRepaymentSummary, getExpenseRepaymentItems, isExpenseRepaymentPaid, toggleExpenseRepaymentStatus, isSettlementRepaid, toggleRepaymentStatus, toggleSplitExpense, openEditSplitExpense,
-                    menuLinkFormMode, todoFormMode, luggageFormMode, spotFormMode, shoppingFormMode,
+                    menuLinkFormMode, todoFormMode, luggageFormMode, spotFormMode, shoppingFormMode, isSavingMenuLink, isSavingTodo, isSavingLuggage, isSavingSpot, isSavingShopping,
                     editingMenuLinkIndex, expandedMenuLinkIndex, editMenuLinkData, toggleMenuLinkActions, openAddMenuLinkModal, closeMenuLinkModal, startMenuLinkEdit, saveMenuLinkEdit, saveMenuLinkForm,
                     editingTodoId, expandedTodoId, editTodoTextData, toggleTodoActions, openAddTodoModal, closeTodoModal, startTodoEdit, saveTodoEdit, saveTodoForm, toggleTodoDone,
                     editingLuggageId, expandedLuggageId, editLuggageData, toggleLuggageActions, openCopyLuggageModal, closeCopyLuggageModal, copyLuggageFromSelectedTrip, openAddLuggageModal, closeLuggageModal, startLuggageEdit, saveLuggageEdit, saveLuggageForm, toggleLuggageDone,
