@@ -1472,20 +1472,20 @@
 
                     <div v-if="activeMainTab === 'itinerary'" class="bg-white border border-[#e6e4dc] rounded-2xl p-3 shadow-sm">
                         <p class="text-[10px] font-bold text-neutral-400 tracking-widest px-2 mb-2 uppercase">行程分頁導覽</p>
-                        <div class="flex gap-2 overflow-x-auto pb-1">
+                        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
                             <button @click="switchDayTab('menu')" 
-                                    :class="['shrink-0 min-w-[170px] text-left px-3 py-2.5 text-xs rounded-xl transition-all flex items-center justify-between border', activeDayTab === 'menu' ? 'itinerary-tab-active font-bold' : 'itinerary-tab-idle hover:bg-[#f7f6f3]']">
-                                <span>📂 行程目錄</span>
+                                    :class="['min-w-0 w-full text-left px-3 py-2.5 text-xs rounded-xl transition-all flex items-center justify-between border', activeDayTab === 'menu' ? 'itinerary-tab-active font-bold' : 'itinerary-tab-idle hover:bg-[#f7f6f3]']">
+                                <span class="truncate">📂 行程目錄</span>
                             </button>
                             
                             <button v-for="dayNum in currentTrip.days" :key="dayNum"
                                     @click="switchDayTab(dayNum)" 
-                                    :class="['shrink-0 min-w-[145px] text-left px-3 py-2.5 text-xs rounded-xl transition-all flex flex-col items-start gap-0.5 border', activeDayTab === dayNum ? 'itinerary-tab-active font-bold' : 'itinerary-tab-idle hover:bg-[#f7f6f3]']">
-                                <div class="w-full flex justify-between items-center gap-2">
-                                    <span>📍 Day {{ dayNum }}</span>
-                                    <span :class="['text-[9px] px-1 rounded border', activeDayTab === dayNum ? 'day-badge' : 'bg-white border-neutral-200 text-neutral-400']">D{{ dayNum }}</span>
+                                    :class="['min-w-0 w-full text-left px-3 py-2.5 text-xs rounded-xl transition-all flex flex-col items-start gap-0.5 border', activeDayTab === dayNum ? 'itinerary-tab-active font-bold' : 'itinerary-tab-idle hover:bg-[#f7f6f3]']">
+                                <div class="w-full flex justify-between items-center gap-1 min-w-0">
+                                    <span class="truncate">📍 Day {{ dayNum }}</span>
+                                    <span :class="['text-[9px] px-1 rounded border shrink-0', activeDayTab === dayNum ? 'day-badge' : 'bg-white border-neutral-200 text-neutral-400']">D{{ dayNum }}</span>
                                 </div>
-                                <span :class="['text-[10px] block font-normal', activeDayTab === dayNum ? 'text-neutral-700' : 'text-neutral-400']">
+                                <span :class="['text-[10px] block font-normal whitespace-nowrap', activeDayTab === dayNum ? 'text-neutral-700' : 'text-neutral-400']">
                                     {{ getCalculatedDateStr(currentTrip.startDate, dayNum) }}
                                 </span>
                             </button>
