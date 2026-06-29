@@ -1733,7 +1733,9 @@
                                     <div class="absolute -left-[21px] top-5 w-2 h-2 rounded-full bg-primary border-2 border-white shadow-sm"></div>
                                     <div class="trip-spot-icon-col w-14 sm:w-20 shrink-0 flex flex-col gap-2 items-center">
                                         <div class="flex flex-col items-center gap-1 shrink-0">
-                                            <img v-if="hasCustomImage(spot.imgUrl)" :src="spot.imgUrl" class="w-12 h-12 sm:w-20 sm:h-20 object-cover rounded-lg bg-white border border-[#e6e4dc] shrink-0" alt="行程圖片">
+                                            <button v-if="hasCustomImage(spot.imgUrl)" @click.stop="openImagePreview(spot.imgUrl)" type="button" class="w-12 h-12 sm:w-20 sm:h-20 rounded-lg bg-white border border-[#e6e4dc] shrink-0 overflow-hidden cursor-zoom-in hover:opacity-90 transition-opacity" aria-label="放大查看行程圖片">
+                                                <img :src="spot.imgUrl" class="w-full h-full object-cover" alt="行程圖片">
+                                            </button>
                                             <div v-else class="w-12 h-12 sm:w-20 sm:h-20 rounded-lg bg-white border border-[#e6e4dc] flex items-center justify-center shrink-0">
                                                 <i :class="getSpotTypeIcon(spot)" class="text-xl text-neutral-500"></i>
                                             </div>
@@ -2323,7 +2325,7 @@
                     <button @click="closeImagePreview" type="button" class="absolute -top-3 -right-3 w-9 h-9 rounded-full bg-white text-neutral-600 shadow flex items-center justify-center hover:bg-neutral-100 z-10">
                         <i class="fa-solid fa-xmark"></i>
                     </button>
-                    <img :src="imagePreviewUrl" class="max-w-full max-h-[88vh] object-contain rounded-2xl bg-white shadow-2xl" alt="商品圖片放大預覽">
+                    <img :src="imagePreviewUrl" class="max-w-full max-h-[88vh] object-contain rounded-2xl bg-white shadow-2xl" alt="圖片放大預覽">
                 </div>
             </div>
 
