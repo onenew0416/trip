@@ -1285,6 +1285,67 @@
             }
         }
 
+    
+
+        /* v59：手機版大型彈窗縮小並避開瀏覽器上下工具列 */
+        @media (max-width: 640px) {
+            #app .app-modal-overlay {
+                box-sizing: border-box !important;
+                width: 100% !important;
+                height: 100vh !important;
+                height: 100dvh !important;
+                overflow-y: auto !important;
+                overscroll-behavior: contain !important;
+                padding-top: max(.7rem, env(safe-area-inset-top)) !important;
+                padding-right: .7rem !important;
+                padding-bottom: max(.7rem, env(safe-area-inset-bottom)) !important;
+                padding-left: .7rem !important;
+            }
+
+            #app .app-modal-overlay > div:first-child,
+            #app .app-modal-overlay > .modal-form-card,
+            #app .app-modal-overlay > .modal-form-card.max-w-lg {
+                width: min(92vw, 30rem) !important;
+                max-width: 30rem !important;
+                max-height: 84vh !important;
+                max-height: 86svh !important;
+                overflow-y: auto !important;
+                -webkit-overflow-scrolling: touch !important;
+                border-radius: 1.2rem !important;
+                padding: 1.1rem !important;
+                margin-top: auto !important;
+                margin-bottom: auto !important;
+            }
+
+            #app .app-modal-overlay .modal-form-header {
+                margin-bottom: .8rem !important;
+                padding-bottom: .72rem !important;
+            }
+
+            #app .app-modal-overlay .modal-form-body {
+                gap: .72rem !important;
+            }
+
+            #app .app-modal-overlay .modal-input {
+                min-height: 2.8rem !important;
+                padding: .72rem .9rem !important;
+            }
+
+            #app .app-modal-overlay .modal-upload-field,
+            #app .app-modal-overlay .modal-qty-control {
+                min-height: 2.8rem !important;
+            }
+
+            #app .app-modal-overlay .modal-qty-control button {
+                height: 2.8rem !important;
+            }
+
+            #app .app-modal-overlay .modal-save-button {
+                margin-top: .8rem !important;
+                padding: .82rem 1rem !important;
+            }
+        }
+
     </style>
 </head>
 <body>
@@ -1969,7 +2030,7 @@
                 </div>
             </div>
 
-            <div v-if="showMenuLinkModal" @mousedown.self="closeMenuLinkModal" class="fixed inset-0 bg-black/20 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+            <div v-if="showMenuLinkModal" @mousedown.self="closeMenuLinkModal" class="app-modal-overlay fixed inset-0 bg-black/20 backdrop-blur-xs flex items-center justify-center p-4 z-50">
                 <div class="modal-form-card">
                     <div class="modal-form-header">
                         <div>
@@ -1999,7 +2060,7 @@
                 </div>
             </div>
 
-            <div v-if="showTodoModal" @mousedown.self="closeTodoModal" class="fixed inset-0 bg-black/20 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+            <div v-if="showTodoModal" @mousedown.self="closeTodoModal" class="app-modal-overlay fixed inset-0 bg-black/20 backdrop-blur-xs flex items-center justify-center p-4 z-50">
                 <div class="modal-form-card">
                     <div class="modal-form-header">
                         <div>
@@ -2024,7 +2085,7 @@
                 </div>
             </div>
 
-            <div v-if="showLuggageModal" @mousedown.self="closeLuggageModal" class="fixed inset-0 bg-black/20 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+            <div v-if="showLuggageModal" @mousedown.self="closeLuggageModal" class="app-modal-overlay fixed inset-0 bg-black/20 backdrop-blur-xs flex items-center justify-center p-4 z-50">
                 <div class="modal-form-card">
                     <div class="modal-form-header">
                         <div>
@@ -2049,7 +2110,7 @@
                 </div>
             </div>
 
-            <div v-if="showCopyLuggageModal" @mousedown.self="closeCopyLuggageModal" class="fixed inset-0 bg-black/20 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+            <div v-if="showCopyLuggageModal" @mousedown.self="closeCopyLuggageModal" class="app-modal-overlay fixed inset-0 bg-black/20 backdrop-blur-xs flex items-center justify-center p-4 z-50">
                 <div class="modal-form-card max-w-md">
                     <div class="modal-form-header">
                         <div>
@@ -2106,7 +2167,7 @@
                 </div>
             </div>
 
-            <div v-if="showSpotModal" @mousedown.self="closeSpotModal" class="fixed inset-0 bg-black/20 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+            <div v-if="showSpotModal" @mousedown.self="closeSpotModal" class="app-modal-overlay fixed inset-0 bg-black/20 backdrop-blur-xs flex items-center justify-center p-4 z-50">
                 <div class="modal-form-card max-w-lg">
                     <div class="modal-form-header">
                         <div>
@@ -2149,7 +2210,7 @@
                 </div>
             </div>
 
-            <div v-if="showExpenseModal" @mousedown.self="closeExpenseModal" class="fixed inset-0 bg-black/20 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+            <div v-if="showExpenseModal" @mousedown.self="closeExpenseModal" class="app-modal-overlay fixed inset-0 bg-black/20 backdrop-blur-xs flex items-center justify-center p-4 z-50">
                 <div class="bg-white border border-[#e6e4dc] rounded-2xl p-6 w-full max-w-2xl shadow-lg space-y-4 max-h-[90vh] overflow-y-auto">
                     <div class="flex items-start justify-between gap-4 border-b border-neutral-100 pb-3">
                         <div>
@@ -2222,7 +2283,7 @@
                 </div>
             </div>
 
-            <div v-if="showShopModal" @mousedown.self="closeShopModal" class="fixed inset-0 bg-black/20 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+            <div v-if="showShopModal" @mousedown.self="closeShopModal" class="app-modal-overlay fixed inset-0 bg-black/20 backdrop-blur-xs flex items-center justify-center p-4 z-50">
                 <div class="modal-form-card max-w-lg">
                     <div class="modal-form-header">
                         <div>
@@ -2266,7 +2327,7 @@
                 </div>
             </div>
 
-            <div v-if="showWeatherModal" @mousedown.self="closeWeatherModal" class="fixed inset-0 bg-black/20 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+            <div v-if="showWeatherModal" @mousedown.self="closeWeatherModal" class="app-modal-overlay fixed inset-0 bg-black/20 backdrop-blur-xs flex items-center justify-center p-4 z-50">
                 <div class="bg-white border border-[#e6e4dc] rounded-2xl p-6 w-full max-w-2xl shadow-lg space-y-4 max-h-[90vh] overflow-y-auto">
                     <div class="flex items-start justify-between gap-4 border-b border-neutral-100 pb-3">
                         <div>
@@ -2323,7 +2384,7 @@
                 </div>
             </div>
 
-            <div v-if="showTripModal" @mousedown.self="closeTripModal" class="fixed inset-0 bg-black/20 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+            <div v-if="showTripModal" @mousedown.self="closeTripModal" class="app-modal-overlay fixed inset-0 bg-black/20 backdrop-blur-xs flex items-center justify-center p-4 z-50">
                 <div class="bg-white border border-[#e6e4dc] rounded-2xl p-6 w-full max-w-lg shadow-lg space-y-4 max-h-[90vh] overflow-y-auto">
                     <h3 class="text-base font-medium text-neutral-700 border-b pb-2">
                         {{ isEditingTripMode ? '📝 編輯旅程手冊設定' : '📂 建立新旅程手冊' }}
