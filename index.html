@@ -5385,7 +5385,7 @@
                             if (duplicate) {
                                 isSavingLuggage.value = false;
                                 const duplicateCategory = duplicate.category || '隨身包包';
-                                luggageFormError.value = `已有「${luggageText}」於「${duplicateCategory}」內！不同分類也不能新增相同名稱的行李。`;
+                                luggageFormError.value = `「${luggageText}」已於「${duplicateCategory}」內！`;
                                 return;
                             }
                             currentTrip.value.luggage.push({ id: Date.now(), text: luggageText, category: luggageCategory, done: false });
@@ -6204,7 +6204,7 @@
                     menuLinkFormMode, todoFormMode, luggageFormMode, spotFormMode, shoppingFormMode, isSavingMenuLink, isSavingTodo, isSavingLuggage, isSavingSpot, isSavingShopping,
                     editingMenuLinkIndex, expandedMenuLinkIndex, editMenuLinkData, toggleMenuLinkActions, openAddMenuLinkModal, closeMenuLinkModal, startMenuLinkEdit, saveMenuLinkEdit, saveMenuLinkForm,
                     editingTodoId, expandedTodoId, editTodoTextData, toggleTodoActions, openAddTodoModal, closeTodoModal, startTodoEdit, saveTodoEdit, saveTodoForm, toggleTodoDone,
-                    editingLuggageId, expandedLuggageId, editLuggageData, toggleLuggageActions, openCopyLuggageModal, closeCopyLuggageModal, copyLuggageFromSelectedTrip, openAddLuggageModal, closeLuggageModal, startLuggageEdit, saveLuggageEdit, saveLuggageForm, toggleLuggageDone,
+                    editingLuggageId, expandedLuggageId, editLuggageData, luggageFormError, toggleLuggageActions, openCopyLuggageModal, closeCopyLuggageModal, copyLuggageFromSelectedTrip, openAddLuggageModal, closeLuggageModal, startLuggageEdit, saveLuggageEdit, saveLuggageForm, toggleLuggageDone,
                     editingSpotIndex, expandedSpotIndex, editSpotData, toggleSpotActions, startSpotEdit, saveSpotEdit, saveSpotForm,
                     editingExpenseIndex, editExpenseData, startExpenseEdit, saveExpenseEdit,
                     shoppingCategories, shoppingCategoryFilter, shoppingCategoryMeta, normalizeShoppingCategory, normalizeQuantityValue, getShoppingCategoryMeta, getShoppingSortKey, getSortedShoppingItems, getFilteredShoppingItems, getShoppingCategoryCount, getShoppingGroupedSections,
