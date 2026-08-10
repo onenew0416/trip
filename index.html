@@ -1448,14 +1448,31 @@
             <div v-if="!currentTrip" class="flex-1 max-w-4xl w-full mx-auto p-6 md:py-12">
                 <div class="flex justify-between items-center mb-8">
                     <div>
-                        <h2 class="text-2xl font-light text-neutral-700">目前共有 {{ trips.length }} 個可編輯旅程</h2>
+                        <h2 v-if="tripsLoading" class="text-2xl font-light text-neutral-700 flex items-center gap-2"><i class="fa-solid fa-spinner fa-spin text-sm text-primary"></i> 正在載入旅程…</h2>
+                        <h2 v-else-if="tripsLoadError" class="text-2xl font-light text-neutral-700">旅程載入失敗</h2>
+                        <h2 v-else class="text-2xl font-light text-neutral-700">目前共有 {{ trips.length }} 個可編輯旅程</h2>
                     </div>
                     <button @click="openAddTripModal" class="bg-neutral-700 hover:bg-neutral-800 text-white text-xs px-4 py-2.5 rounded-xl font-medium tracking-wider shadow-sm transition-colors">
                         ＋ 新增旅程紀錄
                     </button>
                 </div>
 
-                <div v-if="trips.length === 0" class="border border-dashed border-[#e6e4dc] bg-white rounded-2xl p-16 text-center text-neutral-400">
+                <div v-if="tripsLoading" class="border border-dashed border-[#e6e4dc] bg-white rounded-2xl p-12 text-center text-neutral-400">
+                    <i class="fa-solid fa-spinner fa-spin text-3xl text-primary mb-3"></i>
+                    <p class="text-sm">正在從雲端載入旅程，請稍候…</p>
+                    <p class="text-[11px] text-neutral-400 mt-2">海外網路較慢時可能需要幾秒鐘</p>
+                </div>
+
+                <div v-else-if="tripsLoadError" class="border border-dashed border-rose-200 bg-white rounded-2xl p-12 text-center text-neutral-400">
+                    <i class="fa-solid fa-cloud-arrow-down text-3xl text-rose-300 mb-3"></i>
+                    <p class="text-sm text-neutral-600">旅程資料載入失敗</p>
+                    <p class="text-[11px] text-neutral-400 mt-2">可能是網路連線較慢或 Firebase 暫時沒有回應</p>
+                    <button @click="reloadTrips" type="button" class="mt-4 bg-neutral-700 hover:bg-neutral-800 text-white text-xs px-4 py-2.5 rounded-xl font-medium shadow-sm transition-colors">
+                        <i class="fa-solid fa-rotate-right mr-1"></i> 重新載入
+                    </button>
+                </div>
+
+                <div v-else-if="trips.length === 0" class="border border-dashed border-[#e6e4dc] bg-white rounded-2xl p-16 text-center text-neutral-400">
                     <i class="fa-solid fa-map-location-dot text-4xl text-neutral-300 mb-3"></i>
                     <p class="text-sm">尚未建立任何旅程，點擊右上角開啟你的第一個旅遊手冊吧！</p>
                 </div>
@@ -2496,6 +2513,8 @@
             setup() {
                 const user = ref(null);
                 const trips = ref([]);
+                const tripsLoading = ref(false);
+                const tripsLoadError = ref(false);
                 const currentTrip = ref(null);
                 
                 const activeMainTab = ref('itinerary'); 
@@ -4439,6 +4458,8 @@
 
                 const loadUserData = async () => {
                     if (!user.value) return;
+                    tripsLoading.value = true;
+                    tripsLoadError.value = false;
                     if (!isKeyMissing) {
                         if (tripsUnsubscribe) tripsUnsubscribe();
                         try { await migrateLegacyTrips(); } catch (e) { console.warn('Legacy trip migration skipped:', e); }
@@ -4505,22 +4526,66 @@
                             ['memberAuthEmails', user.value.authEmail || getUsernameAuthEmail(user.value.username || user.value.email), 'array-contains']
                         ].filter(([, value]) => !!value);
 
+                        // 海外 eSIM 網路較慢時，不要在第一個查詢回傳 0 筆時就把首頁誤判成「0 個旅程」。
+                        // 等所有初始查詢至少回應一次，或 fallback 完成後才結束 loading；最長等待 12 秒。
+                        let initialPending = queryConfigs.length + 1; // +1 = fallback get()
+                        let initialFinished = false;
+                        const finishInitialLoad = (success = true) => {
+                            if (initialFinished) return;
+                            initialPending = Math.max(0, initialPending - 1);
+                            if (initialPending === 0) {
+                                initialFinished = true;
+                                tripsLoading.value = false;
+                                tripsLoadError.value = !success && trips.value.length === 0;
+                            }
+                        };
+
                         queryConfigs.forEach(([field, value, op]) => {
                             try {
                                 const unsubscribe = db.collection('trips')
                                     .where(field, op, value)
-                                    .onSnapshot(addSnapshotDocs, err => console.warn(`Trips listener by ${field} skipped:`, err));
+                                    .onSnapshot(
+                                        snapshot => {
+                                            addSnapshotDocs(snapshot).catch(err => console.warn(`Process trips snapshot by ${field} failed:`, err));
+                                            finishInitialLoad(true);
+                                        },
+                                        err => {
+                                            console.warn(`Trips listener by ${field} skipped:`, err);
+                                            finishInitialLoad(false);
+                                        }
+                                    );
                                 unsubscribers.push(unsubscribe);
                             } catch (e) {
                                 console.warn(`Create trips listener by ${field} skipped:`, e);
+                                finishInitialLoad(false);
                             }
                         });
 
                         // 保險 fallback：有些 Firestore rules / indexes 不允許 array-contains 查詢，
                         // 但允許讀取自己可見的 trips。此時直接讀取後前端比對共編欄位，避免共編成員看不到旅程。
-                        db.collection('trips').get().then(addSnapshotDocs).catch(e => console.warn('Trips collection fallback scan skipped:', e));
+                        db.collection('trips').get()
+                            .then(snapshot => {
+                                addSnapshotDocs(snapshot).catch(err => console.warn('Process trips fallback snapshot failed:', err));
+                                finishInitialLoad(true);
+                            })
+                            .catch(e => {
+                                console.warn('Trips collection fallback scan skipped:', e);
+                                finishInitialLoad(false);
+                            });
 
-                        tripsUnsubscribe = () => unsubscribers.forEach(unsub => { try { unsub(); } catch (e) {} });
+                        window.clearTimeout(window.__tripLoadTimeout);
+                        window.__tripLoadTimeout = window.setTimeout(() => {
+                            if (!initialFinished) {
+                                initialFinished = true;
+                                tripsLoading.value = false;
+                                tripsLoadError.value = trips.value.length === 0;
+                            }
+                        }, 12000);
+
+                        tripsUnsubscribe = () => {
+                            window.clearTimeout(window.__tripLoadTimeout);
+                            unsubscribers.forEach(unsub => { try { unsub(); } catch (e) {} });
+                        };
                     } else {
                         const userKey = user.value.usernameKey || getUsernameKey(user.value.username || user.value.email);
                         const userAuthEmail = user.value.authEmail || getUsernameAuthEmail(user.value.username || user.value.email);
@@ -4532,11 +4597,24 @@
                             || (t.memberAuthEmails || []).includes(userAuthEmail)
                         );
                         trips.value = localShared.map(t => combineTripData(t, getLocalPrivateTrip(t.id)));
+                        tripsLoading.value = false;
+                        tripsLoadError.value = false;
                         if (currentTrip.value) {
                             const updated = trips.value.find(t => t.id === currentTrip.value.id);
                             currentTrip.value = updated || null;
                         }
                     }
+                };
+
+                const reloadTrips = async () => {
+                    if (!user.value) return;
+                    if (tripsUnsubscribe) {
+                        try { tripsUnsubscribe(); } catch (e) {}
+                        tripsUnsubscribe = null;
+                    }
+                    trips.value = [];
+                    currentTrip.value = null;
+                    await loadUserData();
                 };
 
                 onMounted(() => {
@@ -5279,11 +5357,33 @@
                     isSavingLuggage.value = true;
                     try {
                         if (!currentTrip.value.luggage) currentTrip.value.luggage = [];
+                        const luggageText = newLuggage.value.text.trim();
+                        const luggageCategory = newLuggage.value.category || '隨身包包';
+
                         if (luggageFormMode.value === 'edit' && editingLuggageId.value !== null) {
+                            const duplicate = currentTrip.value.luggage.find(i =>
+                                i.id !== editingLuggageId.value
+                                && String(i.text || '').trim() === luggageText
+                                && (i.category || '隨身包包') === luggageCategory
+                            );
+                            if (duplicate) {
+                                isSavingLuggage.value = false;
+                                alert(`已有「${luggageText}」於「${luggageCategory}」內！\n請勿重複新增相同的行李。`);
+                                return;
+                            }
                             const item = currentTrip.value.luggage.find(i => i.id === editingLuggageId.value);
-                            if (item) { item.text = newLuggage.value.text.trim(); item.category = newLuggage.value.category || '隨身包包'; }
+                            if (item) { item.text = luggageText; item.category = luggageCategory; }
                         } else {
-                            currentTrip.value.luggage.push({ id: Date.now(), text: newLuggage.value.text.trim(), category: newLuggage.value.category || '隨身包包', done: false });
+                            const duplicate = currentTrip.value.luggage.find(i =>
+                                String(i.text || '').trim() === luggageText
+                                && (i.category || '隨身包包') === luggageCategory
+                            );
+                            if (duplicate) {
+                                isSavingLuggage.value = false;
+                                alert(`已有「${luggageText}」於「${luggageCategory}」內！\n請勿重複新增相同的行李。`);
+                                return;
+                            }
+                            currentTrip.value.luggage.push({ id: Date.now(), text: luggageText, category: luggageCategory, done: false });
                         }
                         await updatePrivateTripData();
                         const keepCategory = newLuggage.value.category || '隨身包包';
@@ -6092,7 +6192,7 @@
                 const changeTheme = () => applyThemeToDocument();
 
                 return {
-                    user, authForm, registerForm, authPage, authMessage, trips, upcomingActiveTrips, completedTrips, currentTrip, activeMainTab, activeDayTab, weather, weatherForecast, weatherLoading, weatherError, weatherCity, showWeatherModal, showSpotModal, showExpenseModal, showShopModal, showMenuLinkModal, showTodoModal, showLuggageModal, showCopyLuggageModal, copyLuggageSourceTripId, isCopyingLuggage, editableLuggageSourceTrips, imagePreviewUrl, isKeyMissing, shareForm, shareMessage,
+                    user, authForm, registerForm, authPage, authMessage, trips, tripsLoading, tripsLoadError, reloadTrips, upcomingActiveTrips, completedTrips, currentTrip, activeMainTab, activeDayTab, weather, weatherForecast, weatherLoading, weatherError, weatherCity, showWeatherModal, showSpotModal, showExpenseModal, showShopModal, showMenuLinkModal, showTodoModal, showLuggageModal, showCopyLuggageModal, copyLuggageSourceTripId, isCopyingLuggage, editableLuggageSourceTrips, imagePreviewUrl, isKeyMissing, shareForm, shareMessage,
                     showTripModal, isEditingTripMode, isSavingTrip, tripModalForm, getMinimumReturnDate, handleTripStartDateChange, handleTripEndDateChange, openAddTripModal, openEditTripModal, closeTripModal, saveTripModalAction,
                     expenseSections, getFilteredExpenses, sumByCurrency, getCurrencySymbol, sumExpensesInTwd, formatTwdAmount, getExchangeRateSummary,
                     newSplitExpense, editingSplitExpenseId, isSavingExpense, activeSettlementTab, activeAccountingTab, selectedPayerTotal, selectedShareTotal, handleSplitPayerChange, handleSplitPayerAmountInput, handleSplitterChange, handleSplitterAmountInput, getMemberInitial, getSplitExpenses, getFilteredSplitExpenses, getSplitPayers, getSplitShares, getSplitExpenseTotal, getSplitShareCount, getSplitPayerSummary, formatCurrencyAmount, formatTwdCurrency, formatSplitAmountWithTwd, formatSplitCardTotal, formatSplitTotalSummary, splitSettlements, splitSettlementReceivableGroups, memberSpendSummary, splitRepaymentSummary, getExpenseRepaymentItems, isExpenseRepaymentPaid, toggleExpenseRepaymentStatus, isSettlementRepaid, toggleRepaymentStatus, toggleSplitExpense, openEditSplitExpense,
