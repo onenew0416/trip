@@ -2113,9 +2113,10 @@
                         <button @click="closeLuggageModal" :disabled="isSavingLuggage" type="button" :class="['modal-close-button', isSavingLuggage ? 'opacity-40 cursor-not-allowed' : '']"><i class="fa-solid fa-xmark"></i></button>
                     </div>
                     <div class="modal-form-body">
-                        <label class="modal-field"><span class="modal-field-label">分類</span><select v-model="newLuggage.category" class="modal-input"><option value="隨身包包">🎒 隨身包包</option><option value="手提行李">💼 手提行李</option><option value="託運行李">🧳 託運行李</option></select></label>
-                        <label class="modal-field"><span class="modal-field-label">項目名稱</span><input v-model="newLuggage.text" type="text" placeholder="例如：充電器、藥品、衣物" class="modal-input" @keyup.enter="saveLuggageForm"></label>
+                        <label class="modal-field"><span class="modal-field-label">分類</span><select v-model="newLuggage.category" @change="luggageFormError = ''" class="modal-input"><option value="隨身包包">🎒 隨身包包</option><option value="手提行李">💼 手提行李</option><option value="託運行李">🧳 託運行李</option></select></label>
+                        <label class="modal-field"><span class="modal-field-label">項目名稱</span><input v-model="newLuggage.text" @input="luggageFormError = ''" type="text" placeholder="例如：充電器、藥品、衣物" class="modal-input" @keyup.enter="saveLuggageForm"></label>
                     </div>
+                    <div v-if="luggageFormError" class="px-6 pb-3 text-red-600 text-sm font-semibold leading-relaxed" role="alert">{{ luggageFormError }}</div>
                     <button
                         @click="saveLuggageForm"
                         type="button"
@@ -2557,6 +2558,7 @@
                 const isSavingMenuLink = ref(false);
                 const isSavingTodo = ref(false);
                 const isSavingLuggage = ref(false);
+                const luggageFormError = ref('');
                 const isSavingSpot = ref(false);
                 const isSavingShopping = ref(false);
                 const showShopModal = ref(false);
@@ -5330,6 +5332,7 @@
                 const openAddLuggageModal = () => {
                     if (isSavingLuggage.value) return;
                     isSavingLuggage.value = false;
+                    luggageFormError.value = '';
                     luggageFormMode.value = 'add';
                     editingLuggageId.value = null;
                     newLuggage.value = { text: '', category: newLuggage.value.category || '隨身包包' };
@@ -5340,10 +5343,12 @@
                     blurActiveInput();
                     showLuggageModal.value = false;
                     editingLuggageId.value = null;
+                    luggageFormError.value = '';
                 };
                 const startLuggageEdit = (item) => {
                     if (isSavingLuggage.value) return;
                     isSavingLuggage.value = false;
+                    luggageFormError.value = '';
                     luggageFormMode.value = 'edit';
                     editingLuggageId.value = item.id;
                     expandedLuggageId.value = null;
@@ -5361,26 +5366,26 @@
                         const luggageCategory = newLuggage.value.category || '隨身包包';
 
                         if (luggageFormMode.value === 'edit' && editingLuggageId.value !== null) {
-                            const duplicate = currentTrip.value.luggage.find(i =>
-                                i.id !== editingLuggageId.value
-                                && String(i.text || '').trim() === luggageText
-                                && (i.category || '隨身包包') === luggageCategory
+                            const duplicate = (currentTrip.value.luggage || []).find(i =>
+                                String(i.id || '') !== String(editingLuggageId.value || '')
+                                && String(i.text || '').trim().toLowerCase() === luggageText.toLowerCase()
                             );
                             if (duplicate) {
                                 isSavingLuggage.value = false;
-                                alert(`已有「${luggageText}」於「${luggageCategory}」內！\n請勿重複新增相同的行李。`);
+                                const duplicateCategory = duplicate.category || '隨身包包';
+                                luggageFormError.value = `已有「${luggageText}」於「${duplicateCategory}」內！`;
                                 return;
                             }
                             const item = currentTrip.value.luggage.find(i => i.id === editingLuggageId.value);
                             if (item) { item.text = luggageText; item.category = luggageCategory; }
                         } else {
-                            const duplicate = currentTrip.value.luggage.find(i =>
-                                String(i.text || '').trim() === luggageText
-                                && (i.category || '隨身包包') === luggageCategory
+                            const duplicate = (currentTrip.value.luggage || []).find(i =>
+                                String(i.text || '').trim().toLowerCase() === luggageText.toLowerCase()
                             );
                             if (duplicate) {
                                 isSavingLuggage.value = false;
-                                alert(`已有「${luggageText}」於「${luggageCategory}」內！\n請勿重複新增相同的行李。`);
+                                const duplicateCategory = duplicate.category || '隨身包包';
+                                luggageFormError.value = `已有「${luggageText}」於「${duplicateCategory}」內！不同分類也不能新增相同名稱的行李。`;
                                 return;
                             }
                             currentTrip.value.luggage.push({ id: Date.now(), text: luggageText, category: luggageCategory, done: false });
