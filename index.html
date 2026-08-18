@@ -2506,6 +2506,19 @@
             firebase.initializeApp(firebaseConfig);
             auth = firebase.auth();
             db = firebase.firestore();
+            // 啟用離線持久化快取：資料會存一份在裝置本地(IndexedDB)。
+            // 這樣下次打開網站時，即使網路很慢或暫時離線，也能立刻顯示上次載入過的旅程，
+            // 背景再悄悄跟雲端同步最新內容，大幅改善「跑很久才失敗」的情況。
+            try {
+                db.enablePersistence({ synchronizeTabs: true }).catch(err => {
+                    // failed-precondition：其他分頁已開啟且不支援多分頁同步。
+                    // unimplemented：目前瀏覽器不支援離線快取。
+                    // 這兩種情況都不影響網站基本運作，只是少了離線快取加速，故僅記錄警告。
+                    console.warn('Firestore 離線快取啟用失敗（不影響基本功能）：', err && err.code);
+                });
+            } catch (e) {
+                console.warn('Firestore 離線快取初始化例外（不影響基本功能）：', e);
+            }
         }
 
         const { createApp, ref, computed, onMounted } = Vue;
@@ -4419,43 +4432,53 @@
                 const getLocalPrivateTrip = (tripId) => JSON.parse(localStorage.getItem(`trip_private_${user.value.uid}_${tripId}`) || '{}');
                 const setLocalPrivateTrip = (tripId, data) => localStorage.setItem(`trip_private_${user.value.uid}_${tripId}`, JSON.stringify({ ...privateTripDefaults(), ...data }));
 
-                const migrateLegacyTrips = async () => {
-                    if (isKeyMissing || !user.value) return;
-                    const legacySnap = await db.collection('users').doc(user.value.uid).collection('trips').get();
-                    for (const legacyDoc of legacySnap.docs) {
-                        const legacy = legacyDoc.data() || {};
-                        if (legacy.migratedTo) continue;
-                        const tripId = legacyDoc.id;
-                        const sharedRef = db.collection('trips').doc(tripId);
-                        const sharedDoc = await sharedRef.get();
-                        if (!sharedDoc.exists) {
-                            const sharedData = {
-                                id: tripId,
-                                title: legacy.title || '未命名旅程',
-                                days: normalizeTripDateFields(legacy || {}).days,
-                                startDate: legacy.startDate || '',
-                                ownerUid: user.value.uid,
-                                ownerUsername: user.value.username || user.value.email,
-                                memberUids: [user.value.uid],
-                                memberUsernames: [user.value.username || user.value.email],
-                                memberUsernameKeys: [user.value.usernameKey || getUsernameKey(user.value.username || user.value.email)],
-                                memberAuthEmails: [user.value.authEmail || getUsernameAuthEmail(user.value.username || user.value.email)],
-                                menuLinks: Array.isArray(legacy.menuLinks) ? legacy.menuLinks : [],
-                                itinerary: legacy.itinerary || {},
-                                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                            };
-                            await sharedRef.set(sharedData);
-                            await db.collection('users').doc(user.value.uid).collection('tripPrivate').doc(tripId).set({
+                const migrateLegacyTripDoc = async (legacyDoc) => {
+                    const legacy = legacyDoc.data() || {};
+                    if (legacy.migratedTo) return;
+                    const tripId = legacyDoc.id;
+                    const sharedRef = db.collection('trips').doc(tripId);
+                    const sharedDoc = await sharedRef.get();
+                    if (!sharedDoc.exists) {
+                        const sharedData = {
+                            id: tripId,
+                            title: legacy.title || '未命名旅程',
+                            days: normalizeTripDateFields(legacy || {}).days,
+                            startDate: legacy.startDate || '',
+                            ownerUid: user.value.uid,
+                            ownerUsername: user.value.username || user.value.email,
+                            memberUids: [user.value.uid],
+                            memberUsernames: [user.value.username || user.value.email],
+                            memberUsernameKeys: [user.value.usernameKey || getUsernameKey(user.value.username || user.value.email)],
+                            memberAuthEmails: [user.value.authEmail || getUsernameAuthEmail(user.value.username || user.value.email)],
+                            menuLinks: Array.isArray(legacy.menuLinks) ? legacy.menuLinks : [],
+                            itinerary: legacy.itinerary || {},
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                        };
+                        await Promise.all([
+                            sharedRef.set(sharedData),
+                            db.collection('users').doc(user.value.uid).collection('tripPrivate').doc(tripId).set({
                                 todos: Array.isArray(legacy.todos) ? legacy.todos : [],
                                 luggage: Array.isArray(legacy.luggage) ? legacy.luggage : [],
                                 expenses: Array.isArray(legacy.expenses) ? legacy.expenses : [],
                                 shopping: Array.isArray(legacy.shopping) ? legacy.shopping : [],
                                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                            }, { merge: true });
-                        }
-                        await legacyDoc.ref.set({ migratedTo: tripId }, { merge: true });
+                            }, { merge: true })
+                        ]);
                     }
+                    await legacyDoc.ref.set({ migratedTo: tripId }, { merge: true });
+                };
+
+                // v.next：改成平行處理每一筆舊資料（Promise.all），不再一筆筆循序 await，
+                // 大幅縮短舊帳號、舊資料較多或網路延遲較高時的搬移時間。
+                const migrateLegacyTrips = async () => {
+                    if (isKeyMissing || !user.value) return;
+                    const legacySnap = await db.collection('users').doc(user.value.uid).collection('trips').get();
+                    await Promise.all(
+                        legacySnap.docs.map(legacyDoc =>
+                            migrateLegacyTripDoc(legacyDoc).catch(err => console.warn('Migrate legacy trip doc skipped:', legacyDoc.id, err))
+                        )
+                    );
                 };
 
                 const loadUserData = async () => {
@@ -4464,21 +4487,25 @@
                     tripsLoadError.value = false;
                     if (!isKeyMissing) {
                         if (tripsUnsubscribe) tripsUnsubscribe();
-                        try { await migrateLegacyTrips(); } catch (e) { console.warn('Legacy trip migration skipped:', e); }
+                        // 不再 await 遷移流程：舊資料搬移改成背景執行，不阻擋下面旅程監聽器的啟動，
+                        // 讓使用者能更快看到旅程列表，搬移完成後監聽器會自動收到更新。
+                        migrateLegacyTrips().catch(e => console.warn('Legacy trip migration skipped:', e));
 
                         const sharedTripMap = new Map();
                         const refreshTripList = async () => {
-                            const list = [];
-                            for (const [docId, sharedData] of sharedTripMap.entries()) {
+                            // v.next：改成平行讀取每筆旅程的私人資料(Promise.all)，
+                            // 旅程數量越多，這裡從「筆數 × 單筆延遲」縮短成接近「單筆延遲」。
+                            const entries = Array.from(sharedTripMap.entries());
+                            const list = await Promise.all(entries.map(async ([docId, sharedData]) => {
                                 try {
                                     const privateDoc = await db.collection('users').doc(user.value.uid).collection('tripPrivate').doc(docId).get();
                                     const privateData = privateDoc.exists ? privateDoc.data() : {};
-                                    list.push(combineTripData(sharedData, privateData));
+                                    return combineTripData(sharedData, privateData);
                                 } catch (privateErr) {
                                     console.warn('Read private trip data failed:', privateErr);
-                                    list.push(combineTripData(sharedData, {}));
+                                    return combineTripData(sharedData, {});
                                 }
-                            }
+                            }));
                             list.sort((a, b) => String(a.startDate || '').localeCompare(String(b.startDate || '')) || String(a.title || '').localeCompare(String(b.title || '')));
                             if (currentTrip.value) {
                                 const updated = list.find(t => t.id === currentTrip.value.id);
