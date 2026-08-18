@@ -4549,18 +4549,19 @@
                         };
 
                         const unsubscribers = [];
+                        // 只保留規則能安全驗證放行的查詢欄位（ownerUid / memberUids / memberUsernameKeys / memberAuthEmails）。
+                        // 移除了 memberUsernames（未正規化的原始名稱）：memberUsernameKeys 已是正規化後的唯一標準值，
+                        // 涵蓋範圍更完整，且能被 Firestore 規則安全驗證，不需要再重複查詢原始名稱欄位。
                         const queryConfigs = [
                             ['ownerUid', user.value.uid, '=='],
                             ['memberUids', user.value.uid, 'array-contains'],
-                            ['memberUsernames', user.value.username || user.value.email, 'array-contains'],
-                            ['memberUsernames', getUsernameKey(user.value.username || user.value.email), 'array-contains'],
                             ['memberUsernameKeys', user.value.usernameKey || getUsernameKey(user.value.username || user.value.email), 'array-contains'],
                             ['memberAuthEmails', user.value.authEmail || getUsernameAuthEmail(user.value.username || user.value.email), 'array-contains']
                         ].filter(([, value]) => !!value);
 
                         // 海外 eSIM 網路較慢時，不要在第一個查詢回傳 0 筆時就把首頁誤判成「0 個旅程」。
-                        // 等所有初始查詢至少回應一次，或 fallback 完成後才結束 loading；最長等待 12 秒。
-                        let initialPending = queryConfigs.length + 1; // +1 = fallback get()
+                        // 等所有初始查詢至少回應一次才結束 loading；最長等待 12 秒。
+                        let initialPending = queryConfigs.length;
                         let initialFinished = false;
                         const finishInitialLoad = (success = true, errorInfo = null) => {
                             if (initialFinished) return;
@@ -4595,18 +4596,6 @@
                                 finishInitialLoad(false, e);
                             }
                         });
-
-                        // 保險 fallback：有些 Firestore rules / indexes 不允許 array-contains 查詢，
-                        // 但允許讀取自己可見的 trips。此時直接讀取後前端比對共編欄位，避免共編成員看不到旅程。
-                        db.collection('trips').get()
-                            .then(snapshot => {
-                                addSnapshotDocs(snapshot).catch(err => console.warn('Process trips fallback snapshot failed:', err));
-                                finishInitialLoad(true);
-                            })
-                            .catch(e => {
-                                console.warn('Trips collection fallback scan skipped:', e);
-                                finishInitialLoad(false, e);
-                            });
 
                         window.clearTimeout(window.__tripLoadTimeout);
                         window.__tripLoadTimeout = window.setTimeout(() => {
