@@ -2443,11 +2443,25 @@
                             </div>
 
                             <div class="flex flex-col sm:flex-row gap-2">
-                                <input v-model="shareForm.username" @keyup.enter="inviteUserToTrip" type="text" placeholder="輸入對方使用者名稱加入共編清單" class="border border-[#e6e4dc] rounded-xl p-2.5 text-xs flex-1 focus:outline-none focus-border-primary bg-white">
+                                <div class="flex-1 relative">
+                                    <input
+                                        v-model="shareForm.username"
+                                        @keyup.enter="inviteUserToTrip"
+                                        type="text"
+                                        list="inviteUsernameOptionsList"
+                                        placeholder="輸入或從下拉選單選擇要加入共編的使用者名稱"
+                                        class="w-full border border-[#e6e4dc] rounded-xl p-2.5 text-xs focus:outline-none focus-border-primary bg-white"
+                                        autocomplete="off"
+                                    >
+                                    <datalist id="inviteUsernameOptionsList">
+                                        <option v-for="item in inviteUsernameOptions" :key="item.usernameKey" :value="item.username"></option>
+                                    </datalist>
+                                </div>
                                 <button @click="inviteUserToTrip" type="button" class="bg-neutral-700 hover:bg-neutral-800 text-white px-4 py-2.5 rounded-xl text-xs font-medium transition-colors shrink-0">
                                     <i class="fa-solid fa-user-plus mr-1"></i> 加入共編
                                 </button>
                             </div>
+                            <p class="text-[10px] text-neutral-400 -mt-1">點選輸入框可從下拉選單挑選已註冊的使用者，也可以直接輸入使用者名稱。</p>
 
                             <div v-if="shareMessage.text" :class="['text-xs p-2.5 rounded-xl border', shareMessage.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-rose-50 border-rose-100 text-rose-700']">
                                 {{ shareMessage.text }}
@@ -2784,6 +2798,8 @@
                 const newSplitExpense = ref(emptySplitExpenseForm());
                 const newShopItem = ref({ text: '', category: '藥妝', quantity: 1, note: '', url: '', imgUrl: '' });
                 const shareForm = ref({ username: '' });
+                const availableInviteUsernames = ref([]); // [{ username, usernameKey }]
+                const isLoadingInviteUsernames = ref(false);
                 const shareMessage = ref({ type: '', text: '' });
                 let tripsUnsubscribe = null;
 
@@ -4686,6 +4702,60 @@
                     clearShareMessage();
                 };
 
+                // 讀取 usernames collection 作為「共編成員下拉選單」的候選名單來源。
+                // usernames collection 的 Firestore 規則是 allow read: if signedIn()（任何已登入者皆可讀），
+                // 跟 users collection（只能讀自己）不同，所以用這裡的資料來源才不會遇到權限問題。
+                const loadAvailableInviteUsernames = async () => {
+                    if (isLoadingInviteUsernames.value) return;
+                    isLoadingInviteUsernames.value = true;
+                    try {
+                        if (isKeyMissing) {
+                            // 本機模式（沒有設定 Firebase 金鑰）：從 localStorage 已註冊帳號組出清單。
+                            const list = [];
+                            for (let i = 0; i < localStorage.length; i++) {
+                                const key = localStorage.key(i);
+                                if (!key || !key.startsWith('account_')) continue;
+                                try {
+                                    const profile = JSON.parse(localStorage.getItem(key) || '{}');
+                                    if (profile.username) {
+                                        list.push({ username: profile.username, usernameKey: profile.usernameKey || getUsernameKey(profile.username) });
+                                    }
+                                } catch (e) {}
+                            }
+                            availableInviteUsernames.value = list;
+                            return;
+                        }
+                        const snap = await db.collection('usernames').get();
+                        const seen = new Set();
+                        const list = [];
+                        snap.docs.forEach(doc => {
+                            const data = doc.data() || {};
+                            const usernameKey = data.usernameKey || doc.id;
+                            const username = data.username || doc.id;
+                            if (!usernameKey || seen.has(usernameKey)) return;
+                            seen.add(usernameKey);
+                            list.push({ username, usernameKey });
+                        });
+                        list.sort((a, b) => a.username.localeCompare(b.username));
+                        availableInviteUsernames.value = list;
+                    } catch (e) {
+                        console.warn('Load invitable usernames skipped:', e);
+                    } finally {
+                        isLoadingInviteUsernames.value = false;
+                    }
+                };
+
+                // 下拉選單候選清單：排除目前已經在共編成員裡的使用者，避免選到重複的人。
+                const inviteUsernameOptions = computed(() => {
+                    const existingKeys = new Set(
+                        (tripModalForm.value.memberUsernameKeys && tripModalForm.value.memberUsernameKeys.length
+                            ? tripModalForm.value.memberUsernameKeys
+                            : (tripModalForm.value.memberUsernames || []).map(getUsernameKey)
+                        ).filter(Boolean)
+                    );
+                    return availableInviteUsernames.value.filter(item => !existingKeys.has(item.usernameKey));
+                });
+
                 const syncTripReturnDateAfterStart = () => {
                     const minEndDate = getMinimumReturnDate(tripModalForm.value.startDate);
                     if (!minEndDate) return;
@@ -4718,6 +4788,7 @@
                     isEditingTripMode.value = false;
                     editingTripId.value = null;
                     resetTripShareForm();
+                    loadAvailableInviteUsernames();
                     const ownerUsername = getCurrentUsername();
                     const today = new Date().toISOString().split('T')[0];
                     tripModalForm.value = {
@@ -4740,6 +4811,7 @@
                     isEditingTripMode.value = true;
                     editingTripId.value = trip.id;
                     resetTripShareForm();
+                    loadAvailableInviteUsernames();
                     const ownerUsername = trip.ownerUsername || getCurrentUsername();
                     const normalizedDates = normalizeTripDateFields(trip || {});
                     tripModalForm.value = {
@@ -6222,7 +6294,7 @@
                 const changeTheme = () => applyThemeToDocument();
 
                 return {
-                    user, authForm, registerForm, authPage, authMessage, trips, tripsLoading, tripsLoadError, tripsLoadErrorDetail, reloadTrips, upcomingActiveTrips, completedTrips, currentTrip, activeMainTab, activeDayTab, weather, weatherForecast, weatherLoading, weatherError, weatherCity, showWeatherModal, showSpotModal, showExpenseModal, showShopModal, showMenuLinkModal, showTodoModal, showLuggageModal, showCopyLuggageModal, copyLuggageSourceTripId, isCopyingLuggage, editableLuggageSourceTrips, imagePreviewUrl, isKeyMissing, shareForm, shareMessage,
+                    user, authForm, registerForm, authPage, authMessage, trips, tripsLoading, tripsLoadError, tripsLoadErrorDetail, reloadTrips, upcomingActiveTrips, completedTrips, currentTrip, activeMainTab, activeDayTab, weather, weatherForecast, weatherLoading, weatherError, weatherCity, showWeatherModal, showSpotModal, showExpenseModal, showShopModal, showMenuLinkModal, showTodoModal, showLuggageModal, showCopyLuggageModal, copyLuggageSourceTripId, isCopyingLuggage, editableLuggageSourceTrips, imagePreviewUrl, isKeyMissing, shareForm, shareMessage, inviteUsernameOptions,
                     showTripModal, isEditingTripMode, isSavingTrip, tripModalForm, getMinimumReturnDate, handleTripStartDateChange, handleTripEndDateChange, openAddTripModal, openEditTripModal, closeTripModal, saveTripModalAction,
                     expenseSections, getFilteredExpenses, sumByCurrency, getCurrencySymbol, sumExpensesInTwd, formatTwdAmount, getExchangeRateSummary,
                     newSplitExpense, editingSplitExpenseId, isSavingExpense, activeSettlementTab, activeAccountingTab, selectedPayerTotal, selectedShareTotal, handleSplitPayerChange, handleSplitPayerAmountInput, handleSplitterChange, handleSplitterAmountInput, getMemberInitial, getSplitExpenses, getFilteredSplitExpenses, getSplitPayers, getSplitShares, getSplitExpenseTotal, getSplitShareCount, getSplitPayerSummary, formatCurrencyAmount, formatTwdCurrency, formatSplitAmountWithTwd, formatSplitCardTotal, formatSplitTotalSummary, splitSettlements, splitSettlementReceivableGroups, memberSpendSummary, splitRepaymentSummary, getExpenseRepaymentItems, isExpenseRepaymentPaid, toggleExpenseRepaymentStatus, isSettlementRepaid, toggleRepaymentStatus, toggleSplitExpense, openEditSplitExpense,
