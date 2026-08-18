@@ -1467,6 +1467,7 @@
                     <i class="fa-solid fa-cloud-arrow-down text-3xl text-rose-300 mb-3"></i>
                     <p class="text-sm text-neutral-600">旅程資料載入失敗</p>
                     <p class="text-[11px] text-neutral-400 mt-2">可能是網路連線較慢或 Firebase 暫時沒有回應</p>
+                    <p v-if="tripsLoadErrorDetail" class="text-[11px] text-rose-400 mt-2 font-mono break-all px-4">{{ tripsLoadErrorDetail }}</p>
                     <button @click="reloadTrips" type="button" class="mt-4 bg-neutral-700 hover:bg-neutral-800 text-white text-xs px-4 py-2.5 rounded-xl font-medium shadow-sm transition-colors">
                         <i class="fa-solid fa-rotate-right mr-1"></i> 重新載入
                     </button>
@@ -2529,6 +2530,7 @@
                 const trips = ref([]);
                 const tripsLoading = ref(false);
                 const tripsLoadError = ref(false);
+                const tripsLoadErrorDetail = ref('');
                 const currentTrip = ref(null);
                 
                 const activeMainTab = ref('itinerary'); 
@@ -4485,6 +4487,7 @@
                     if (!user.value) return;
                     tripsLoading.value = true;
                     tripsLoadError.value = false;
+                    tripsLoadErrorDetail.value = '';
                     if (!isKeyMissing) {
                         if (tripsUnsubscribe) tripsUnsubscribe();
                         // 不再 await 遷移流程：舊資料搬移改成背景執行，不阻擋下面旅程監聽器的啟動，
@@ -4559,8 +4562,11 @@
                         // 等所有初始查詢至少回應一次，或 fallback 完成後才結束 loading；最長等待 12 秒。
                         let initialPending = queryConfigs.length + 1; // +1 = fallback get()
                         let initialFinished = false;
-                        const finishInitialLoad = (success = true) => {
+                        const finishInitialLoad = (success = true, errorInfo = null) => {
                             if (initialFinished) return;
+                            if (!success && errorInfo && !tripsLoadErrorDetail.value) {
+                                tripsLoadErrorDetail.value = (errorInfo.code ? `${errorInfo.code}` : '') + (errorInfo.message ? `：${errorInfo.message}` : (errorInfo.code ? '' : String(errorInfo)));
+                            }
                             initialPending = Math.max(0, initialPending - 1);
                             if (initialPending === 0) {
                                 initialFinished = true;
@@ -4580,13 +4586,13 @@
                                         },
                                         err => {
                                             console.warn(`Trips listener by ${field} skipped:`, err);
-                                            finishInitialLoad(false);
+                                            finishInitialLoad(false, err);
                                         }
                                     );
                                 unsubscribers.push(unsubscribe);
                             } catch (e) {
                                 console.warn(`Create trips listener by ${field} skipped:`, e);
-                                finishInitialLoad(false);
+                                finishInitialLoad(false, e);
                             }
                         });
 
@@ -4599,7 +4605,7 @@
                             })
                             .catch(e => {
                                 console.warn('Trips collection fallback scan skipped:', e);
-                                finishInitialLoad(false);
+                                finishInitialLoad(false, e);
                             });
 
                         window.clearTimeout(window.__tripLoadTimeout);
@@ -4608,6 +4614,9 @@
                                 initialFinished = true;
                                 tripsLoading.value = false;
                                 tripsLoadError.value = trips.value.length === 0;
+                                if (trips.value.length === 0 && !tripsLoadErrorDetail.value) {
+                                    tripsLoadErrorDetail.value = '逾時（12 秒內部分或全部查詢沒有回應）';
+                                }
                             }
                         }, 12000);
 
@@ -6224,7 +6233,7 @@
                 const changeTheme = () => applyThemeToDocument();
 
                 return {
-                    user, authForm, registerForm, authPage, authMessage, trips, tripsLoading, tripsLoadError, reloadTrips, upcomingActiveTrips, completedTrips, currentTrip, activeMainTab, activeDayTab, weather, weatherForecast, weatherLoading, weatherError, weatherCity, showWeatherModal, showSpotModal, showExpenseModal, showShopModal, showMenuLinkModal, showTodoModal, showLuggageModal, showCopyLuggageModal, copyLuggageSourceTripId, isCopyingLuggage, editableLuggageSourceTrips, imagePreviewUrl, isKeyMissing, shareForm, shareMessage,
+                    user, authForm, registerForm, authPage, authMessage, trips, tripsLoading, tripsLoadError, tripsLoadErrorDetail, reloadTrips, upcomingActiveTrips, completedTrips, currentTrip, activeMainTab, activeDayTab, weather, weatherForecast, weatherLoading, weatherError, weatherCity, showWeatherModal, showSpotModal, showExpenseModal, showShopModal, showMenuLinkModal, showTodoModal, showLuggageModal, showCopyLuggageModal, copyLuggageSourceTripId, isCopyingLuggage, editableLuggageSourceTrips, imagePreviewUrl, isKeyMissing, shareForm, shareMessage,
                     showTripModal, isEditingTripMode, isSavingTrip, tripModalForm, getMinimumReturnDate, handleTripStartDateChange, handleTripEndDateChange, openAddTripModal, openEditTripModal, closeTripModal, saveTripModalAction,
                     expenseSections, getFilteredExpenses, sumByCurrency, getCurrencySymbol, sumExpensesInTwd, formatTwdAmount, getExchangeRateSummary,
                     newSplitExpense, editingSplitExpenseId, isSavingExpense, activeSettlementTab, activeAccountingTab, selectedPayerTotal, selectedShareTotal, handleSplitPayerChange, handleSplitPayerAmountInput, handleSplitterChange, handleSplitterAmountInput, getMemberInitial, getSplitExpenses, getFilteredSplitExpenses, getSplitPayers, getSplitShares, getSplitExpenseTotal, getSplitShareCount, getSplitPayerSummary, formatCurrencyAmount, formatTwdCurrency, formatSplitAmountWithTwd, formatSplitCardTotal, formatSplitTotalSummary, splitSettlements, splitSettlementReceivableGroups, memberSpendSummary, splitRepaymentSummary, getExpenseRepaymentItems, isExpenseRepaymentPaid, toggleExpenseRepaymentStatus, isSettlementRepaid, toggleRepaymentStatus, toggleSplitExpense, openEditSplitExpense,
