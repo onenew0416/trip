@@ -2446,22 +2446,50 @@
                                 <div class="flex-1 relative">
                                     <input
                                         v-model="shareForm.username"
-                                        @keyup.enter="inviteUserToTrip"
+                                        @focus="showInviteDropdown = true"
+                                        @input="onInviteUsernameInput"
+                                        @keydown="handleInviteInputKeydown"
+                                        @blur="showInviteDropdown = false"
                                         type="text"
-                                        list="inviteUsernameOptionsList"
-                                        placeholder="輸入或從下拉選單選擇要加入共編的使用者名稱"
+                                        placeholder="輸入或從下拉選單選擇要加入共編的使用者"
                                         class="w-full border border-[#e6e4dc] rounded-xl p-2.5 text-xs focus:outline-none focus-border-primary bg-white"
                                         autocomplete="off"
+                                        role="combobox"
+                                        aria-autocomplete="list"
+                                        :aria-expanded="showInviteDropdown"
                                     >
-                                    <datalist id="inviteUsernameOptionsList">
-                                        <option v-for="item in inviteUsernameOptions" :key="item.usernameKey" :value="item.username"></option>
-                                    </datalist>
+                                    <ul
+                                        v-if="showInviteDropdown && filteredInviteUsernameOptions.length"
+                                        class="absolute z-20 left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border border-[#e6e4dc] rounded-xl shadow-lg py-1"
+                                        role="listbox"
+                                    >
+                                        <li
+                                            v-for="(item, idx) in filteredInviteUsernameOptions"
+                                            :key="item.usernameKey"
+                                            @mousedown.prevent="selectInviteUsernameOption(item)"
+                                            :class="['px-3 py-2 text-xs cursor-pointer flex items-center gap-2 transition-colors', idx === inviteDropdownIndex ? 'bg-[#fcfbf9] text-neutral-800' : 'text-neutral-600 hover:bg-[#fcfbf9]']"
+                                            role="option"
+                                            :aria-selected="idx === inviteDropdownIndex"
+                                        >
+                                            <i class="fa-regular fa-user text-neutral-300 text-[10px]"></i>
+                                            <span class="truncate">{{ item.username }}</span>
+                                        </li>
+                                    </ul>
+                                    <div
+                                        v-else-if="showInviteDropdown && shareForm.username && !isLoadingInviteUsernames"
+                                        class="absolute z-20 left-0 right-0 mt-1 bg-white border border-[#e6e4dc] rounded-xl shadow-lg px-3 py-2 text-[11px] text-neutral-400"
+                                    >
+                                        找不到符合的使用者，按下「加入共編」將直接以輸入的名稱新增
+                                    </div>
                                 </div>
                                 <button @click="inviteUserToTrip" type="button" class="bg-neutral-700 hover:bg-neutral-800 text-white px-4 py-2.5 rounded-xl text-xs font-medium transition-colors shrink-0">
                                     <i class="fa-solid fa-user-plus mr-1"></i> 加入共編
                                 </button>
                             </div>
-                            <p class="text-[10px] text-neutral-400 -mt-1">點選輸入框可從下拉選單挑選已註冊的使用者，也可以直接輸入使用者名稱。</p>
+                            <p class="text-[10px] text-neutral-400 -mt-1">
+                                <span v-if="isLoadingInviteUsernames">載入使用者清單中…</span>
+                                <span v-else>點選輸入框可從下拉選單挑選已註冊的使用者，也可以直接輸入使用者名稱。</span>
+                            </p>
 
                             <div v-if="shareMessage.text" :class="['text-xs p-2.5 rounded-xl border', shareMessage.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-rose-50 border-rose-100 text-rose-700']">
                                 {{ shareMessage.text }}
@@ -4756,6 +4784,56 @@
                     return availableInviteUsernames.value.filter(item => !existingKeys.has(item.usernameKey));
                 });
 
+                // 自訂下拉選單狀態：是否展開、目前用鍵盤選到第幾筆。
+                const showInviteDropdown = ref(false);
+                const inviteDropdownIndex = ref(-1);
+
+                // 依輸入框文字即時篩選候選清單（比對顯示名稱或正規化後的 key）。
+                const filteredInviteUsernameOptions = computed(() => {
+                    const keyword = String(shareForm.value.username || '').trim().toLowerCase();
+                    const base = inviteUsernameOptions.value;
+                    if (!keyword) return base;
+                    return base.filter(item =>
+                        item.username.toLowerCase().includes(keyword) || item.usernameKey.includes(keyword)
+                    );
+                });
+
+                const onInviteUsernameInput = () => {
+                    showInviteDropdown.value = true;
+                    inviteDropdownIndex.value = -1;
+                };
+
+                const selectInviteUsernameOption = (item) => {
+                    shareForm.value.username = item.username;
+                    showInviteDropdown.value = false;
+                    inviteDropdownIndex.value = -1;
+                };
+
+                // 鍵盤操作：上下鍵移動反白選項、Enter 選取反白項目（或沒有反白時直接送出邀請）、Esc 收合選單。
+                const handleInviteInputKeydown = (e) => {
+                    const list = filteredInviteUsernameOptions.value;
+                    if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        if (!showInviteDropdown.value) { showInviteDropdown.value = true; inviteDropdownIndex.value = list.length ? 0 : -1; return; }
+                        if (!list.length) return;
+                        inviteDropdownIndex.value = (inviteDropdownIndex.value + 1) % list.length;
+                    } else if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        if (!showInviteDropdown.value) { showInviteDropdown.value = true; inviteDropdownIndex.value = list.length ? list.length - 1 : -1; return; }
+                        if (!list.length) return;
+                        inviteDropdownIndex.value = (inviteDropdownIndex.value - 1 + list.length) % list.length;
+                    } else if (e.key === 'Enter') {
+                        if (showInviteDropdown.value && inviteDropdownIndex.value >= 0 && list[inviteDropdownIndex.value]) {
+                            e.preventDefault();
+                            selectInviteUsernameOption(list[inviteDropdownIndex.value]);
+                        } else {
+                            inviteUserToTrip();
+                        }
+                    } else if (e.key === 'Escape') {
+                        showInviteDropdown.value = false;
+                    }
+                };
+
                 const syncTripReturnDateAfterStart = () => {
                     const minEndDate = getMinimumReturnDate(tripModalForm.value.startDate);
                     if (!minEndDate) return;
@@ -5198,6 +5276,7 @@
                         if (nextUid) tripModalForm.value.memberUids = Array.from(new Set([...(tripModalForm.value.memberUids || []), nextUid]));
                         showShareMessage('success', '已加入共編清單，按「確認儲存」後生效。');
                         shareForm.value = { username: '' };
+                        showInviteDropdown.value = false;
                     } catch (err) {
                         showShareMessage('error', '邀請失敗：' + (err.message || '請稍後再試。'));
                     }
@@ -6294,7 +6373,7 @@
                 const changeTheme = () => applyThemeToDocument();
 
                 return {
-                    user, authForm, registerForm, authPage, authMessage, trips, tripsLoading, tripsLoadError, tripsLoadErrorDetail, reloadTrips, upcomingActiveTrips, completedTrips, currentTrip, activeMainTab, activeDayTab, weather, weatherForecast, weatherLoading, weatherError, weatherCity, showWeatherModal, showSpotModal, showExpenseModal, showShopModal, showMenuLinkModal, showTodoModal, showLuggageModal, showCopyLuggageModal, copyLuggageSourceTripId, isCopyingLuggage, editableLuggageSourceTrips, imagePreviewUrl, isKeyMissing, shareForm, shareMessage, inviteUsernameOptions,
+                    user, authForm, registerForm, authPage, authMessage, trips, tripsLoading, tripsLoadError, tripsLoadErrorDetail, reloadTrips, upcomingActiveTrips, completedTrips, currentTrip, activeMainTab, activeDayTab, weather, weatherForecast, weatherLoading, weatherError, weatherCity, showWeatherModal, showSpotModal, showExpenseModal, showShopModal, showMenuLinkModal, showTodoModal, showLuggageModal, showCopyLuggageModal, copyLuggageSourceTripId, isCopyingLuggage, editableLuggageSourceTrips, imagePreviewUrl, isKeyMissing, shareForm, shareMessage, inviteUsernameOptions, isLoadingInviteUsernames, showInviteDropdown, inviteDropdownIndex, filteredInviteUsernameOptions, onInviteUsernameInput, selectInviteUsernameOption, handleInviteInputKeydown,
                     showTripModal, isEditingTripMode, isSavingTrip, tripModalForm, getMinimumReturnDate, handleTripStartDateChange, handleTripEndDateChange, openAddTripModal, openEditTripModal, closeTripModal, saveTripModalAction,
                     expenseSections, getFilteredExpenses, sumByCurrency, getCurrencySymbol, sumExpensesInTwd, formatTwdAmount, getExchangeRateSummary,
                     newSplitExpense, editingSplitExpenseId, isSavingExpense, activeSettlementTab, activeAccountingTab, selectedPayerTotal, selectedShareTotal, handleSplitPayerChange, handleSplitPayerAmountInput, handleSplitterChange, handleSplitterAmountInput, getMemberInitial, getSplitExpenses, getFilteredSplitExpenses, getSplitPayers, getSplitShares, getSplitExpenseTotal, getSplitShareCount, getSplitPayerSummary, formatCurrencyAmount, formatTwdCurrency, formatSplitAmountWithTwd, formatSplitCardTotal, formatSplitTotalSummary, splitSettlements, splitSettlementReceivableGroups, memberSpendSummary, splitRepaymentSummary, getExpenseRepaymentItems, isExpenseRepaymentPaid, toggleExpenseRepaymentStatus, isSettlementRepaid, toggleRepaymentStatus, toggleSplitExpense, openEditSplitExpense,
