@@ -3299,6 +3299,21 @@
                     return Math.floor((end - start) / 86400000) + 1;
                 };
 
+                // 依「今天」的系統日期，換算目前旅程對應的 dayKey：
+                // 落在行程日期範圍內回傳 'dayN'（例如今天是 Day3 就回傳 'day3'），
+                // 範圍外（尚未出發或已經回國）則回傳 'pre'（行前）。
+                const getTodayDayKeyForTrip = (trip) => {
+                    if (!trip || !trip.startDate) return 'pre';
+                    const start = parseLocalDate(trip.startDate);
+                    if (!start) return 'pre';
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    start.setHours(0, 0, 0, 0);
+                    const dayNum = Math.floor((today - start) / 86400000) + 1;
+                    const totalDays = Math.max(1, Number(trip.days || 1));
+                    return (dayNum >= 1 && dayNum <= totalDays) ? ('day' + dayNum) : 'pre';
+                };
+
                 const formatDateWithWeek = (dateStr) => {
                     const date = parseLocalDate(dateStr);
                     if (!date) return '未設定日期';
@@ -5770,7 +5785,9 @@
                 };
 
                 const prepareSplitExpenseForm = (expense = null) => {
-                    const defaultDayKey = isTripDayTabActive() ? 'day' + activeDayTab.value : 'pre';
+                    // 新增消費時，依系統今天日期自動帶入對應的 Day（不在行程範圍內則回退到「行前」）。
+                    // 編輯既有消費時則不受影響，仍會沿用該筆消費原本的 dayKey。
+                    const defaultDayKey = getTodayDayKeyForTrip(currentTrip.value);
                     const form = expense ? {
                         dayKey: expense.dayKey || 'pre',
                         title: expense.title || '',
