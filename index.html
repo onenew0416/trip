@@ -9,6 +9,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
 	<link rel="icon" href="./favicon.ico" type="image/x-icon">
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
@@ -64,6 +66,28 @@
             border-color: #111827 !important;
             transform: scale(1.14) !important;
             box-shadow: 0 0 0 3px rgba(var(--app-primary-rgb), 0.22), 0 8px 18px rgba(17, 24, 39, 0.16) !important;
+        }
+
+        /* 匯出行程：格式選擇按鈕 */
+        .export-format-option {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            padding: 16px 8px;
+            border: 1.5px solid var(--app-border);
+            border-radius: 14px;
+            background: var(--app-surface-soft);
+            color: #6b7280;
+            transition: all .15s ease;
+        }
+        .export-format-option:hover { border-color: rgba(var(--app-primary-rgb), 0.45); color: #111827; }
+        .export-format-active {
+            border-color: var(--app-primary) !important;
+            background: rgba(var(--app-primary-rgb), 0.1) !important;
+            color: #111827 !important;
+            box-shadow: 0 0 0 3px rgba(var(--app-primary-rgb), 0.16);
         }
 
         /* 行程分頁選取狀態：黑底白字，讓目前分頁一眼可見 */
@@ -1597,7 +1621,12 @@
                     </div>
 
                     <div v-if="activeMainTab === 'itinerary'" class="bg-white border border-[#e6e4dc] rounded-2xl p-3 shadow-sm">
-                        <p class="text-[10px] font-bold text-neutral-400 tracking-widest px-2 mb-2 uppercase">行程分頁導覽</p>
+                        <div class="flex items-center justify-between gap-2 px-2 mb-2">
+                            <p class="text-[10px] font-bold text-neutral-400 tracking-widest uppercase">行程分頁導覽</p>
+                            <button v-if="currentTrip && currentTrip.days" @click="openExportModal" type="button" class="text-[11px] text-neutral-500 hover:text-primary font-medium flex items-center gap-1 shrink-0">
+                                <i class="fa-solid fa-file-export"></i> 匯出行程
+                            </button>
+                        </div>
                         <div class="itinerary-page-tabs">
                             <button @click="switchDayTab('menu')" 
                                     :class="['itinerary-menu-tab min-w-0 px-3 py-2.5 text-xs rounded-xl transition-all flex items-center justify-center border text-center', activeDayTab === 'menu' ? 'itinerary-tab-active font-bold' : 'itinerary-tab-idle hover:bg-[#f7f6f3]']">
@@ -2063,7 +2092,7 @@
                         <label class="modal-field"><span class="modal-field-label">連結網址(選填)</span><input v-model="newMenuLink.url" type="text" placeholder="https://..." class="modal-input"></label>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <label class="modal-field"><span class="modal-field-label">圖片網址(選填)</span><input v-model="newMenuLink.imgUrl" type="text" placeholder="圖片網址" class="modal-input"></label>
-                            <label class="modal-upload-field"><span><i class="fa-solid fa-upload mr-1"></i>上傳圖片檔(選填)</span><input type="file" accept="image/*" @change="handleImageUpload($event, newMenuLink)" class="hidden"></label>
+                            <label :class="['modal-upload-field', isUploadingImage ? 'opacity-50 pointer-events-none' : '']"><span><i :class="['fa-solid mr-1', isUploadingImage ? 'fa-spinner fa-spin' : 'fa-upload']"></i>{{ isUploadingImage ? '壓縮中...' : '上傳圖片檔(選填)' }}</span><input type="file" accept="image/*" :disabled="isUploadingImage" @change="handleImageUpload($event, newMenuLink)" class="hidden"></label>
                         </div>
                         <div v-if="newMenuLink.imgUrl" class="modal-image-preview"><img :src="newMenuLink.imgUrl" class="w-16 h-16 object-cover rounded-lg border bg-white"><button @click="newMenuLink.imgUrl = ''" type="button" class="text-xs text-rose-500 hover:underline">移除圖片</button></div>
                     </div>
@@ -2101,6 +2130,42 @@
                     >
                         <i v-if="isSavingTodo" class="fa-solid fa-spinner fa-spin"></i>
                         <span>{{ isSavingTodo ? '儲存中' : '儲存變更' }}</span>
+                    </button>
+                </div>
+            </div>
+
+            <div v-if="showExportModal" @mousedown.self="closeExportModal" class="app-modal-overlay fixed inset-0 bg-black/20 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+                <div class="modal-form-card">
+                    <div class="modal-form-header">
+                        <div>
+                            <h3 class="modal-form-title"><i class="fa-solid fa-file-export text-primary mr-1.5"></i>匯出行程</h3>
+                        </div>
+                        <button @click="closeExportModal" :disabled="isExportingTrip" type="button" :class="['modal-close-button', isExportingTrip ? 'opacity-40 cursor-not-allowed' : '']"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <div class="modal-form-body">
+                        <p class="text-xs text-neutral-400 -mt-1 leading-relaxed">
+                            會將 Day 1 ~ Day {{ currentTrip?.days || 1 }} 的完整行程整理成一份文件匯出（不含「行程目錄」頁）。
+                        </p>
+                        <div class="grid grid-cols-2 gap-3">
+                            <button type="button" @click="exportFormat = 'image'" :class="['export-format-option', exportFormat === 'image' ? 'export-format-active' : '']">
+                                <i class="fa-regular fa-image text-lg mb-1"></i>
+                                <span class="text-xs font-medium">圖片（PNG）</span>
+                            </button>
+                            <button type="button" @click="exportFormat = 'pdf'" :class="['export-format-option', exportFormat === 'pdf' ? 'export-format-active' : '']">
+                                <i class="fa-regular fa-file-pdf text-lg mb-1"></i>
+                                <span class="text-xs font-medium">PDF 文件</span>
+                            </button>
+                        </div>
+                    </div>
+                    <button
+                        @click="exportItinerary"
+                        type="button"
+                        :disabled="isExportingTrip"
+                        :aria-busy="isExportingTrip ? 'true' : 'false'"
+                        :class="['modal-save-button inline-flex items-center justify-center gap-2', isExportingTrip ? 'opacity-50 cursor-not-allowed' : '']"
+                    >
+                        <i v-if="isExportingTrip" class="fa-solid fa-spinner fa-spin"></i>
+                        <span>{{ isExportingTrip ? '匯出中，請稍候...' : '開始匯出' }}</span>
                     </button>
                 </div>
             </div>
@@ -2214,7 +2279,7 @@
                         </div>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <label class="modal-field"><span class="modal-field-label">圖片網址(選填)</span><input v-model="newSpot.imgUrl" type="text" placeholder="圖片網址（選填）" class="modal-input"></label>
-                            <label class="modal-upload-field"><span><i class="fa-solid fa-upload mr-1"></i>上傳圖片檔(選填)</span><input type="file" accept="image/*" @change="handleImageUpload($event, newSpot)" class="hidden"></label>
+                            <label :class="['modal-upload-field', isUploadingImage ? 'opacity-50 pointer-events-none' : '']"><span><i :class="['fa-solid mr-1', isUploadingImage ? 'fa-spinner fa-spin' : 'fa-upload']"></i>{{ isUploadingImage ? '壓縮中...' : '上傳圖片檔(選填)' }}</span><input type="file" accept="image/*" :disabled="isUploadingImage" @change="handleImageUpload($event, newSpot)" class="hidden"></label>
                         </div>
                         <div v-if="newSpot.imgUrl" class="modal-image-preview"><img :src="newSpot.imgUrl" class="w-16 h-16 object-cover rounded-lg border bg-white"><button @click="newSpot.imgUrl = ''" type="button" class="text-xs text-rose-500 hover:underline">移除圖片</button></div>
                     </div>
@@ -2322,7 +2387,7 @@
                         <label class="modal-field"><span class="modal-field-label">商品連結(選填)</span><input v-model="newShopItem.url" type="text" placeholder="https://..." class="modal-input"></label>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <label class="modal-field"><span class="modal-field-label">圖片網址(選填)</span><input v-model="newShopItem.imgUrl" type="text" placeholder="圖片網址" class="modal-input"></label>
-                            <label class="modal-upload-field"><span><i class="fa-solid fa-upload mr-1"></i>上傳圖片檔</span><input type="file" accept="image/*" @change="handleImageUpload($event, newShopItem)" class="hidden"></label>
+                            <label :class="['modal-upload-field', isUploadingImage ? 'opacity-50 pointer-events-none' : '']"><span><i :class="['fa-solid mr-1', isUploadingImage ? 'fa-spinner fa-spin' : 'fa-upload']"></i>{{ isUploadingImage ? '壓縮中...' : '上傳圖片檔' }}</span><input type="file" accept="image/*" :disabled="isUploadingImage" @change="handleImageUpload($event, newShopItem)" class="hidden"></label>
                         </div>
                         <div v-if="newShopItem.imgUrl" class="modal-image-preview"><button @click="openImagePreview(newShopItem.imgUrl)" type="button" class="w-16 h-16 rounded-lg border bg-white overflow-hidden cursor-zoom-in hover:opacity-90 transition-opacity"><img :src="newShopItem.imgUrl" class="w-full h-full object-cover" alt="商品圖片預覽"></button><button @click="newShopItem.imgUrl = ''" type="button" class="text-xs text-rose-500 hover:underline">移除圖片</button></div>
                     </div>
@@ -2610,6 +2675,10 @@
                 const HISTORICAL_WEATHER_YEARS = 10;
                 const showSpotModal = ref(false);
                 const showExpenseModal = ref(false);
+                const showExportModal = ref(false);
+                const exportFormat = ref('image');
+                const isExportingTrip = ref(false);
+                const isUploadingImage = ref(false);
                 const isSavingExpense = ref(false);
                 const isSavingTrip = ref(false);
                 const isSavingMenuLink = ref(false);
@@ -2984,11 +3053,17 @@
                 };
 
                 // Firestore 單一文件上限約 1MiB；圖片若直接以 base64 存進行程/購物資料，很容易超過。
-                // 這版改成「自動最佳化」：上傳時先盡量保留較高解析度，儲存前若整份資料接近上限，再逐步壓縮到可寫入的最高品質。
-                const MAX_UPLOAD_IMAGE_BYTES = 160 * 1024;
+                // 優化版做法：
+                // 1) 上傳當下就依「這趟旅程目前已經有幾張內嵌圖片」動態決定這張新圖可以分配到多少容量，
+                //    圖越多，新圖就自動壓縮得越小，避免越存越大最後爆掉。
+                // 2) 儲存前如果整份資料還是太大，再做最後一輪搶救壓縮（逐步降到極小）。
+                const MAX_UPLOAD_IMAGE_BYTES = 160 * 1024;   // 單張圖片預設/上限壓縮目標
+                const MIN_UPLOAD_IMAGE_BYTES = 12 * 1024;    // 單張圖片最低可接受的壓縮目標
                 const MAX_UPLOAD_IMAGE_EDGE = 1280;
+                const IMAGE_BUDGET_POOL_BYTES = 720 * 1024;  // 預留給「所有圖片加總」的容量，留一些空間給文字等其他資料
                 const FIRESTORE_SAFE_DOC_BYTES = 960 * 1024;
-                const IMAGE_SAVE_TARGET_STEPS = [160, 128, 104, 86, 70, 56, 44, 34, 26, 20].map(kb => kb * 1024);
+                const IMAGE_SAVE_TARGET_STEPS = [160, 128, 104, 86, 70, 56, 44, 34, 26, 20, 16, 12].map(kb => kb * 1024);
+
 
                 const getDataUrlByteSize = (dataUrl = '') => {
                     // dataURL 存進 Firestore 時本質上是字串，這裡用字串長度估算文件大小。
@@ -3088,9 +3163,9 @@
                     };
                 };
 
-                const compressImageFile = async (file, targetBytes = MAX_UPLOAD_IMAGE_BYTES) => {
+                const compressImageFile = async (file, targetBytes = MAX_UPLOAD_IMAGE_BYTES, preferredMaxEdge = MAX_UPLOAD_IMAGE_EDGE) => {
                     const img = await loadImageFromFile(file);
-                    return compressImageElement(img, targetBytes, MAX_UPLOAD_IMAGE_EDGE);
+                    return compressImageElement(img, targetBytes, preferredMaxEdge);
                 };
 
                 const isEmbeddedImageDataUrl = (value = '') => /^data:image\/(png|jpe?g|webp);base64,/i.test(String(value || ''));
@@ -3169,6 +3244,25 @@
                     return payload;
                 };
 
+                // 把 dataURL(base64) 轉成 Blob，準備上傳到 Firebase Storage
+                // 計算目前這趟旅程已經內嵌了幾張 base64 圖片（優惠券連結、每日行程景點、購物清單都算）
+                const countTripEmbeddedImages = (trip) => {
+                    if (!trip) return 0;
+                    let count = 0;
+                    (trip.menuLinks || []).forEach(l => { if (isEmbeddedImageDataUrl(l?.imgUrl)) count += 1; });
+                    Object.values(trip.itinerary || {}).forEach(list => {
+                        (list || []).forEach(spot => { if (isEmbeddedImageDataUrl(spot?.imgUrl)) count += 1; });
+                    });
+                    (trip.shopping || []).forEach(item => { if (isEmbeddedImageDataUrl(item?.imgUrl)) count += 1; });
+                    return count;
+                };
+                // 依「這趟旅程目前已經有幾張圖片」動態決定新圖可以分配到的壓縮目標：
+                // 圖越多，新上傳的圖片就自動壓得越小，讓整體容量盡量平均分配，不會前面幾張佔光額度、後面存不進去。
+                const getAdaptiveImageUploadBudget = (trip) => {
+                    const existingCount = countTripEmbeddedImages(trip);
+                    const share = Math.floor(IMAGE_BUDGET_POOL_BYTES / (existingCount + 1));
+                    return Math.max(MIN_UPLOAD_IMAGE_BYTES, Math.min(MAX_UPLOAD_IMAGE_BYTES, share));
+                };
                 const handleImageUpload = async (event, target) => {
                     const input = event.target;
                     const file = input.files && input.files[0];
@@ -3187,21 +3281,26 @@
                         return;
                     }
 
+                    if (isUploadingImage.value) return;
+                    isUploadingImage.value = true;
                     try {
-                        const result = await compressImageFile(file, MAX_UPLOAD_IMAGE_BYTES);
-                        if (!result.dataUrl || result.tooLarge) {
-                            alert('圖片壓縮後仍然過大，請改用較小張的圖片或圖片網址。');
-                            input.value = '';
+                        // 依旅程目前已有的圖片數量，動態決定這張新圖要壓到多小，讓整體資料量盡量平均分配。
+                        const budget = getAdaptiveImageUploadBudget(currentTrip.value);
+                        const result = await compressImageFile(file, budget);
+                        if (!result.dataUrl) {
+                            alert('圖片處理失敗，請改用其他圖片或圖片網址。');
                             return;
                         }
                         targetObj.imgUrl = result.dataUrl;
                     } catch (err) {
                         console.error('Image upload failed:', err);
-                        alert('圖片處理失敗，請改用其他圖片或圖片網址。');
+                        alert('圖片處理失敗：' + (err?.message || '請改用其他圖片或圖片網址。'));
                     } finally {
+                        isUploadingImage.value = false;
                         input.value = '';
                     }
                 };
+
 
                 const style = document.createElement('style');
                 style.innerHTML = `.bg-primary { background-color: var(--app-primary); } .text-primary { color: var(--app-primary); } .border-primary { border-color: var(--app-primary); }`;
@@ -5636,6 +5735,174 @@
                     showExpenseModal.value = false;
                     editingSplitExpenseId.value = null;
                 };
+
+                // ===================== 匯出行程（圖片 / PDF）=====================
+                const openExportModal = () => {
+                    if (isExportingTrip.value) return;
+                    exportFormat.value = 'image';
+                    showExportModal.value = true;
+                };
+                const closeExportModal = () => {
+                    if (isExportingTrip.value) return;
+                    showExportModal.value = false;
+                };
+                const escapeExportText = (text) => {
+                    return String(text ?? '').replace(/[&<>"']/g, (ch) => ({
+                        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+                    }[ch]));
+                };
+                // 組出一份純粹用於匯出的行程 HTML（只含 Day1~DayN 的行程內容，不含「行程目錄」頁）
+                const buildExportItineraryHtml = (trip) => {
+                    const days = Math.max(1, Number(trip.days || 1));
+                    const dateRangeText = escapeExportText(getTripDateRangeText(trip));
+                    let daysHtml = '';
+
+                    for (let dayNum = 1; dayNum <= days; dayNum++) {
+                        const spots = (trip.itinerary && trip.itinerary[dayNum]) || [];
+                        const dayDateText = escapeExportText(getCalculatedDateStr(trip.startDate, dayNum, true));
+
+                        let spotsHtml = '';
+                        if (!spots.length) {
+                            spotsHtml = `<div style="color:#b0aea6;font-size:13px;padding:10px 0;">這天還沒有安排行程</div>`;
+                        } else {
+                            spots.forEach((spot) => {
+                                const typeLabel = escapeExportText(getSpotTypeLabel(spot));
+                                const name = escapeExportText(spot.name || '');
+                                const isFlight = typeLabel === '航班';
+                                const imgUrl = hasCustomImage(spot.imgUrl) ? spot.imgUrl : '';
+
+                                // 時間文字
+                                let timeText = '';
+                                if (isFlight) {
+                                    const dep = escapeExportText(getSpotDepartureTime(spot));
+                                    const arr = escapeExportText(getSpotArrivalTime(spot));
+                                    timeText = `${dep || ''}${dep && arr ? ' → ' : ''}${arr || ''}`;
+                                } else {
+                                    timeText = escapeExportText(getSpotDisplayTime(spot));
+                                }
+
+                                // 縮圖：1:1 正方形裁切，沒有圖片就放對應類型的 icon 佔位
+                                const thumbHtml = imgUrl
+                                    ? `<div style="width:100%;aspect-ratio:1/1;border-radius:10px;overflow:hidden;border:1px solid #e6e4dc;background:#ffffff;"><img src="${imgUrl}" style="width:100%;height:100%;object-fit:cover;display:block;"></div>`
+                                    : `<div style="width:100%;aspect-ratio:1/1;border-radius:10px;border:1px solid #e6e4dc;background:#ffffff;display:flex;align-items:center;justify-content:center;font-size:32px;">${getSpotTypeEmoji(typeLabel)}</div>`;
+
+                                spotsHtml += `
+                                    <div style="flex:0 0 calc(25% - 9px);max-width:calc(25% - 9px);box-sizing:border-box;background:#fcfbf9;border:1px solid #e6e4dc;border-radius:12px;padding:12px;display:flex;flex-direction:column;">
+                                        <div style="display:flex;flex-direction:column;gap:3px;">
+                                            <div style="font-size:13px;color:#6b705c;font-weight:700;">${timeText}</div>
+                                            <div style="font-size:15px;font-weight:700;color:#222;line-height:1.35;word-break:break-word;">${getSpotTypeEmoji(typeLabel)} ${name}</div>
+                                        </div>
+                                        <div style="margin-top:auto;padding-top:12px;">${thumbHtml}</div>
+                                    </div>`;
+                            });
+                        }
+
+                        daysHtml += `
+                            <div style="margin-bottom:32px;">
+                                <div style="display:flex;align-items:baseline;justify-content:space-between;border-bottom:2px solid #111827;padding-bottom:10px;margin-bottom:14px;">
+                                    <div style="font-size:26px;font-weight:800;color:#111827;">Day ${dayNum}</div>
+                                    <div style="font-size:14px;color:#767676;">${dayDateText}</div>
+                                </div>
+                                <div style="display:flex;flex-wrap:wrap;align-items:stretch;gap:12px;">
+                                    ${spotsHtml}
+                                </div>
+                            </div>`;
+                    }
+
+                    return `
+                        <div style="width:100%;">
+                            <div style="margin-bottom:26px;">
+                                <div style="font-size:30px;font-weight:800;color:#111827;">${escapeExportText(trip.title || '我的旅程')}</div>
+                                <div style="font-size:14px;color:#a3a3a3;margin-top:6px;">${dateRangeText}</div>
+                            </div>
+                            ${daysHtml}
+                        </div>`;
+                };
+                // 依行程類型給一個對應的表情符號（匯出用，不依賴會動態載入的圖示字型）
+                const getSpotTypeEmoji = (typeLabel) => {
+                    const map = { '航班': '✈️', '交通': '🚇', '景點': '📍', '餐飲': '🍽️', '購物': '🛍️', '租車': '🚗', '住宿': '🏨' };
+                    return map[typeLabel] || '📍';
+                };
+                const exportItinerary = async () => {
+                    if (isExportingTrip.value) return;
+                    if (!currentTrip.value) { alert('請先選擇一個旅程'); return; }
+                    if (typeof html2canvas === 'undefined' || !window.jspdf) {
+                        alert('匯出功能所需的元件尚未載入完成，請檢查網路連線後再試一次。');
+                        return;
+                    }
+                    isExportingTrip.value = true;
+                    const trip = currentTrip.value;
+                    const container = document.createElement('div');
+                    container.style.position = 'fixed';
+                    container.style.left = '-99999px';
+                    container.style.top = '0';
+                    container.style.width = '920px';
+                    container.style.background = '#ffffff';
+                    container.style.padding = '36px';
+                    container.style.fontFamily = "'Noto Sans TC', sans-serif";
+                    container.style.boxSizing = 'border-box';
+                    container.innerHTML = buildExportItineraryHtml(trip);
+                    document.body.appendChild(container);
+
+                    try {
+                        // 等待內文中的圖片(若有)載入完成，避免匯出時漏掉圖片
+                        const imgs = Array.from(container.querySelectorAll('img'));
+                        await Promise.all(imgs.map(img => new Promise((resolve) => {
+                            if (img.complete) return resolve();
+                            img.onload = resolve;
+                            img.onerror = resolve;
+                        })));
+
+                        const canvas = await html2canvas(container, {
+                            backgroundColor: '#ffffff',
+                            scale: 2,
+                            useCORS: true,
+                            allowTaint: true
+                        });
+
+                        const safeTitle = String(trip.title || '行程').replace(/[\\/:*?"<>|]/g, '').trim() || '行程';
+
+                        if (exportFormat.value === 'pdf') {
+                            const { jsPDF } = window.jspdf;
+                            const pdf = new jsPDF('p', 'pt', 'a4');
+                            const pageWidth = pdf.internal.pageSize.getWidth();
+                            const pageHeight = pdf.internal.pageSize.getHeight();
+                            const imgWidth = pageWidth;
+                            const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                            const imgData = canvas.toDataURL('image/png');
+
+                            let heightLeft = imgHeight;
+                            let position = 0;
+                            pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                            heightLeft -= pageHeight;
+                            while (heightLeft > 0) {
+                                position = heightLeft - imgHeight;
+                                pdf.addPage();
+                                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                                heightLeft -= pageHeight;
+                            }
+                            pdf.save(`${safeTitle}.pdf`);
+                        } else {
+                            const dataUrl = canvas.toDataURL('image/png');
+                            const link = document.createElement('a');
+                            link.href = dataUrl;
+                            link.download = `${safeTitle}.png`;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                        }
+
+                        showExportModal.value = false;
+                    } catch (err) {
+                        console.error('Export itinerary failed:', err);
+                        alert('匯出失敗：' + (err?.message || '請稍後再試。'));
+                    } finally {
+                        document.body.removeChild(container);
+                        isExportingTrip.value = false;
+                    }
+                };
+                // ===================== 匯出行程 結束 =====================
+
                 const openAddShopModal = () => {
                     if (isSavingShopping.value) return;
                     isSavingShopping.value = false;
@@ -6391,6 +6658,7 @@
 
                 return {
                     user, authForm, registerForm, authPage, authMessage, trips, tripsLoading, tripsLoadError, tripsLoadErrorDetail, reloadTrips, upcomingActiveTrips, completedTrips, currentTrip, activeMainTab, activeDayTab, weather, weatherForecast, weatherLoading, weatherError, weatherCity, showWeatherModal, showSpotModal, showExpenseModal, showShopModal, showMenuLinkModal, showTodoModal, showLuggageModal, showCopyLuggageModal, copyLuggageSourceTripId, isCopyingLuggage, editableLuggageSourceTrips, imagePreviewUrl, isKeyMissing, shareForm, shareMessage, inviteUsernameOptions, isLoadingInviteUsernames, showInviteDropdown, inviteDropdownIndex, filteredInviteUsernameOptions, onInviteUsernameInput, selectInviteUsernameOption, handleInviteInputKeydown,
+                    showExportModal, exportFormat, isExportingTrip, isUploadingImage, openExportModal, closeExportModal, exportItinerary,
                     showTripModal, isEditingTripMode, isSavingTrip, tripModalForm, getMinimumReturnDate, handleTripStartDateChange, handleTripEndDateChange, openAddTripModal, openEditTripModal, closeTripModal, saveTripModalAction,
                     expenseSections, getFilteredExpenses, sumByCurrency, getCurrencySymbol, sumExpensesInTwd, formatTwdAmount, getExchangeRateSummary,
                     newSplitExpense, editingSplitExpenseId, isSavingExpense, activeSettlementTab, activeAccountingTab, selectedPayerTotal, selectedShareTotal, handleSplitPayerChange, handleSplitPayerAmountInput, handleSplitterChange, handleSplitterAmountInput, getMemberInitial, getSplitExpenses, getFilteredSplitExpenses, getSplitPayers, getSplitShares, getSplitExpenseTotal, getSplitShareCount, getSplitPayerSummary, formatCurrencyAmount, formatTwdCurrency, formatSplitAmountWithTwd, formatSplitCardTotal, formatSplitTotalSummary, splitSettlements, splitSettlementReceivableGroups, memberSpendSummary, splitRepaymentSummary, getExpenseRepaymentItems, isExpenseRepaymentPaid, toggleExpenseRepaymentStatus, isSettlementRepaid, toggleRepaymentStatus, toggleSplitExpense, openEditSplitExpense,
