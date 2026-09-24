@@ -1377,7 +1377,14 @@
 
     <div id="app" class="min-h-screen flex flex-col">
         
-        <div v-if="!user" class="flex-1 flex items-center justify-center p-4">
+        <div v-if="authChecking" class="flex-1 flex items-center justify-center p-4">
+            <div class="text-center text-neutral-400">
+                <i class="fa-solid fa-spinner fa-spin text-2xl mb-3"></i>
+                <p class="text-xs">正在確認登入狀態...</p>
+            </div>
+        </div>
+
+        <div v-else-if="!user" class="flex-1 flex items-center justify-center p-4">
             <div class="bg-white border border-[#e6e4dc] p-8 rounded-2xl w-full max-w-md shadow-sm">
                 <div class="text-center mb-8">
                     <span class="text-xs uppercase tracking-widest text-neutral-400 block mb-1">— Travel Planner —</span>
@@ -2679,6 +2686,9 @@
         createApp({
             setup() {
                 const user = ref(null);
+                // 剛打開網站時，Firebase 需要一點時間去讀取本機保存的登入狀態，
+                // 這段期間先顯示載入畫面，避免使用者誤以為「沒有登入」而重新輸入帳密。
+                const authChecking = ref(true);
                 const trips = ref([]);
                 const tripsLoading = ref(false);
                 const tripsLoadError = ref(false);
@@ -4852,6 +4862,9 @@
 
                 onMounted(() => {
                     applyThemeToDocument();
+                    // 保險機制：萬一網路狀況不佳導致 Firebase 遲遲沒有回應登入狀態，
+                    // 最多等 6 秒就自動顯示登入頁，避免使用者卡在載入畫面出不去。
+                    setTimeout(() => { authChecking.value = false; }, 6000);
                     document.addEventListener('touchstart', handleMobileKeyboardDismiss, { passive: true, capture: true });
                     document.addEventListener('touchend', handleMobileKeyboardDismiss, { passive: true, capture: true });
                     document.addEventListener('mousedown', handleMobileKeyboardDismiss, true);
@@ -4868,10 +4881,15 @@
                         }
                     });
                     if (!isKeyMissing) {
+                        // 明確指定用「本機持久保存」登入狀態（瀏覽器預設其實就是這個模式，這裡是加一層保險），
+                        // 讓使用者關掉分頁、重開瀏覽器，甚至重開手機，只要沒有登出，都不用重新輸入帳密。
+                        auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(err => {
+                            console.warn('設定登入持久化模式失敗（不影響基本登入功能）：', err);
+                        });
                         auth.onAuthStateChanged(firebaseUser => {
                             if (firebaseUser) {
-                                if (registrationAuthInProgress.value) return;
-                                loadUserProfile(firebaseUser);
+                                if (registrationAuthInProgress.value) { authChecking.value = false; return; }
+                                loadUserProfile(firebaseUser).finally(() => { authChecking.value = false; });
                             } else {
                                 if (tripsUnsubscribe) {
                                     tripsUnsubscribe();
@@ -4880,8 +4898,12 @@
                                 user.value = null;
                                 trips.value = [];
                                 currentTrip.value = null;
+                                authChecking.value = false;
                             }
                         });
+                    } else {
+                        // 本機模式（未設定 Firebase 金鑰）沒有雲端登入狀態可還原，直接結束檢查。
+                        authChecking.value = false;
                     }
                 });
 
@@ -7016,7 +7038,7 @@
                 const changeTheme = () => applyThemeToDocument();
 
                 return {
-                    user, authForm, registerForm, authPage, authMessage, trips, tripsLoading, tripsLoadError, tripsLoadErrorDetail, reloadTrips, upcomingActiveTrips, completedTrips, currentTrip, activeMainTab, activeDayTab, weather, weatherForecast, weatherLoading, weatherError, weatherCity, showWeatherModal, showSpotModal, showExpenseModal, showShopModal, showMenuLinkModal, showTodoModal, showLuggageModal, showCopyLuggageModal, copyLuggageSourceTripId, isCopyingLuggage, editableLuggageSourceTrips, imagePreviewUrl, isKeyMissing, shareForm, shareMessage, inviteUsernameOptions, isLoadingInviteUsernames, showInviteDropdown, inviteDropdownIndex, filteredInviteUsernameOptions, onInviteUsernameInput, selectInviteUsernameOption, handleInviteInputKeydown,
+                    user, authChecking, authForm, registerForm, authPage, authMessage, trips, tripsLoading, tripsLoadError, tripsLoadErrorDetail, reloadTrips, upcomingActiveTrips, completedTrips, currentTrip, activeMainTab, activeDayTab, weather, weatherForecast, weatherLoading, weatherError, weatherCity, showWeatherModal, showSpotModal, showExpenseModal, showShopModal, showMenuLinkModal, showTodoModal, showLuggageModal, showCopyLuggageModal, copyLuggageSourceTripId, isCopyingLuggage, editableLuggageSourceTrips, imagePreviewUrl, isKeyMissing, shareForm, shareMessage, inviteUsernameOptions, isLoadingInviteUsernames, showInviteDropdown, inviteDropdownIndex, filteredInviteUsernameOptions, onInviteUsernameInput, selectInviteUsernameOption, handleInviteInputKeydown,
                     showExportModal, exportFormat, isExportingTrip, isUploadingImage, openExportModal, closeExportModal, exportItinerary,
                     showExportAccountingModal, exportAccountingFormat, isExportingAccounting, openExportAccountingModal, closeExportAccountingModal, exportAccounting,
                     showTripModal, isEditingTripMode, isSavingTrip, tripModalForm, getMinimumReturnDate, handleTripStartDateChange, handleTripEndDateChange, openAddTripModal, openEditTripModal, closeTripModal, saveTripModalAction,
