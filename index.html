@@ -11,6 +11,7 @@
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
@@ -1836,6 +1837,9 @@
                                     <span class="text-xs text-neutral-400 block whitespace-nowrap">總花費：</span>
                                     <strong class="text-neutral-800 font-bold text-sm block whitespace-nowrap">{{ formatSplitTotalSummary() }}</strong>
                                 </div>
+                                <button v-if="getSplitExpenses().length" @click="openExportAccountingModal" type="button" class="bg-white border border-[#e6e4dc] hover:border-primary text-neutral-600 text-xs px-3 py-2 rounded-xl font-medium shadow-sm transition-colors flex items-center gap-1.5 whitespace-nowrap">
+                                    <i class="fa-solid fa-file-export"></i> 匯出帳款
+                                </button>
                                 <button @click="openAddExpenseModal" type="button" class="bg-neutral-700 hover:bg-neutral-800 text-white text-xs px-3 py-2 rounded-xl font-medium shadow-sm transition-colors flex items-center gap-1.5 whitespace-nowrap">
                                     <i class="fa-solid fa-plus"></i> 新增消費
                                 </button>
@@ -1960,11 +1964,16 @@
                                                 <p class="font-bold text-emerald-700 whitespace-nowrap">{{ formatTwdCurrency(group.totalReceivableTwd) }}</p>
                                             </div>
                                             <div class="space-y-1.5">
-                                                <div v-for="debtor in group.debtors" :key="debtor.key" class="flex justify-between items-start gap-3 text-xs">
+                                                <div v-for="debtor in group.debtors" :key="debtor.key" class="flex justify-between items-center gap-3 text-xs">
                                                     <p class="font-medium text-neutral-600 break-words min-w-0">
                                                         {{ debtor.from }}
                                                     </p>
-                                                    <p class="font-bold text-amber-700 whitespace-nowrap">{{ formatTwdCurrency(debtor.amountTwd) }}</p>
+                                                    <div class="flex items-center gap-2 shrink-0">
+                                                        <p class="font-bold text-amber-700 whitespace-nowrap">{{ formatTwdCurrency(debtor.amountTwd) }}</p>
+                                                        <button @click="confirmMarkDebtRepaid(debtor.fromKey, group.toKey, debtor.from, group.to)" type="button" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[11px] font-bold px-2.5 py-1 rounded-lg border border-emerald-200 transition-colors whitespace-nowrap">
+                                                            還款
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -2166,6 +2175,42 @@
                     >
                         <i v-if="isExportingTrip" class="fa-solid fa-spinner fa-spin"></i>
                         <span>{{ isExportingTrip ? '匯出中，請稍候...' : '開始匯出' }}</span>
+                    </button>
+                </div>
+            </div>
+
+            <div v-if="showExportAccountingModal" @mousedown.self="closeExportAccountingModal" class="app-modal-overlay fixed inset-0 bg-black/20 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+                <div class="modal-form-card">
+                    <div class="modal-form-header">
+                        <div>
+                            <h3 class="modal-form-title"><i class="fa-solid fa-file-export text-primary mr-1.5"></i>匯出帳款</h3>
+                        </div>
+                        <button @click="closeExportAccountingModal" :disabled="isExportingAccounting" type="button" :class="['modal-close-button', isExportingAccounting ? 'opacity-40 cursor-not-allowed' : '']"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <div class="modal-form-body">
+                        <p class="text-xs text-neutral-400 -mt-1 leading-relaxed">
+                            會整理「還款總覽」「個人總花費」，以及每日每筆消費的付款與分攤明細。
+                        </p>
+                        <div class="grid grid-cols-2 gap-3">
+                            <button type="button" @click="exportAccountingFormat = 'image'" :class="['export-format-option', exportAccountingFormat === 'image' ? 'export-format-active' : '']">
+                                <i class="fa-regular fa-image text-lg mb-1"></i>
+                                <span class="text-xs font-medium">圖片（PNG）</span>
+                            </button>
+                            <button type="button" @click="exportAccountingFormat = 'excel'" :class="['export-format-option', exportAccountingFormat === 'excel' ? 'export-format-active' : '']">
+                                <i class="fa-regular fa-file-excel text-lg mb-1"></i>
+                                <span class="text-xs font-medium">Excel（.xlsx）</span>
+                            </button>
+                        </div>
+                    </div>
+                    <button
+                        @click="exportAccounting"
+                        type="button"
+                        :disabled="isExportingAccounting"
+                        :aria-busy="isExportingAccounting ? 'true' : 'false'"
+                        :class="['modal-save-button inline-flex items-center justify-center gap-2', isExportingAccounting ? 'opacity-50 cursor-not-allowed' : '']"
+                    >
+                        <i v-if="isExportingAccounting" class="fa-solid fa-spinner fa-spin"></i>
+                        <span>{{ isExportingAccounting ? '匯出中，請稍候...' : '開始匯出' }}</span>
                     </button>
                 </div>
             </div>
@@ -2678,6 +2723,9 @@
                 const showExportModal = ref(false);
                 const exportFormat = ref('image');
                 const isExportingTrip = ref(false);
+                const showExportAccountingModal = ref(false);
+                const exportAccountingFormat = ref('image');
+                const isExportingAccounting = ref(false);
                 const isUploadingImage = ref(false);
                 const isSavingExpense = ref(false);
                 const isSavingTrip = ref(false);
@@ -5736,6 +5784,51 @@
                     editingSplitExpenseId.value = null;
                 };
 
+                // ===================== 匯出共用：檔案下載 / 分享（含手機相容） =====================
+                // 手機瀏覽器（尤其 iOS Safari）常常不支援 <a download>，直接觸發下載會沒反應或跳出空白分頁。
+                // 這裡優先用系統原生分享（可以直接存到照片/檔案 App），不支援分享的裝置才退回用 Blob 網址下載/開新分頁。
+                const canShareFile = (file) => {
+                    try {
+                        return !!(navigator.canShare && navigator.canShare({ files: [file] }));
+                    } catch (e) {
+                        return false;
+                    }
+                };
+                const deliverExportedFile = async (blob, filename, mimeType) => {
+                    try {
+                        const file = new File([blob], filename, { type: mimeType });
+                        if (navigator.share && canShareFile(file)) {
+                            try {
+                                await navigator.share({ files: [file], title: filename });
+                                return;
+                            } catch (shareErr) {
+                                // 使用者自己取消分享，不算匯出失敗，直接結束不用再走備用方案
+                                if (shareErr && shareErr.name === 'AbortError') return;
+                                // 其他分享錯誤（少見）則繼續往下走備用下載方案
+                            }
+                        }
+                    } catch (e) {
+                        // 建立 File 物件或分享失敗，繼續走備用方案
+                    }
+
+                    const blobUrl = URL.createObjectURL(blob);
+                    const isIOS = /iP(hone|od|ad)/.test(navigator.userAgent || navigator.platform || '');
+                    if (isIOS) {
+                        // iOS Safari 對 download 屬性支援不穩定，改開新分頁，使用者可長按圖片/檔案自行「儲存到檔案」
+                        window.open(blobUrl, '_blank');
+                    } else {
+                        const link = document.createElement('a');
+                        link.href = blobUrl;
+                        link.download = filename;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                    }
+                    setTimeout(() => URL.revokeObjectURL(blobUrl), 30000);
+                };
+                const canvasToBlobAsync = (canvas, type = 'image/png') => new Promise((resolve) => canvas.toBlob(resolve, type));
+                // ===================== 匯出共用 結束 =====================
+
                 // ===================== 匯出行程（圖片 / PDF）=====================
                 const openExportModal = () => {
                     if (isExportingTrip.value) return;
@@ -5881,15 +5974,11 @@
                                 pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
                                 heightLeft -= pageHeight;
                             }
-                            pdf.save(`${safeTitle}.pdf`);
+                            const pdfBlob = pdf.output('blob');
+                            await deliverExportedFile(pdfBlob, `${safeTitle}.pdf`, 'application/pdf');
                         } else {
-                            const dataUrl = canvas.toDataURL('image/png');
-                            const link = document.createElement('a');
-                            link.href = dataUrl;
-                            link.download = `${safeTitle}.png`;
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
+                            const pngBlob = await canvasToBlobAsync(canvas, 'image/png');
+                            await deliverExportedFile(pngBlob, `${safeTitle}.png`, 'image/png');
                         }
 
                         showExportModal.value = false;
@@ -5902,6 +5991,233 @@
                     }
                 };
                 // ===================== 匯出行程 結束 =====================
+
+                // ===================== 匯出帳款（圖片 / Excel）=====================
+                const openExportAccountingModal = () => {
+                    if (isExportingAccounting.value) return;
+                    exportAccountingFormat.value = 'image';
+                    showExportAccountingModal.value = true;
+                };
+                const closeExportAccountingModal = () => {
+                    if (isExportingAccounting.value) return;
+                    showExportAccountingModal.value = false;
+                };
+                // 組出「圖片」匯出用的帳款總覽 HTML：還款總覽 → 個人總花費 → 每日消費明細
+                const buildAccountingExportHtml = (trip) => {
+                    const dateRangeText = escapeExportText(getTripDateRangeText(trip));
+                    const receivableGroups = splitSettlementReceivableGroups.value;
+                    const members = memberSpendSummary.value;
+                    const sections = expenseSections.value;
+
+                    let settlementsHtml = '';
+                    if (!receivableGroups.length) {
+                        settlementsHtml = `<div style="color:#b0aea6;font-size:13px;padding:6px 0;">目前沒有需要互相付款的款項</div>`;
+                    } else {
+                        receivableGroups.forEach((group) => {
+                            const debtorsHtml = group.debtors.map(debtor => `
+                                <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 0;">
+                                    <span style="font-size:13px;font-weight:500;color:#525252;">${escapeExportText(debtor.from)}</span>
+                                    <span style="font-size:13px;font-weight:700;color:#b45309;white-space:nowrap;">${escapeExportText(formatTwdCurrency(debtor.amountTwd))}</span>
+                                </div>`).join('');
+
+                            settlementsHtml += `
+                                <div style="background:#fcfbf9;border:1px solid #e6e4dc;border-radius:12px;padding:12px 16px;margin-bottom:10px;">
+                                    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid #e6e4dc;padding-bottom:8px;margin-bottom:4px;">
+                                        <div style="font-size:14px;font-weight:700;color:#333;">${escapeExportText(group.to)} 應收</div>
+                                        <div style="font-size:15px;font-weight:800;color:#047857;white-space:nowrap;">${escapeExportText(formatTwdCurrency(group.totalReceivableTwd))}</div>
+                                    </div>
+                                    ${debtorsHtml}
+                                </div>`;
+                        });
+                    }
+
+                    let membersHtml = '';
+                    if (!members.length) {
+                        membersHtml = `<div style="color:#b0aea6;font-size:13px;padding:6px 0;">尚無成員花費資料</div>`;
+                    } else {
+                        membersHtml = `<div style="display:flex;flex-wrap:wrap;align-items:stretch;gap:10px;">`;
+                        members.forEach((m) => {
+                            membersHtml += `
+                                <div style="flex:0 0 calc(25% - 8px);max-width:calc(25% - 8px);box-sizing:border-box;background:#fcfbf9;border:1px solid #e6e4dc;border-radius:12px;padding:16px 12px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;">
+                                    <div style="font-size:13px;font-weight:700;color:#767676;word-break:break-word;">${escapeExportText(m.name)}</div>
+                                    <div style="font-size:16px;font-weight:800;color:#222;margin-top:4px;">${escapeExportText(formatTwdCurrency(m.shareTwd))}</div>
+                                </div>`;
+                        });
+                        membersHtml += `</div>`;
+                    }
+
+                    let daysHtml = '';
+                    sections.forEach((section) => {
+                        const expenses = getFilteredSplitExpenses(section.key);
+                        if (!expenses.length) return;
+
+                        let expensesHtml = '';
+                        expenses.forEach((exp) => {
+                            const payers = getRoundedExpensePayersTwd(exp);
+                            const shares = getRoundedExpenseSharesTwd(exp);
+                            const payerText = payers.map(p => `${escapeExportText(p.name)} ${escapeExportText(formatTwdCurrency(p.amountTwd))}`).join('、') || '未設定付款者';
+                            const sharesHtml = shares.map(s => `
+                                <span style="display:inline-block;background:#ffffff;border:1px solid #e6e4dc;border-radius:8px;padding:6px 12px;font-size:12px;color:#333;margin:0 6px 6px 0;">
+                                    <span style="vertical-align:middle;">${escapeExportText(s.name)}</span> <strong style="vertical-align:middle;">${escapeExportText(formatTwdCurrency(s.amountTwd))}</strong>
+                                </span>`).join('');
+
+                            expensesHtml += `
+                                <div style="background:#fcfbf9;border:1px solid #e6e4dc;border-radius:12px;padding:14px 16px;margin-bottom:10px;">
+                                    <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;">
+                                        <div style="font-size:15px;font-weight:700;color:#222;word-break:break-word;">${escapeExportText(exp.title || '未命名消費')}</div>
+                                        <div style="font-size:15px;font-weight:800;color:#333;white-space:nowrap;">${escapeExportText(formatSplitCardTotal(exp))}</div>
+                                    </div>
+                                    <div style="font-size:12px;color:#b45309;margin-top:6px;">付款：${payerText}</div>
+                                    <div style="margin-top:10px;">${sharesHtml}</div>
+                                </div>`;
+                        });
+
+                        daysHtml += `
+                            <div style="margin-bottom:24px;">
+                                <div style="font-size:18px;font-weight:800;color:#111827;border-bottom:2px solid #111827;padding-bottom:8px;margin-bottom:12px;">${escapeExportText(section.label)}</div>
+                                ${expensesHtml}
+                            </div>`;
+                    });
+
+                    return `
+                        <div style="width:100%;">
+                            <div style="margin-bottom:22px;">
+                                <div style="font-size:26px;font-weight:800;color:#111827;">${escapeExportText(trip.title || '我的旅程')} · 帳款總覽</div>
+                                <div style="font-size:13px;color:#a3a3a3;margin-top:4px;">${dateRangeText}</div>
+                            </div>
+                            <div style="margin-bottom:26px;">
+                                <div style="font-size:18px;font-weight:800;color:#111827;border-bottom:2px solid #111827;padding-bottom:8px;margin-bottom:12px;">💰 還款總覽</div>
+                                ${settlementsHtml}
+                            </div>
+                            <div style="margin-bottom:30px;">
+                                <div style="font-size:18px;font-weight:800;color:#111827;border-bottom:2px solid #111827;padding-bottom:8px;margin-bottom:12px;">🧾 個人總花費</div>
+                                ${membersHtml}
+                            </div>
+                            ${daysHtml}
+                        </div>`;
+                };
+                // 組出「Excel」匯出用的兩份表格資料（總覽 + 消費明細），回傳陣列的陣列，供 SheetJS 使用
+                const buildAccountingWorkbookSheets = (trip) => {
+                    const receivableGroups = splitSettlementReceivableGroups.value;
+                    const members = memberSpendSummary.value;
+                    const sections = expenseSections.value;
+
+                    // 總覽表：還款總覽（依收款人分組）+ 個人總花費
+                    const overviewRows = [];
+                    overviewRows.push(['還款總覽']);
+                    overviewRows.push(['收款人', '應收總額(NT$)', '付款人', '金額(NT$)']);
+                    if (!receivableGroups.length) {
+                        overviewRows.push(['目前沒有需要互相付款的款項', '', '', '']);
+                    } else {
+                        receivableGroups.forEach(group => {
+                            group.debtors.forEach((debtor, idx) => {
+                                overviewRows.push([
+                                    idx === 0 ? group.to : '',
+                                    idx === 0 ? group.totalReceivableTwd : '',
+                                    debtor.from,
+                                    debtor.amountTwd
+                                ]);
+                            });
+                        });
+                    }
+                    overviewRows.push([]);
+                    overviewRows.push(['個人總花費']);
+                    overviewRows.push(['姓名', '總花費(NT$)']);
+                    if (!members.length) {
+                        overviewRows.push(['尚無成員花費資料', '']);
+                    } else {
+                        members.forEach(m => overviewRows.push([m.name, m.shareTwd]));
+                    }
+
+                    // 明細表：每日每筆消費，一位分攤者一列
+                    const detailRows = [];
+                    detailRows.push(['天數', '日期', '項目', '原幣總金額', '幣別', '換算NT$總額', '付款人', '分攤人', '分攤金額(NT$)']);
+                    sections.forEach((section) => {
+                        getFilteredSplitExpenses(section.key).forEach((exp) => {
+                            const payers = getRoundedExpensePayersTwd(exp);
+                            const shares = getRoundedExpenseSharesTwd(exp);
+                            const payerText = payers.map(p => p.name).join('、') || '未設定付款者';
+                            const currency = String(exp?.currency || 'TWD').toUpperCase();
+                            const originalTotal = getSplitExpenseTotal(exp);
+                            const totalTwd = getSplitExpenseTotalTwd(exp);
+                            if (!shares.length) {
+                                detailRows.push([section.label, '', exp.title || '', originalTotal, currency, totalTwd, payerText, '（尚未設定分攤）', '']);
+                            } else {
+                                shares.forEach((s) => {
+                                    detailRows.push([section.label, '', exp.title || '', originalTotal, currency, totalTwd, payerText, s.name, s.amountTwd]);
+                                });
+                            }
+                        });
+                    });
+
+                    return { overviewRows, detailRows };
+                };
+                const exportAccounting = async () => {
+                    if (isExportingAccounting.value) return;
+                    if (!currentTrip.value) { alert('請先選擇一個旅程'); return; }
+                    if (!getSplitExpenses().length) { alert('目前還沒有任何分帳消費，無法匯出。'); return; }
+
+                    isExportingAccounting.value = true;
+                    const trip = currentTrip.value;
+                    const safeTitle = String(trip.title || '帳款').replace(/[\\/:*?"<>|]/g, '').trim() || '帳款';
+
+                    try {
+                        if (exportAccountingFormat.value === 'excel') {
+                            if (typeof XLSX === 'undefined') {
+                                alert('匯出功能所需的元件尚未載入完成，請檢查網路連線後再試一次。');
+                                return;
+                            }
+                            const { overviewRows, detailRows } = buildAccountingWorkbookSheets(trip);
+                            const wb = XLSX.utils.book_new();
+                            const overviewSheet = XLSX.utils.aoa_to_sheet(overviewRows);
+                            overviewSheet['!cols'] = [{ wch: 16 }, { wch: 14 }, { wch: 16 }, { wch: 14 }];
+                            XLSX.utils.book_append_sheet(wb, overviewSheet, '總覽');
+                            const detailSheet = XLSX.utils.aoa_to_sheet(detailRows);
+                            detailSheet['!cols'] = [{ wch: 14 }, { wch: 10 }, { wch: 20 }, { wch: 12 }, { wch: 8 }, { wch: 12 }, { wch: 16 }, { wch: 12 }, { wch: 14 }];
+                            XLSX.utils.book_append_sheet(wb, detailSheet, '消費明細');
+                            const wbArray = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+                            const excelBlob = new Blob([wbArray], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                            await deliverExportedFile(excelBlob, `${safeTitle}_帳款.xlsx`, excelBlob.type);
+                            showExportAccountingModal.value = false;
+                        } else {
+                            if (typeof html2canvas === 'undefined') {
+                                alert('匯出功能所需的元件尚未載入完成，請檢查網路連線後再試一次。');
+                                return;
+                            }
+                            const container = document.createElement('div');
+                            container.style.position = 'fixed';
+                            container.style.left = '-99999px';
+                            container.style.top = '0';
+                            container.style.width = '920px';
+                            container.style.background = '#ffffff';
+                            container.style.padding = '36px';
+                            container.style.fontFamily = "'Noto Sans TC', sans-serif";
+                            container.style.boxSizing = 'border-box';
+                            container.innerHTML = buildAccountingExportHtml(trip);
+                            document.body.appendChild(container);
+
+                            try {
+                                const canvas = await html2canvas(container, {
+                                    backgroundColor: '#ffffff',
+                                    scale: 2,
+                                    useCORS: true,
+                                    allowTaint: true
+                                });
+                                const pngBlob = await canvasToBlobAsync(canvas, 'image/png');
+                                await deliverExportedFile(pngBlob, `${safeTitle}_帳款.png`, 'image/png');
+                                showExportAccountingModal.value = false;
+                            } finally {
+                                document.body.removeChild(container);
+                            }
+                        }
+                    } catch (err) {
+                        console.error('Export accounting failed:', err);
+                        alert('匯出失敗：' + (err?.message || '請稍後再試。'));
+                    } finally {
+                        isExportingAccounting.value = false;
+                    }
+                };
+                // ===================== 匯出帳款 結束 =====================
 
                 const openAddShopModal = () => {
                     if (isSavingShopping.value) return;
@@ -6348,6 +6664,49 @@
                     }
                 };
 
+                // 一鍵把「某人要付給某人」對應的所有消費細項一次標記為已還款，
+                // 這樣使用者實際收到/付清一筆還款後，不用再逐筆去勾選每一項。
+                const markDebtPairAsRepaid = async (fromKey, toKey) => {
+                    if (!currentTrip.value || !fromKey || !toKey) return;
+                    const items = getAllExpenseRepaymentItems().filter(item =>
+                        item.fromKey === fromKey && item.toKey === toKey && !isExpenseRepaymentPaid(item)
+                    );
+                    if (!items.length) return;
+
+                    const backup = JSON.parse(JSON.stringify(currentTrip.value.splitRepayments || {}));
+                    try {
+                        const repayments = getRepaymentMap();
+                        const now = new Date().toISOString();
+                        items.forEach((item) => {
+                            const key = item.key || makeExpenseRepaymentKey(item);
+                            repayments[key] = {
+                                paid: true,
+                                paidAt: now,
+                                type: 'expense-detail',
+                                expenseId: item.expenseId,
+                                expenseTitle: item.expenseTitle || '',
+                                fromKey: item.fromKey,
+                                toKey: item.toKey,
+                                from: item.from,
+                                to: item.to,
+                                amountTwd: roundMoney(item.amountTwd || 0)
+                            };
+                        });
+                        currentTrip.value.splitRepayments = { ...repayments };
+                        await updateSplitRepaymentsOnly();
+                    } catch (err) {
+                        currentTrip.value.splitRepayments = backup;
+                        console.error('Batch mark repaid failed:', err);
+                        alert('還款狀態儲存失敗：' + (err?.message || '請稍後再試。'));
+                    }
+                };
+                // 還款總覽「還款」按鈕：跳出確認提示，確定後才真正標記
+                const confirmMarkDebtRepaid = (fromKey, toKey, fromName, toName) => {
+                    const ok = confirm(`確定 ${fromName} 已經把錢還給 ${toName} 了嗎？\n確定後，這兩人之間所有相關消費項目會自動打勾為已還款。`);
+                    if (!ok) return;
+                    markDebtPairAsRepaid(fromKey, toKey);
+                };
+
                 // 舊版總還款勾選保留空函式相容，不再由畫面使用
                 const makeSettlementKey = (settle) => `${settle.fromKey}__${settle.toKey}`;
                 const isSettlementRepaid = () => false;
@@ -6659,9 +7018,10 @@
                 return {
                     user, authForm, registerForm, authPage, authMessage, trips, tripsLoading, tripsLoadError, tripsLoadErrorDetail, reloadTrips, upcomingActiveTrips, completedTrips, currentTrip, activeMainTab, activeDayTab, weather, weatherForecast, weatherLoading, weatherError, weatherCity, showWeatherModal, showSpotModal, showExpenseModal, showShopModal, showMenuLinkModal, showTodoModal, showLuggageModal, showCopyLuggageModal, copyLuggageSourceTripId, isCopyingLuggage, editableLuggageSourceTrips, imagePreviewUrl, isKeyMissing, shareForm, shareMessage, inviteUsernameOptions, isLoadingInviteUsernames, showInviteDropdown, inviteDropdownIndex, filteredInviteUsernameOptions, onInviteUsernameInput, selectInviteUsernameOption, handleInviteInputKeydown,
                     showExportModal, exportFormat, isExportingTrip, isUploadingImage, openExportModal, closeExportModal, exportItinerary,
+                    showExportAccountingModal, exportAccountingFormat, isExportingAccounting, openExportAccountingModal, closeExportAccountingModal, exportAccounting,
                     showTripModal, isEditingTripMode, isSavingTrip, tripModalForm, getMinimumReturnDate, handleTripStartDateChange, handleTripEndDateChange, openAddTripModal, openEditTripModal, closeTripModal, saveTripModalAction,
                     expenseSections, getFilteredExpenses, sumByCurrency, getCurrencySymbol, sumExpensesInTwd, formatTwdAmount, getExchangeRateSummary,
-                    newSplitExpense, editingSplitExpenseId, isSavingExpense, activeSettlementTab, activeAccountingTab, selectedPayerTotal, selectedShareTotal, handleSplitPayerChange, handleSplitPayerAmountInput, handleSplitterChange, handleSplitterAmountInput, getMemberInitial, getSplitExpenses, getFilteredSplitExpenses, getSplitPayers, getSplitShares, getSplitExpenseTotal, getSplitShareCount, getSplitPayerSummary, formatCurrencyAmount, formatTwdCurrency, formatSplitAmountWithTwd, formatSplitCardTotal, formatSplitTotalSummary, splitSettlements, splitSettlementReceivableGroups, memberSpendSummary, splitRepaymentSummary, getExpenseRepaymentItems, isExpenseRepaymentPaid, toggleExpenseRepaymentStatus, isSettlementRepaid, toggleRepaymentStatus, toggleSplitExpense, openEditSplitExpense,
+                    newSplitExpense, editingSplitExpenseId, isSavingExpense, activeSettlementTab, activeAccountingTab, selectedPayerTotal, selectedShareTotal, handleSplitPayerChange, handleSplitPayerAmountInput, handleSplitterChange, handleSplitterAmountInput, getMemberInitial, getSplitExpenses, getFilteredSplitExpenses, getSplitPayers, getSplitShares, getSplitExpenseTotal, getSplitShareCount, getSplitPayerSummary, formatCurrencyAmount, formatTwdCurrency, formatSplitAmountWithTwd, formatSplitCardTotal, formatSplitTotalSummary, splitSettlements, splitSettlementReceivableGroups, memberSpendSummary, splitRepaymentSummary, getExpenseRepaymentItems, isExpenseRepaymentPaid, toggleExpenseRepaymentStatus, confirmMarkDebtRepaid, isSettlementRepaid, toggleRepaymentStatus, toggleSplitExpense, openEditSplitExpense,
                     menuLinkFormMode, todoFormMode, luggageFormMode, spotFormMode, shoppingFormMode, isSavingMenuLink, isSavingTodo, isSavingLuggage, isSavingSpot, isSavingShopping,
                     editingMenuLinkIndex, expandedMenuLinkIndex, editMenuLinkData, toggleMenuLinkActions, openAddMenuLinkModal, closeMenuLinkModal, startMenuLinkEdit, saveMenuLinkEdit, saveMenuLinkForm,
                     editingTodoId, expandedTodoId, editTodoTextData, toggleTodoActions, openAddTodoModal, closeTodoModal, startTodoEdit, saveTodoEdit, saveTodoForm, toggleTodoDone,
