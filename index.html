@@ -6686,12 +6686,15 @@
                     }
                 };
 
-                // 一鍵把「某人要付給某人」對應的所有消費細項一次標記為已還款，
+                // 一鍵把「這兩個人之間」對應的所有消費細項一次標記為已還款，
                 // 這樣使用者實際收到/付清一筆還款後，不用再逐筆去勾選每一項。
+                // 注意：畫面上顯示的金額是「雙方互相抵銷後的淨額」，所以這裡要把雙方向（A→B 跟 B→A）
+                // 的細項都一起打勾，讓這兩人之間徹底歸零，不然只清掉單一方向會讓淨額計算出反方向的款項。
                 const markDebtPairAsRepaid = async (fromKey, toKey) => {
                     if (!currentTrip.value || !fromKey || !toKey) return;
                     const items = getAllExpenseRepaymentItems().filter(item =>
-                        item.fromKey === fromKey && item.toKey === toKey && !isExpenseRepaymentPaid(item)
+                        !isExpenseRepaymentPaid(item) &&
+                        ((item.fromKey === fromKey && item.toKey === toKey) || (item.fromKey === toKey && item.toKey === fromKey))
                     );
                     if (!items.length) return;
 
