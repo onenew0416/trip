@@ -12,6 +12,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
@@ -2160,7 +2161,7 @@
                     </div>
                     <div class="modal-form-body">
                         <p class="text-xs text-neutral-400 -mt-1 leading-relaxed">
-                            會將 Day 1 ~ Day {{ currentTrip?.days || 1 }} 的完整行程整理成一份文件匯出（不含「行程目錄」頁）。
+                            會將 Day 1 ~ Day {{ currentTrip?.days || 1 }} 的完整行程整理匯出（不含「行程目錄」頁），每天各自一張圖/一頁，圖片超過一天會自動打包成 zip。
                         </p>
                         <div class="grid grid-cols-2 gap-3">
                             <button type="button" @click="exportFormat = 'image'" :class="['export-format-option', exportFormat === 'image' ? 'export-format-active' : '']">
@@ -2196,7 +2197,7 @@
                     </div>
                     <div class="modal-form-body">
                         <p class="text-xs text-neutral-400 -mt-1 leading-relaxed">
-                            會整理「還款總覽」「個人總花費」，以及每日每筆消費的付款與分攤明細。
+                            會整理「還款總覽」「個人總花費」，以及每日每筆消費的付款與分攤明細（每天各自一張圖/一個頁籤，圖片超過一張會自動打包成 zip）。
                         </p>
                         <div class="grid grid-cols-2 gap-3">
                             <button type="button" @click="exportAccountingFormat = 'image'" :class="['export-format-option', exportAccountingFormat === 'image' ? 'export-format-active' : '']">
@@ -5851,7 +5852,7 @@
                 const canvasToBlobAsync = (canvas, type = 'image/png') => new Promise((resolve) => canvas.toBlob(resolve, type));
                 // ===================== 匯出共用 結束 =====================
 
-                // ===================== 匯出行程（圖片 / PDF）=====================
+                // ===================== 匯出行程（圖片 / PDF，一天一張／一頁）=====================
                 const openExportModal = () => {
                     if (isExportingTrip.value) return;
                     exportFormat.value = 'image';
@@ -5866,71 +5867,59 @@
                         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
                     }[ch]));
                 };
-                // 組出一份純粹用於匯出的行程 HTML（只含 Day1~DayN 的行程內容，不含「行程目錄」頁）
-                const buildExportItineraryHtml = (trip) => {
-                    const days = Math.max(1, Number(trip.days || 1));
-                    const dateRangeText = escapeExportText(getTripDateRangeText(trip));
-                    let daysHtml = '';
+                // 組出「單一天」的行程內容 HTML（不含「行程目錄」頁），每天各自獨立一份，方便一天匯出一張圖/一頁
+                const buildItineraryDayHtml = (trip, dayNum) => {
+                    const spots = (trip.itinerary && trip.itinerary[dayNum]) || [];
+                    const dayDateText = escapeExportText(getCalculatedDateStr(trip.startDate, dayNum, true));
 
-                    for (let dayNum = 1; dayNum <= days; dayNum++) {
-                        const spots = (trip.itinerary && trip.itinerary[dayNum]) || [];
-                        const dayDateText = escapeExportText(getCalculatedDateStr(trip.startDate, dayNum, true));
+                    let spotsHtml = '';
+                    if (!spots.length) {
+                        spotsHtml = `<div style="color:#b0aea6;font-size:13px;padding:10px 0;">這天還沒有安排行程</div>`;
+                    } else {
+                        spots.forEach((spot) => {
+                            const typeLabel = escapeExportText(getSpotTypeLabel(spot));
+                            const name = escapeExportText(spot.name || '');
+                            const isFlight = typeLabel === '航班';
+                            const imgUrl = hasCustomImage(spot.imgUrl) ? spot.imgUrl : '';
 
-                        let spotsHtml = '';
-                        if (!spots.length) {
-                            spotsHtml = `<div style="color:#b0aea6;font-size:13px;padding:10px 0;">這天還沒有安排行程</div>`;
-                        } else {
-                            spots.forEach((spot) => {
-                                const typeLabel = escapeExportText(getSpotTypeLabel(spot));
-                                const name = escapeExportText(spot.name || '');
-                                const isFlight = typeLabel === '航班';
-                                const imgUrl = hasCustomImage(spot.imgUrl) ? spot.imgUrl : '';
+                            // 時間文字
+                            let timeText = '';
+                            if (isFlight) {
+                                const dep = escapeExportText(getSpotDepartureTime(spot));
+                                const arr = escapeExportText(getSpotArrivalTime(spot));
+                                timeText = `${dep || ''}${dep && arr ? ' → ' : ''}${arr || ''}`;
+                            } else {
+                                timeText = escapeExportText(getSpotDisplayTime(spot));
+                            }
 
-                                // 時間文字
-                                let timeText = '';
-                                if (isFlight) {
-                                    const dep = escapeExportText(getSpotDepartureTime(spot));
-                                    const arr = escapeExportText(getSpotArrivalTime(spot));
-                                    timeText = `${dep || ''}${dep && arr ? ' → ' : ''}${arr || ''}`;
-                                } else {
-                                    timeText = escapeExportText(getSpotDisplayTime(spot));
-                                }
+                            // 縮圖：1:1 正方形裁切，沒有圖片就放對應類型的 icon 佔位
+                            const thumbHtml = imgUrl
+                                ? `<div style="width:100%;aspect-ratio:1/1;border-radius:10px;overflow:hidden;border:1px solid #e6e4dc;background:#ffffff;"><img src="${imgUrl}" style="width:100%;height:100%;object-fit:cover;display:block;"></div>`
+                                : `<div style="width:100%;aspect-ratio:1/1;border-radius:10px;border:1px solid #e6e4dc;background:#ffffff;display:flex;align-items:center;justify-content:center;font-size:32px;">${getSpotTypeEmoji(typeLabel)}</div>`;
 
-                                // 縮圖：1:1 正方形裁切，沒有圖片就放對應類型的 icon 佔位
-                                const thumbHtml = imgUrl
-                                    ? `<div style="width:100%;aspect-ratio:1/1;border-radius:10px;overflow:hidden;border:1px solid #e6e4dc;background:#ffffff;"><img src="${imgUrl}" style="width:100%;height:100%;object-fit:cover;display:block;"></div>`
-                                    : `<div style="width:100%;aspect-ratio:1/1;border-radius:10px;border:1px solid #e6e4dc;background:#ffffff;display:flex;align-items:center;justify-content:center;font-size:32px;">${getSpotTypeEmoji(typeLabel)}</div>`;
-
-                                spotsHtml += `
-                                    <div style="flex:0 0 calc(25% - 9px);max-width:calc(25% - 9px);box-sizing:border-box;background:#fcfbf9;border:1px solid #e6e4dc;border-radius:12px;padding:12px;display:flex;flex-direction:column;">
-                                        <div style="display:flex;flex-direction:column;gap:3px;">
-                                            <div style="font-size:13px;color:#6b705c;font-weight:700;">${timeText}</div>
-                                            <div style="font-size:15px;font-weight:700;color:#222;line-height:1.35;word-break:break-word;">${getSpotTypeEmoji(typeLabel)} ${name}</div>
-                                        </div>
-                                        <div style="margin-top:auto;padding-top:12px;">${thumbHtml}</div>
-                                    </div>`;
-                            });
-                        }
-
-                        daysHtml += `
-                            <div style="margin-bottom:32px;">
-                                <div style="display:flex;align-items:baseline;justify-content:space-between;border-bottom:2px solid #111827;padding-bottom:10px;margin-bottom:14px;">
-                                    <div style="font-size:26px;font-weight:800;color:#111827;">Day ${dayNum}</div>
-                                    <div style="font-size:14px;color:#767676;">${dayDateText}</div>
-                                </div>
-                                <div style="display:flex;flex-wrap:wrap;align-items:stretch;gap:12px;">
-                                    ${spotsHtml}
-                                </div>
-                            </div>`;
+                            spotsHtml += `
+                                <div style="flex:0 0 calc(25% - 9px);max-width:calc(25% - 9px);box-sizing:border-box;background:#fcfbf9;border:1px solid #e6e4dc;border-radius:12px;padding:12px;display:flex;flex-direction:column;">
+                                    <div style="display:flex;flex-direction:column;gap:3px;">
+                                        <div style="font-size:13px;color:#6b705c;font-weight:700;">${timeText}</div>
+                                        <div style="font-size:15px;font-weight:700;color:#222;line-height:1.35;word-break:break-word;">${getSpotTypeEmoji(typeLabel)} ${name}</div>
+                                    </div>
+                                    <div style="margin-top:auto;padding-top:12px;">${thumbHtml}</div>
+                                </div>`;
+                        });
                     }
 
                     return `
                         <div style="width:100%;">
-                            <div style="margin-bottom:26px;">
-                                <div style="font-size:30px;font-weight:800;color:#111827;">${escapeExportText(trip.title || '我的旅程')}</div>
-                                <div style="font-size:14px;color:#a3a3a3;margin-top:6px;">${dateRangeText}</div>
+                            <div style="margin-bottom:20px;">
+                                <div style="font-size:16px;font-weight:700;color:#a3a3a3;">${escapeExportText(trip.title || '我的旅程')}</div>
+                                <div style="display:flex;align-items:baseline;justify-content:space-between;border-bottom:2px solid #111827;padding-bottom:10px;margin-top:8px;">
+                                    <div style="font-size:26px;font-weight:800;color:#111827;">Day ${dayNum}</div>
+                                    <div style="font-size:14px;color:#767676;">${dayDateText}</div>
+                                </div>
                             </div>
-                            ${daysHtml}
+                            <div style="display:flex;flex-wrap:wrap;align-items:stretch;gap:12px;">
+                                ${spotsHtml}
+                            </div>
                         </div>`;
                 };
                 // 依行程類型給一個對應的表情符號（匯出用，不依賴會動態載入的圖示字型）
@@ -5938,15 +5927,8 @@
                     const map = { '航班': '✈️', '交通': '🚇', '景點': '📍', '餐飲': '🍽️', '購物': '🛍️', '租車': '🚗', '住宿': '🏨' };
                     return map[typeLabel] || '📍';
                 };
-                const exportItinerary = async () => {
-                    if (isExportingTrip.value) return;
-                    if (!currentTrip.value) { alert('請先選擇一個旅程'); return; }
-                    if (typeof html2canvas === 'undefined' || !window.jspdf) {
-                        alert('匯出功能所需的元件尚未載入完成，請檢查網路連線後再試一次。');
-                        return;
-                    }
-                    isExportingTrip.value = true;
-                    const trip = currentTrip.value;
+                // 把一段 HTML 渲染成畫布：先放進畫面外的容器，等圖片載入完成再截圖，最後清掉容器
+                const renderExportHtmlToCanvas = async (html) => {
                     const container = document.createElement('div');
                     container.style.position = 'fixed';
                     container.style.left = '-99999px';
@@ -5956,51 +5938,81 @@
                     container.style.padding = '36px';
                     container.style.fontFamily = "'Noto Sans TC', sans-serif";
                     container.style.boxSizing = 'border-box';
-                    container.innerHTML = buildExportItineraryHtml(trip);
+                    container.innerHTML = html;
                     document.body.appendChild(container);
-
                     try {
-                        // 等待內文中的圖片(若有)載入完成，避免匯出時漏掉圖片
                         const imgs = Array.from(container.querySelectorAll('img'));
                         await Promise.all(imgs.map(img => new Promise((resolve) => {
                             if (img.complete) return resolve();
                             img.onload = resolve;
                             img.onerror = resolve;
                         })));
-
-                        const canvas = await html2canvas(container, {
+                        return await html2canvas(container, {
                             backgroundColor: '#ffffff',
                             scale: 2,
                             useCORS: true,
                             allowTaint: true
                         });
+                    } finally {
+                        document.body.removeChild(container);
+                    }
+                };
+                // 把多張畫布打包成一個 zip 檔（檔名跟畫布一一對應）
+                const zipCanvasesAsPngs = async (entries) => {
+                    const zip = new JSZip();
+                    for (const entry of entries) {
+                        const blob = await canvasToBlobAsync(entry.canvas, 'image/png');
+                        zip.file(entry.filename, blob);
+                    }
+                    return await zip.generateAsync({ type: 'blob' });
+                };
+                const exportItinerary = async () => {
+                    if (isExportingTrip.value) return;
+                    if (!currentTrip.value) { alert('請先選擇一個旅程'); return; }
+                    if (typeof html2canvas === 'undefined' || !window.jspdf || typeof JSZip === 'undefined') {
+                        alert('匯出功能所需的元件尚未載入完成，請檢查網路連線後再試一次。');
+                        return;
+                    }
+                    isExportingTrip.value = true;
+                    const trip = currentTrip.value;
+                    const totalDays = Math.max(1, Number(trip.days || 1));
+                    const safeTitle = String(trip.title || '行程').replace(/[\\/:*?"<>|]/g, '').trim() || '行程';
 
-                        const safeTitle = String(trip.title || '行程').replace(/[\\/:*?"<>|]/g, '').trim() || '行程';
+                    try {
+                        // 逐天分別渲染成獨立畫布，確保「一天一張／一頁」
+                        const dayCanvases = [];
+                        for (let dayNum = 1; dayNum <= totalDays; dayNum++) {
+                            const canvas = await renderExportHtmlToCanvas(buildItineraryDayHtml(trip, dayNum));
+                            dayCanvases.push({ dayNum, canvas });
+                        }
 
                         if (exportFormat.value === 'pdf') {
                             const { jsPDF } = window.jspdf;
                             const pdf = new jsPDF('p', 'pt', 'a4');
                             const pageWidth = pdf.internal.pageSize.getWidth();
                             const pageHeight = pdf.internal.pageSize.getHeight();
-                            const imgWidth = pageWidth;
-                            const imgHeight = (canvas.height * imgWidth) / canvas.width;
-                            const imgData = canvas.toDataURL('image/png');
-
-                            let heightLeft = imgHeight;
-                            let position = 0;
-                            pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-                            heightLeft -= pageHeight;
-                            while (heightLeft > 0) {
-                                position = heightLeft - imgHeight;
-                                pdf.addPage();
-                                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-                                heightLeft -= pageHeight;
-                            }
+                            dayCanvases.forEach((entry, idx) => {
+                                if (idx > 0) pdf.addPage();
+                                const { canvas } = entry;
+                                // 整天的內容縮放到剛好塞進一頁（不裁切、不跨頁），並置中
+                                const scale = Math.min(pageWidth / canvas.width, pageHeight / canvas.height);
+                                const imgWidth = canvas.width * scale;
+                                const imgHeight = canvas.height * scale;
+                                const offsetX = (pageWidth - imgWidth) / 2;
+                                const offsetY = (pageHeight - imgHeight) / 2;
+                                pdf.addImage(canvas.toDataURL('image/png'), 'PNG', offsetX, offsetY, imgWidth, imgHeight);
+                            });
                             const pdfBlob = pdf.output('blob');
                             await deliverExportedFile(pdfBlob, `${safeTitle}.pdf`, 'application/pdf');
-                        } else {
-                            const pngBlob = await canvasToBlobAsync(canvas, 'image/png');
+                        } else if (dayCanvases.length === 1) {
+                            // 只有一天，直接輸出單張 PNG，不用打包
+                            const pngBlob = await canvasToBlobAsync(dayCanvases[0].canvas, 'image/png');
                             await deliverExportedFile(pngBlob, `${safeTitle}.png`, 'image/png');
+                        } else {
+                            // 多天：每天各自一張 PNG，打包成一個 zip 檔一次下載
+                            const zipEntries = dayCanvases.map(entry => ({ canvas: entry.canvas, filename: `Day${entry.dayNum}.png` }));
+                            const zipBlob = await zipCanvasesAsPngs(zipEntries);
+                            await deliverExportedFile(zipBlob, `${safeTitle}_行程.zip`, 'application/zip');
                         }
 
                         showExportModal.value = false;
@@ -6008,13 +6020,12 @@
                         console.error('Export itinerary failed:', err);
                         alert('匯出失敗：' + (err?.message || '請稍後再試。'));
                     } finally {
-                        document.body.removeChild(container);
                         isExportingTrip.value = false;
                     }
                 };
                 // ===================== 匯出行程 結束 =====================
 
-                // ===================== 匯出帳款（圖片 / Excel）=====================
+                // ===================== 匯出帳款（圖片 / Excel，一天一張／一頁籤）=====================
                 const openExportAccountingModal = () => {
                     if (isExportingAccounting.value) return;
                     exportAccountingFormat.value = 'image';
@@ -6024,12 +6035,11 @@
                     if (isExportingAccounting.value) return;
                     showExportAccountingModal.value = false;
                 };
-                // 組出「圖片」匯出用的帳款總覽 HTML：還款總覽 → 個人總花費 → 每日消費明細
-                const buildAccountingExportHtml = (trip) => {
+                // 組出「總覽」頁的 HTML：還款總覽 + 個人總花費（獨立一張，不含每日明細）
+                const buildAccountingOverviewHtml = (trip) => {
                     const dateRangeText = escapeExportText(getTripDateRangeText(trip));
                     const receivableGroups = splitSettlementReceivableGroups.value;
                     const members = memberSpendSummary.value;
-                    const sections = expenseSections.value;
 
                     let settlementsHtml = '';
                     if (!receivableGroups.length) {
@@ -6068,12 +6078,29 @@
                         membersHtml += `</div>`;
                     }
 
-                    let daysHtml = '';
-                    sections.forEach((section) => {
-                        const expenses = getFilteredSplitExpenses(section.key);
-                        if (!expenses.length) return;
-
-                        let expensesHtml = '';
+                    return `
+                        <div style="width:100%;">
+                            <div style="margin-bottom:22px;">
+                                <div style="font-size:26px;font-weight:800;color:#111827;">${escapeExportText(trip.title || '我的旅程')} · 帳款總覽</div>
+                                <div style="font-size:13px;color:#a3a3a3;margin-top:4px;">${dateRangeText}</div>
+                            </div>
+                            <div style="margin-bottom:26px;">
+                                <div style="font-size:18px;font-weight:800;color:#111827;border-bottom:2px solid #111827;padding-bottom:8px;margin-bottom:12px;">💰 還款總覽</div>
+                                ${settlementsHtml}
+                            </div>
+                            <div>
+                                <div style="font-size:18px;font-weight:800;color:#111827;border-bottom:2px solid #111827;padding-bottom:8px;margin-bottom:12px;">🧾 個人總花費</div>
+                                ${membersHtml}
+                            </div>
+                        </div>`;
+                };
+                // 組出「單一天」的消費明細 HTML（每天各自獨立一份，方便一天匯出一張圖）
+                const buildAccountingDaySectionHtml = (trip, section) => {
+                    const expenses = getFilteredSplitExpenses(section.key);
+                    let expensesHtml = '';
+                    if (!expenses.length) {
+                        expensesHtml = `<div style="color:#b0aea6;font-size:13px;padding:10px 0;">這天沒有消費記錄</div>`;
+                    } else {
                         expenses.forEach((exp) => {
                             const payers = getRoundedExpensePayersTwd(exp);
                             const shares = getRoundedExpenseSharesTwd(exp);
@@ -6093,32 +6120,18 @@
                                     <div style="margin-top:10px;">${sharesHtml}</div>
                                 </div>`;
                         });
-
-                        daysHtml += `
-                            <div style="margin-bottom:24px;">
-                                <div style="font-size:18px;font-weight:800;color:#111827;border-bottom:2px solid #111827;padding-bottom:8px;margin-bottom:12px;">${escapeExportText(section.label)}</div>
-                                ${expensesHtml}
-                            </div>`;
-                    });
+                    }
 
                     return `
                         <div style="width:100%;">
-                            <div style="margin-bottom:22px;">
-                                <div style="font-size:26px;font-weight:800;color:#111827;">${escapeExportText(trip.title || '我的旅程')} · 帳款總覽</div>
-                                <div style="font-size:13px;color:#a3a3a3;margin-top:4px;">${dateRangeText}</div>
+                            <div style="margin-bottom:20px;">
+                                <div style="font-size:16px;font-weight:700;color:#a3a3a3;">${escapeExportText(trip.title || '我的旅程')} · 消費明細</div>
+                                <div style="font-size:26px;font-weight:800;color:#111827;border-bottom:2px solid #111827;padding-bottom:10px;margin-top:8px;">${escapeExportText(section.label)}</div>
                             </div>
-                            <div style="margin-bottom:26px;">
-                                <div style="font-size:18px;font-weight:800;color:#111827;border-bottom:2px solid #111827;padding-bottom:8px;margin-bottom:12px;">💰 還款總覽</div>
-                                ${settlementsHtml}
-                            </div>
-                            <div style="margin-bottom:30px;">
-                                <div style="font-size:18px;font-weight:800;color:#111827;border-bottom:2px solid #111827;padding-bottom:8px;margin-bottom:12px;">🧾 個人總花費</div>
-                                ${membersHtml}
-                            </div>
-                            ${daysHtml}
+                            ${expensesHtml}
                         </div>`;
                 };
-                // 組出「Excel」匯出用的兩份表格資料（總覽 + 消費明細），回傳陣列的陣列，供 SheetJS 使用
+                // 組出「Excel」匯出用的工作表資料：總覽一份 + 每天各自一個頁籤
                 const buildAccountingWorkbookSheets = (trip) => {
                     const receivableGroups = splitSettlementReceivableGroups.value;
                     const members = memberSpendSummary.value;
@@ -6151,11 +6164,13 @@
                         members.forEach(m => overviewRows.push([m.name, m.shareTwd]));
                     }
 
-                    // 明細表：每日每筆消費，一位分攤者一列
-                    const detailRows = [];
-                    detailRows.push(['天數', '日期', '項目', '原幣總金額', '幣別', '換算NT$總額', '付款人', '分攤人', '分攤金額(NT$)']);
+                    // 每天各自一份表格：天數頁籤 + 該天的消費明細（一位分攤者一列）
+                    const daySheets = [];
                     sections.forEach((section) => {
-                        getFilteredSplitExpenses(section.key).forEach((exp) => {
+                        const expenses = getFilteredSplitExpenses(section.key);
+                        if (!expenses.length) return;
+                        const rows = [['項目', '原幣總金額', '幣別', '換算NT$總額', '付款人', '分攤人', '分攤金額(NT$)']];
+                        expenses.forEach((exp) => {
                             const payers = getRoundedExpensePayersTwd(exp);
                             const shares = getRoundedExpenseSharesTwd(exp);
                             const payerText = payers.map(p => p.name).join('、') || '未設定付款者';
@@ -6163,21 +6178,38 @@
                             const originalTotal = getSplitExpenseTotal(exp);
                             const totalTwd = getSplitExpenseTotalTwd(exp);
                             if (!shares.length) {
-                                detailRows.push([section.label, '', exp.title || '', originalTotal, currency, totalTwd, payerText, '（尚未設定分攤）', '']);
+                                rows.push([exp.title || '', originalTotal, currency, totalTwd, payerText, '（尚未設定分攤）', '']);
                             } else {
                                 shares.forEach((s) => {
-                                    detailRows.push([section.label, '', exp.title || '', originalTotal, currency, totalTwd, payerText, s.name, s.amountTwd]);
+                                    rows.push([exp.title || '', originalTotal, currency, totalTwd, payerText, s.name, s.amountTwd]);
                                 });
                             }
                         });
+                        daySheets.push({ label: section.label, rows });
                     });
 
-                    return { overviewRows, detailRows };
+                    return { overviewRows, daySheets };
+                };
+                // Excel 工作表名稱不能有 \ / ? * [ ] : 這些字元，且限制 31 字以內；同名時自動加編號避免衝突
+                const sanitizeSheetName = (name, usedNames) => {
+                    let base = String(name || '工作表').replace(/[\\\/\?\*\[\]:]/g, '').trim().slice(0, 31) || '工作表';
+                    let finalName = base;
+                    let counter = 2;
+                    while (usedNames.has(finalName)) {
+                        finalName = `${base.slice(0, 28)}(${counter})`;
+                        counter += 1;
+                    }
+                    usedNames.add(finalName);
+                    return finalName;
                 };
                 const exportAccounting = async () => {
                     if (isExportingAccounting.value) return;
                     if (!currentTrip.value) { alert('請先選擇一個旅程'); return; }
                     if (!getSplitExpenses().length) { alert('目前還沒有任何分帳消費，無法匯出。'); return; }
+                    if (typeof html2canvas === 'undefined' || typeof JSZip === 'undefined') {
+                        alert('匯出功能所需的元件尚未載入完成，請檢查網路連線後再試一次。');
+                        return;
+                    }
 
                     isExportingAccounting.value = true;
                     const trip = currentTrip.value;
@@ -6189,48 +6221,45 @@
                                 alert('匯出功能所需的元件尚未載入完成，請檢查網路連線後再試一次。');
                                 return;
                             }
-                            const { overviewRows, detailRows } = buildAccountingWorkbookSheets(trip);
+                            const { overviewRows, daySheets } = buildAccountingWorkbookSheets(trip);
                             const wb = XLSX.utils.book_new();
                             const overviewSheet = XLSX.utils.aoa_to_sheet(overviewRows);
                             overviewSheet['!cols'] = [{ wch: 16 }, { wch: 14 }, { wch: 16 }, { wch: 14 }];
                             XLSX.utils.book_append_sheet(wb, overviewSheet, '總覽');
-                            const detailSheet = XLSX.utils.aoa_to_sheet(detailRows);
-                            detailSheet['!cols'] = [{ wch: 14 }, { wch: 10 }, { wch: 20 }, { wch: 12 }, { wch: 8 }, { wch: 12 }, { wch: 16 }, { wch: 12 }, { wch: 14 }];
-                            XLSX.utils.book_append_sheet(wb, detailSheet, '消費明細');
+
+                            const usedSheetNames = new Set(['總覽']);
+                            daySheets.forEach((day) => {
+                                const sheet = XLSX.utils.aoa_to_sheet(day.rows);
+                                sheet['!cols'] = [{ wch: 20 }, { wch: 12 }, { wch: 8 }, { wch: 12 }, { wch: 16 }, { wch: 12 }, { wch: 14 }];
+                                XLSX.utils.book_append_sheet(wb, sheet, sanitizeSheetName(day.label, usedSheetNames));
+                            });
+
                             const wbArray = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
                             const excelBlob = new Blob([wbArray], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
                             await deliverExportedFile(excelBlob, `${safeTitle}_帳款.xlsx`, excelBlob.type);
                             showExportAccountingModal.value = false;
                         } else {
-                            if (typeof html2canvas === 'undefined') {
-                                alert('匯出功能所需的元件尚未載入完成，請檢查網路連線後再試一次。');
-                                return;
-                            }
-                            const container = document.createElement('div');
-                            container.style.position = 'fixed';
-                            container.style.left = '-99999px';
-                            container.style.top = '0';
-                            container.style.width = '920px';
-                            container.style.background = '#ffffff';
-                            container.style.padding = '36px';
-                            container.style.fontFamily = "'Noto Sans TC', sans-serif";
-                            container.style.boxSizing = 'border-box';
-                            container.innerHTML = buildAccountingExportHtml(trip);
-                            document.body.appendChild(container);
+                            // 圖片：總覽一張 + 每天各自一張，超過一張就打包成 zip 一次下載
+                            const imageEntries = [];
+                            const overviewCanvas = await renderExportHtmlToCanvas(buildAccountingOverviewHtml(trip));
+                            imageEntries.push({ canvas: overviewCanvas, filename: '總覽.png' });
 
-                            try {
-                                const canvas = await html2canvas(container, {
-                                    backgroundColor: '#ffffff',
-                                    scale: 2,
-                                    useCORS: true,
-                                    allowTaint: true
-                                });
-                                const pngBlob = await canvasToBlobAsync(canvas, 'image/png');
-                                await deliverExportedFile(pngBlob, `${safeTitle}_帳款.png`, 'image/png');
-                                showExportAccountingModal.value = false;
-                            } finally {
-                                document.body.removeChild(container);
+                            const sections = expenseSections.value;
+                            for (const section of sections) {
+                                if (!getFilteredSplitExpenses(section.key).length) continue;
+                                const dayCanvas = await renderExportHtmlToCanvas(buildAccountingDaySectionHtml(trip, section));
+                                const safeLabel = String(section.label || '').replace(/[\\/:*?"<>|]/g, '').trim() || section.key;
+                                imageEntries.push({ canvas: dayCanvas, filename: `${safeLabel}.png` });
                             }
+
+                            if (imageEntries.length === 1) {
+                                const pngBlob = await canvasToBlobAsync(imageEntries[0].canvas, 'image/png');
+                                await deliverExportedFile(pngBlob, `${safeTitle}_帳款.png`, 'image/png');
+                            } else {
+                                const zipBlob = await zipCanvasesAsPngs(imageEntries);
+                                await deliverExportedFile(zipBlob, `${safeTitle}_帳款.zip`, 'application/zip');
+                            }
+                            showExportAccountingModal.value = false;
                         }
                     } catch (err) {
                         console.error('Export accounting failed:', err);
